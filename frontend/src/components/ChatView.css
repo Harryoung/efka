@@ -1,0 +1,362 @@
+/**
+ * ChatView 组件样式
+ */
+
+.chat-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e3e8f0 100%);
+}
+
+/* ============ 头部 ============ */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 30px;
+  background: white;
+  border-bottom: 2px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.header-title h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #2d3748;
+  font-weight: 700;
+}
+
+.header-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #718096;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: white;
+  color: #4a5568;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+/* ============ 上传区域 ============ */
+.upload-section {
+  padding: 20px 30px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 500px;
+    opacity: 1;
+  }
+}
+
+/* ============ 错误提示 ============ */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 30px;
+  background: #fed7d7;
+  color: #c53030;
+  border-bottom: 1px solid #fc8181;
+  animation: slideDown 0.3s ease-out;
+}
+
+.error-banner button {
+  background: none;
+  border: none;
+  color: #c53030;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.error-banner button:hover {
+  opacity: 0.7;
+}
+
+/* ============ 消息容器 ============ */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px;
+  scroll-behavior: smooth;
+}
+
+/* 自定义滚动条 */
+.messages-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ============ 欢迎消息 ============ */
+.welcome-message {
+  text-align: center;
+  padding: 60px 20px;
+  animation: fadeIn 0.6s ease-in;
+}
+
+.welcome-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: wave 2s infinite;
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(20deg);
+  }
+  75% {
+    transform: rotate(-20deg);
+  }
+}
+
+.welcome-message h2 {
+  color: #2d3748;
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+
+.welcome-message p {
+  color: #718096;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.welcome-message ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: inline-block;
+  text-align: left;
+}
+
+.welcome-message li {
+  padding: 12px 0;
+  color: #4a5568;
+  font-size: 16px;
+}
+
+/* ============ 加载指示器 ============ */
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.loading-dots {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.loading-dots span {
+  width: 12px;
+  height: 12px;
+  background: #667eea;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-indicator p {
+  color: #718096;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ============ 输入区域 ============ */
+.input-container {
+  display: flex;
+  gap: 12px;
+  padding: 20px 30px;
+  background: white;
+  border-top: 2px solid #e2e8f0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.message-input {
+  flex: 1;
+  padding: 14px 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  resize: none;
+  transition: all 0.2s;
+  line-height: 1.5;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.message-input:disabled {
+  background: #f7fafc;
+  cursor: not-allowed;
+}
+
+.message-input::placeholder {
+  color: #a0aec0;
+}
+
+.btn-send {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  white-space: nowrap;
+}
+
+.btn-send:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-send:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============ 响应式设计 ============ */
+@media (max-width: 768px) {
+  .chat-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-secondary {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .messages-container {
+    padding: 20px 16px;
+  }
+
+  .upload-section {
+    padding: 16px 20px;
+  }
+
+  .input-container {
+    padding: 16px 20px;
+    flex-direction: column;
+  }
+
+  .btn-send {
+    width: 100%;
+  }
+
+  .welcome-message {
+    padding: 40px 16px;
+  }
+
+  .welcome-icon {
+    font-size: 60px;
+  }
+
+  .welcome-message h2 {
+    font-size: 22px;
+  }
+
+  .welcome-message li {
+    font-size: 14px;
+  }
+}
+
+/* ============ 打印样式 ============ */
+@media print {
+  .chat-header,
+  .input-container,
+  .upload-section,
+  .loading-indicator {
+    display: none;
+  }
+
+  .messages-container {
+    overflow: visible;
+    height: auto;
+  }
+}

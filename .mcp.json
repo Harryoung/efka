@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "markitdown": {
+      "command": "markitdown-mcp",
+      "args": [],
+      "type": "stdio"
+    }
+  }
+}
+
