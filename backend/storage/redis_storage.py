@@ -29,10 +29,12 @@ class RedisSessionStorage(SessionStorage):
 
     def __init__(
         self,
-        redis_url: str = "redis://localhost:6379",
+        redis_url: str = "redis://127.0.0.1:6379/0",
         ttl_seconds: int = 7 * 86400,  # 7 天
         key_prefix: str = "kb_session:",
-        max_connections: int = 10
+        max_connections: int = 10,
+        username: Optional[str] = None,
+        password: Optional[str] = None
     ):
         """
         初始化 Redis 存储
@@ -42,15 +44,25 @@ class RedisSessionStorage(SessionStorage):
             ttl_seconds: 会话过期时间（秒）
             key_prefix: Redis key 前缀
             max_connections: 最大连接数
+            username: Redis ACL 用户名（可选）
+            password: Redis 密码（可选）
         """
         self.redis_url = redis_url
         self.ttl_seconds = ttl_seconds
         self.key_prefix = key_prefix
         self.max_connections = max_connections
+        self.username = username
+        self.password = password
         self.redis: Optional[aioredis.Redis] = None
         self._connected = False
 
-        logger.info(f"初始化 RedisSessionStorage: {redis_url}, TTL={ttl_seconds}s")
+        auth_status = "启用" if password else "未启用"
+        logger.info(
+            "初始化 RedisSessionStorage: %s, TTL=%ss, 认证%s",
+            redis_url,
+            ttl_seconds,
+            auth_status
+        )
 
     async def connect(self) -> None:
         """建立 Redis 连接"""
@@ -58,11 +70,19 @@ class RedisSessionStorage(SessionStorage):
             return
 
         try:
+            connection_kwargs = {
+                "encoding": "utf-8",
+                "decode_responses": True,
+                "max_connections": self.max_connections
+            }
+            if self.username:
+                connection_kwargs["username"] = self.username
+            if self.password:
+                connection_kwargs["password"] = self.password
+
             self.redis = await aioredis.from_url(
                 self.redis_url,
-                encoding="utf-8",
-                decode_responses=True,
-                max_connections=self.max_connections
+                **connection_kwargs
             )
             # 测试连接
             await self.redis.ping()

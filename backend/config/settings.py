@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     SESSION_TIMEOUT: int = 1800  # 30分钟
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
 
+    # Redis 配置
+    REDIS_URL: str = "redis://127.0.0.1:6379/0"
+    REDIS_USERNAME: Optional[str] = None
+    REDIS_PASSWORD: Optional[str] = None
+
     # CORS配置
     ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost"]
 

@@ -102,8 +102,10 @@ fi
 # 这样可以确保 Python 子进程（包括子 Agent）都能访问认证信息
 echo "加载环境变量..."
 if [ -f ".env" ]; then
-    # 读取 .env 文件并导出关键环境变量
-    export $(grep -v '^#' .env | grep -E '(ANTHROPIC_AUTH_TOKEN|ANTHROPIC_BASE_URL|CLAUDE_API_KEY)' | xargs)
+    # shellcheck disable=SC1091
+    set -a
+    source .env
+    set +a
 
     # 显示加载的环境变量（隐藏敏感信息）
     if [ ! -z "$ANTHROPIC_AUTH_TOKEN" ]; then
@@ -119,12 +121,26 @@ if [ -f ".env" ]; then
         KEY_SUFFIX="${CLAUDE_API_KEY: -4}"
         echo -e "${GREEN}✅ CLAUDE_API_KEY 已加载 (...$KEY_SUFFIX)${NC}"
     fi
+
+    if [ ! -z "$REDIS_URL" ]; then
+        echo -e "${GREEN}✅ REDIS_URL 已加载 ($REDIS_URL)${NC}"
+    fi
+
+    if [ ! -z "$REDIS_USERNAME" ]; then
+        echo -e "${GREEN}✅ REDIS_USERNAME 已加载${NC}"
+    fi
+
+    if [ ! -z "$REDIS_PASSWORD" ]; then
+        echo -e "${GREEN}✅ REDIS_PASSWORD 已加载（已隐藏）${NC}"
+    fi
 fi
 
 echo "启动后端服务..."
 echo "后端运行在: http://localhost:8000"
 echo "健康检查: http://localhost:8000/health"
 echo ""
+
+mkdir -p logs
 
 # 在后台启动后端（从项目根目录运行）
 # 环境变量已通过 export 传递给子进程

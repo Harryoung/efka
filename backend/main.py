@@ -54,8 +54,19 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Intelligent Knowledge Base Administrator...")
 
     # 初始化 Redis 存储（如果配置了 REDIS_URL）
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_storage = RedisSessionStorage(redis_url=redis_url)
+    redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+    redis_username = os.getenv("REDIS_USERNAME")
+    redis_password = os.getenv("REDIS_PASSWORD")
+    if redis_password:
+        logger.info(
+            "Redis 认证已启用（用户名: %s）",
+            redis_username or "<default>"
+        )
+    redis_storage = RedisSessionStorage(
+        redis_url=redis_url,
+        username=redis_username,
+        password=redis_password
+    )
 
     # 初始化 SessionManager 并注入 Redis 存储
     session_manager = get_session_manager()
