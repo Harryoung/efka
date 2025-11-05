@@ -157,12 +157,23 @@ class KnowledgeBaseService:
                     logger.info(f"  {key} = {value}")
             logger.info("=" * 80)
 
-            # 配置 MCP servers（markitdown 文档转换服务）
+            # 配置 MCP servers（markitdown 文档转换服务 + wework 消息通知服务）
             mcp_servers = {
                 "markitdown": {
                     "type": "stdio",
                     "command": "markitdown-mcp",
                     "args": []
+                },
+                "wework": {
+                    "type": "stdio",
+                    "command": "wework-mcp",
+                    "args": [],
+                    "env": {
+                        # 从环境变量传递配置
+                        "WEWORK_CORP_ID": os.getenv("WEWORK_CORP_ID", ""),
+                        "WEWORK_CORP_SECRET": os.getenv("WEWORK_CORP_SECRET", ""),
+                        "WEWORK_AGENT_ID": os.getenv("WEWORK_AGENT_ID", ""),
+                    }
                 }
             }
 
@@ -188,7 +199,13 @@ class KnowledgeBaseService:
                     "Grep",   # 搜索内容
                     "Glob",   # 查找文件
                     "Bash",   # 执行命令
-                    "mcp__markitdown__convert_to_markdown"  # markitdown MCP 工具
+                    "mcp__markitdown__convert_to_markdown",  # markitdown MCP 工具
+                    # WeWork 企业微信消息通知工具
+                    "mcp__wework__wework_send_text_message",
+                    "mcp__wework__wework_send_markdown_message",
+                    "mcp__wework__wework_send_image_message",
+                    "mcp__wework__wework_send_file_message",
+                    "mcp__wework__wework_upload_media",
                 ],
 
                 # 工作目录（设置为项目根目录，这样可以访问 knowledge_base/）
