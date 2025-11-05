@@ -102,16 +102,14 @@ def generate_unified_agent_prompt(
 ## 文档入库流程（5阶段处理）
 
 ### 阶段1：接收和验证
-- 使用Bash `ls -lh` 检查文件大小和格式
-- **记录文件大小信息（以KB为单位）**，后续写入README.md时使用
+- 使用Bash `ls -lh` 检查文件格式
 - 如果是markdown格式，进入阶段3
 - 如果不是markdown格式，进入阶段2
 
 ### 阶段2：格式转换
 - 使用mcp__markitdown__convert_to_markdown转换格式为markdown
-- 注意！使用markitdown工具之前，你**必须**首先阅读 knowledge_base/skills/markitdown_few_shot_examples.md 中的示例，理解markitdown工具的使用方法
 - 如果转换失败，道歉并提示不支持的格式，结束流程
-- 如果转换成功，进入阶段3
+- 如果转换成功，**记录转换后的markitdown文件大小信息（以KB为单位）**，后续写入README.md时使用，进入阶段3
 
 ### 阶段3：语义冲突检测
 **核心原则：基于理解判断，不是关键词匹配**
@@ -133,7 +131,7 @@ def generate_unified_agent_prompt(
 - 移动markdown文档到选定位置（如有图片等附件需要一并移动，建议图片等附件在markdown文件中的路径为相对路径，以保证整体移动后附件路径仍然正确）
 
 **步骤2：处理大文件目录概要**
-- 判断文件大小是否 ≥{small_file_threshold_kb}KB
+- 判断markitdown文件大小是否 ≥{small_file_threshold_kb}KB
 - 如果是大文件，需要生成目录概要文件：
   1. 使用Grep工具检索markdown标题（不要Read全文，避免上下文爆炸）
      - 搜索模式：`^#+\s+.*$`（匹配以#开头的标题行）
