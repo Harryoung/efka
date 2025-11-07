@@ -245,6 +245,39 @@ Located at `./knowledge_base/`:
 6. Answer generation with source attribution
 7. FAQ learning (user feedback loop)
 
+## Batch Employee Notification
+
+**Feature Overview**:
+- Admins can batch notify employees via WeChat Work (企业微信)
+- Supports 3 scenarios:
+  1. Upload data file + filtering criteria (e.g., "notify employees with welfare points > 0")
+  2. Upload target employee list directly
+  3. Specify notification targets (e.g., @all, specific departments)
+
+**Key Files**:
+- `knowledge_base/企业管理/人力资源/employee_mapping.xlsx`: Employee-userid mapping table
+- `backend/agents/prompts/batch_notification.md`: Detailed 5-stage process guide
+
+**How It Works**:
+1. Agent recognizes batch notification intent
+2. Reads `batch_notification.md` (progressive disclosure)
+3. Parses employee mapping table **using temporary Python scripts (pandas)**
+4. Extracts target employee list with SQL-like queries (pandas filtering/joining)
+5. Constructs message and waits for admin confirmation
+6. Sends via wework-mcp (supports up to 1000 users per call)
+
+**Table Processing Approach**:
+- ❌ Does NOT use markitdown for XLSX processing
+- ✅ Uses Bash tool to execute temporary Python scripts
+- ✅ Leverages pandas for SQL-like queries (filter, join, aggregate)
+- ✅ Supports complex filtering logic based on natural language conditions
+
+**Architecture Alignment**:
+- ✅ Agent-First: Business logic in prompt, not in code
+- ✅ Uses existing tools: Read, Bash (Python), wework-mcp
+- ✅ Single Agent architecture: No sub-agents needed
+- ✅ Progressive disclosure: Detailed logic loaded only when needed
+
 ## Important Implementation Details
 
 ### Authentication Flow

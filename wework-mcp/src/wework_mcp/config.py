@@ -45,7 +45,7 @@ class WeWorkConfig:
         """验证配置有效性"""
         if not self.corp_id.startswith("ww"):
             raise ValueError(f"Invalid corp_id format: {self.corp_id}")
-        if len(self.corp_secret) != 32:
-            raise ValueError("corp_secret must be 32 characters")
+        if not self.corp_secret or len(self.corp_secret) < 10:
+            raise ValueError("corp_secret must be at least 10 characters")
         if self.agent_id <= 0:
             raise ValueError(f"Invalid agent_id: {self.agent_id}")

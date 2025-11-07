@@ -28,6 +28,7 @@ const ChatView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [error, setError] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]); // 存储已上传文件信息
 
   // refs
   const messagesEndRef = useRef(null);
@@ -152,14 +153,26 @@ const ChatView = () => {
       canFeedback: false, // 禁用所有历史消息的反馈
     })));
 
-    // 添加用户消息
+    // 构建实际发送的消息（文件信息在前，用户消息在后）
+    let actualMessage = userMessage;
+    if (uploadedFiles.length > 0) {
+      const fileList = uploadedFiles
+        .map(f => `- ${f.originalName} (路径: ${f.tempPath})`)
+        .join('\n');
+      actualMessage = `[已上传文件]\n${fileList}\n\n${userMessage}`;
+    }
+
+    // 添加用户消息到界面（只显示用户输入的内容，不显示文件路径）
     addMessage('user', userMessage);
 
+    // 清空已上传文件状态（消息已发送）
+    setUploadedFiles([]);
+
     try {
-      // 使用 SSE 流式响应
+      // 使用 SSE 流式响应（发送包含文件路径的完整消息）
       eventSourceRef.current = apiService.queryStream(
         sessionId,
-        userMessage,
+        actualMessage,
         // onMessage - 接收流式数据
         (data) => {
           if (data.type === 'message') {
@@ -214,20 +227,58 @@ const ChatView = () => {
     }
   };
 
+  // 判断文件是否为表格类型
+  const isTableFile = (fileName) => {
+    const ext = fileName.toLowerCase().split('.').pop();
+    return ['xlsx', 'xls', 'csv', 'tsv'].includes(ext);
+  };
+
+  // 判断文件是否为文档类型
+  const isDocumentFile = (fileName) => {
+    const ext = fileName.toLowerCase().split('.').pop();
+    return ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'md', 'txt'].includes(ext);
+  };
+
   // 文件上传完成处理
-  const handleUploadComplete = (uploadedFiles, originalFiles) => {
-    console.log('Upload complete:', uploadedFiles);
+  const handleUploadComplete = (uploadedFilesData, originalFiles) => {
+    console.log('Upload complete:', uploadedFilesData);
 
     // 关闭上传界面
     setShowUpload(false);
 
-    // 构建文件列表信息
-    const fileList = uploadedFiles
-      .map((f, i) => `- ${originalFiles[i].name} (路径: ${f.temp_path})`)
+    // 保存上传文件信息（用于后续发送消息时附加）
+    const fileInfoList = uploadedFilesData.map((f, i) => ({
+      originalName: originalFiles[i].name,
+      tempPath: f.temp_path,
+    }));
+    setUploadedFiles(fileInfoList);
+
+    // 判断文件类型，决定是否预填消息
+    const hasTableFiles = originalFiles.some(f => isTableFile(f.name));
+    const allDocumentFiles = originalFiles.every(f => isDocumentFile(f.name));
+
+    // 构建文件名列表（不含路径）用于显示
+    const fileNameList = originalFiles
+      .map(f => `- ${f.name}`)
       .join('\n');
 
-    // 自动填充消息，让用户可以编辑
-    const message = `请将以下文件添加到知识库:\n\n${fileList}\n\n请帮我处理这些文件。`;
+    let message;
+    if (hasTableFiles) {
+      // 有表格文件：不预填具体操作，空白输入框
+      message = '';
+      // 添加系统提示
+      addSystemMessage(`已上传文件:\n${fileNameList}\n\n您可以：\n1. 批量通知：描述通知对象和筛选条件（如"通知福利积分>0的员工"）\n2. 文档入库：输入"请将这些文件入库"`);
+    } else if (allDocumentFiles) {
+      // 全是文档文件：预填入库消息（不含路径）
+      message = `请将上面的文件添加到知识库`;
+      // 添加系统提示显示文件列表
+      addSystemMessage(`已上传文件:\n${fileNameList}`);
+    } else {
+      // 其他情况：不预填，空白输入框
+      message = '';
+      addSystemMessage(`已上传文件:\n${fileNameList}`);
+    }
+
     setInputMessage(message);
 
     // 聚焦到输入框
@@ -273,8 +324,9 @@ const ChatView = () => {
         setSessionId(result.new_session_id);
       }
 
-      // 清空消息
+      // 清空消息和已上传文件
       setMessages([]);
+      setUploadedFiles([]);
       addSystemMessage('对话和上下文已清空，新会话已创建');
     } catch (error) {
       console.error('Failed to clear context:', error);

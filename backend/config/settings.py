@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     REDIS_USERNAME: Optional[str] = None
     REDIS_PASSWORD: Optional[str] = None
 
+    # 企业微信配置（可选）
+    WEWORK_CORP_ID: Optional[str] = None
+    WEWORK_CORP_SECRET: Optional[str] = None
+    WEWORK_AGENT_ID: Optional[str] = None
+
     # CORS配置
     ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost"]
 
