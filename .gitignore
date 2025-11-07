@@ -61,6 +61,9 @@ temp/
 tmp/
 *.tmp
 
+# Cache files
+.wework_token_cache
+
 # Knowledge Base (可根据需要调整)
 knowledge_base/
 
