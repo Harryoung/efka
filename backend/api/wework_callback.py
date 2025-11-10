@@ -1,0 +1,320 @@
+"""
+WeChat Work Callback API - 企业微信消息接收
+
+职责:
+1. URL验证（GET请求）
+2. 消息接收与解密（POST请求）
+3. 会话状态检查（区分员工提问和专家回复）
+4. 调用Employee Agent处理
+"""
+
+from flask import Flask, request, make_response
+from typing import Optional, Dict
+import xml.etree.ElementTree as ET
+import asyncio
+import time
+from pathlib import Path
+import logging
+
+from backend.utils.wework_crypto import verify_url, decrypt_message, parse_message
+from backend.services.kb_service_factory import get_employee_service
+from backend.services.conversation_state_manager import get_conversation_state_manager
+from backend.services.user_identity_service import get_user_identity_service
+from backend.services.session_router_service import get_session_router_service
+from backend.services.routing_session_manager import get_routing_session_manager
+from backend.services.audit_logger import get_audit_logger
+from backend.config.settings import get_settings
+from backend.models.session import SessionRole, SessionStatus, MessageSnapshot
+from datetime import datetime
+import re
+import json
+
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+settings = get_settings()
+
+# 企微配置（从环境变量加载）
+WEWORK_TOKEN = settings.WEWORK_TOKEN
+WEWORK_ENCODING_AES_KEY = settings.WEWORK_ENCODING_AES_KEY
+WEWORK_CORP_ID = settings.WEWORK_CORP_ID
+
+# 初始化服务（将在wework_server.py中完成）
+employee_service = None
+state_manager = None
+
+
+def init_services():
+    """初始化服务（由wework_server.py调用）"""
+    global employee_service, state_manager
+    employee_service = get_employee_service()
+    state_manager = get_conversation_state_manager(
+        kb_root=Path(settings.KB_ROOT_PATH)
+    )
+
+
+@app.route('/api/wework/callback', methods=['GET', 'POST'])
+def wework_callback():
+    """企微回调入口"""
+
+    if request.method == 'GET':
+        # URL验证
+        msg_signature = request.args.get('msg_signature')
+        timestamp = request.args.get('timestamp')
+        nonce = request.args.get('nonce')
+        echo_str = request.args.get('echostr')
+
+        if not all([msg_signature, timestamp, nonce, echo_str]):
+            logger.error("URL validation: Missing parameters")
+            return "Missing parameters", 400
+
+        try:
+            decrypted_echo = verify_url(
+                msg_signature, timestamp, nonce, echo_str,
+                WEWORK_TOKEN, WEWORK_ENCODING_AES_KEY, WEWORK_CORP_ID
+            )
+            response = make_response(decrypted_echo)
+            response.headers['Content-Type'] = 'text/plain'
+            logger.info("URL validation successful")
+            return response
+        except Exception as e:
+            logger.error(f"URL validation failed: {str(e)}")
+            return f"Verification failed: {str(e)}", 400
+
+    elif request.method == 'POST':
+        # 消息接收
+        msg_signature = request.args.get('msg_signature')
+        timestamp = request.args.get('timestamp')
+        nonce = request.args.get('nonce')
+
+        xml_content = request.data.decode('utf-8')
+
+        try:
+            # 解析XML获取加密内容
+            root = ET.fromstring(xml_content)
+            encrypt_element = root.find('Encrypt')
+            encrypt_str = encrypt_element.text if encrypt_element is not None else ""
+
+            # 解密消息
+            decrypted_msg = decrypt_message(
+                encrypt_str,
+                WEWORK_ENCODING_AES_KEY,
+                WEWORK_CORP_ID
+            )
+
+            # 解析消息
+            message_data = parse_message(decrypted_msg)
+            logger.info(f"Received message from {message_data.get('FromUserName')}: {message_data.get('MsgType')}")
+
+            # 异步处理消息（不阻塞回调响应）
+            # 使用全局event loop（由wework_server.py提供）
+            from backend.wework_server import get_event_loop
+            loop = get_event_loop()
+            if loop:
+                asyncio.run_coroutine_threadsafe(process_wework_message(message_data), loop)
+            else:
+                logger.error("Event loop not available, cannot process message")
+
+            # 立即返回成功
+            response = make_response("success")
+            response.headers['Content-Type'] = 'text/plain'
+            return response
+
+        except Exception as e:
+            logger.error(f"Message processing failed: {str(e)}", exc_info=True)
+            return f"Message processing failed: {str(e)}", 500
+
+
+async def process_wework_message(message_data: dict):
+    """
+    处理企微消息（改造版 - 集成Session Router）
+
+    核心逻辑:
+    1. 用户身份识别（新增）
+    2. Session Router决定session_id（新增）
+    3. 低置信度日志记录（新增）
+    4. 获取或创建Session（改造）
+    5. 调用Employee Agent（改造）
+    6. 异步更新Session摘要（新增）
+    """
+
+    message_type = message_data.get('MsgType')
+    sender_userid = message_data.get('FromUserName')
+
+    # 仅处理文本消息
+    if message_type != 'text':
+        logger.info(f"Ignoring non-text message type: {message_type}")
+        return
+
+    content = message_data.get('Content', '')
+    logger.info(f"Processing text message from {sender_userid}: {content[:50]}...")
+
+    try:
+        # Step 1: 用户身份识别（新增）
+        identity_service = get_user_identity_service()
+        user_info = await identity_service.identify_user_role(sender_userid)
+        logger.info(f"User identity: is_expert={user_info['is_expert']}, domains={user_info['expert_domains']}")
+
+        # Step 2: Session Router决定session_id（新增）
+        router_service = get_session_router_service()
+
+        # 确保router service已初始化
+        if not hasattr(router_service, 'is_initialized') or not router_service.is_initialized:
+            await router_service.initialize()
+            logger.info("Session Router service initialized")
+
+        routing_result = await router_service.route_to_session(
+            user_id=sender_userid,
+            new_message=content,
+            user_info=user_info
+        )
+        logger.info(f"Routing decision: {routing_result['decision']} (confidence={routing_result['confidence']})")
+
+        # Step 3: 低置信度日志记录（新增）
+        if routing_result['confidence'] < 0.7:
+            audit_logger = get_audit_logger()
+            await audit_logger.log_low_confidence_routing(
+                user_id=sender_userid,
+                message=content,
+                result=routing_result,
+                audit_required=True
+            )
+
+        # Step 4: 获取或创建Session（改造）
+        routing_mgr = get_routing_session_manager()
+
+        # 确保routing manager已初始化
+        if not hasattr(routing_mgr, 'is_initialized') or not routing_mgr.is_initialized:
+            await routing_mgr.initialize()
+            logger.info("Routing Session Manager initialized")
+
+        if routing_result['decision'] == 'NEW_SESSION':
+            # 创建新Session
+            # 判断角色
+            if user_info['is_expert'] and routing_result.get('matched_role') == 'expert':
+                role = SessionRole.EXPERT
+            elif user_info['is_expert']:
+                role = SessionRole.EXPERT_AS_EMPLOYEE
+            else:
+                role = SessionRole.EMPLOYEE
+
+            session = await routing_mgr.create_session(
+                user_id=sender_userid,
+                role=role,
+                original_question=content
+            )
+            session_id = session.session_id
+            logger.info(f"Created new session {session_id} for {sender_userid} (role={role.value})")
+        else:
+            session_id = routing_result['decision']
+            logger.info(f"Matched existing session {session_id} for {sender_userid}")
+
+        # Step 5: 调用Employee Agent（改造）
+        # 确保employee_service已初始化
+        if not employee_service.is_initialized:
+            await employee_service.initialize()
+            logger.info("Employee service initialized")
+
+        # 构造包含用户信息的消息
+        user_name = user_info.get('name', '')
+        name_display = f"{user_name}" if user_name else sender_userid
+
+        formatted_message = f"""[用户信息]
+user_id: {sender_userid}
+name: {name_display}
+
+[用户消息]
+{content}"""
+
+        # 收集Agent响应和元数据
+        agent_response_text = ""
+        metadata = None
+
+        logger.info(f"Calling Employee Agent with session {session_id}")
+        async for message in employee_service.query(
+            user_message=formatted_message,
+            session_id=session_id,
+            user_id=sender_userid
+        ):
+            agent_response_text += message.text
+
+            # 检查是否包含元数据块
+            if "```metadata" in message.text:
+                metadata = extract_metadata(message.text)
+
+        # Step 6: 异步更新Session摘要（新增）
+        if metadata:
+            # 创建消息快照
+            user_snapshot = MessageSnapshot(
+                content=content,
+                timestamp=datetime.now(),
+                role="user"
+            )
+
+            agent_snapshot = MessageSnapshot(
+                content=agent_response_text[:200],  # 截断，避免过长
+                timestamp=datetime.now(),
+                role="agent"
+            )
+
+            # 更新用户消息
+            await routing_mgr.update_session_summary(
+                session_id=session_id,
+                new_message=user_snapshot
+            )
+
+            # 更新Agent回复（带key_points和status）
+            session_status = SessionStatus.RESOLVED if metadata.get('session_status') == 'resolved' else None
+
+            await routing_mgr.update_session_summary(
+                session_id=session_id,
+                new_message=agent_snapshot,
+                key_points=metadata.get('key_points', []),
+                session_status=session_status
+            )
+
+            logger.info(f"Session {session_id} summary updated with metadata")
+        else:
+            logger.warning(f"No metadata found in agent response for session {session_id}")
+
+        logger.info(f"Message processing completed for {sender_userid}")
+
+    except Exception as e:
+        logger.error(f"Error processing message from {sender_userid}: {str(e)}", exc_info=True)
+
+
+def extract_metadata(text: str) -> Optional[Dict]:
+    """
+    从Agent响应中提取元数据
+
+    Args:
+        text: Agent响应文本
+
+    Returns:
+        元数据字典，解析失败返回None
+    """
+    # 匹配 ```metadata ... ``` 块
+    pattern = r'```metadata\s*\n(.*?)\n```'
+    match = re.search(pattern, text, re.DOTALL)
+
+    if match:
+        try:
+            metadata_json = match.group(1)
+            metadata = json.loads(metadata_json)
+
+            # 验证必需字段
+            assert 'key_points' in metadata
+            assert 'answer_source' in metadata
+            assert 'session_status' in metadata
+
+            return metadata
+        except Exception as e:
+            logger.error(f"Failed to parse metadata: {e}")
+            logger.error(f"Metadata text: {match.group(1)}")
+            return None
+    else:
+        return None
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=False)
