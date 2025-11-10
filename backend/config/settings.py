@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     # Redis 配置
     REDIS_URL: str = "redis://127.0.0.1:6379/0"
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
     REDIS_USERNAME: Optional[str] = None
     REDIS_PASSWORD: Optional[str] = None
 
@@ -39,6 +42,13 @@ class Settings(BaseSettings):
     WEWORK_CORP_ID: Optional[str] = None
     WEWORK_CORP_SECRET: Optional[str] = None
     WEWORK_AGENT_ID: Optional[str] = None
+    WEWORK_TOKEN: Optional[str] = None
+    WEWORK_ENCODING_AES_KEY: Optional[str] = None
+
+    # 会话状态配置
+    CONVERSATION_STATE_TTL: int = 86400  # 24小时
+    EXPERT_REPLY_TIMEOUT: int = 86400  # 24小时
+    FILE_LOCK_TIMEOUT: int = 5  # 5秒
 
     # CORS配置
     ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost"]

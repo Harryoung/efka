@@ -80,6 +80,11 @@ if ! check_port 8000; then
     exit 1
 fi
 
+if ! check_port 8080; then
+    echo "提示: 可以使用 'lsof -i :8080' 查看占用进程"
+    exit 1
+fi
+
 if ! check_port 3000; then
     echo "提示: 可以使用 'lsof -i :3000' 查看占用进程"
     exit 1
@@ -133,33 +138,85 @@ if [ -f ".env" ]; then
     if [ ! -z "$REDIS_PASSWORD" ]; then
         echo -e "${GREEN}✅ REDIS_PASSWORD 已加载（已隐藏）${NC}"
     fi
+
+    # 导出企微环境变量
+    if [ ! -z "$WEWORK_CORP_ID" ]; then
+        export WEWORK_CORP_ID="$WEWORK_CORP_ID"
+        echo -e "${GREEN}✅ WEWORK_CORP_ID 已加载${NC}"
+    fi
+
+    if [ ! -z "$WEWORK_CORP_SECRET" ]; then
+        export WEWORK_CORP_SECRET="$WEWORK_CORP_SECRET"
+        echo -e "${GREEN}✅ WEWORK_CORP_SECRET 已加载（已隐藏）${NC}"
+    fi
+
+    if [ ! -z "$WEWORK_AGENT_ID" ]; then
+        export WEWORK_AGENT_ID="$WEWORK_AGENT_ID"
+        echo -e "${GREEN}✅ WEWORK_AGENT_ID 已加载${NC}"
+    fi
+
+    if [ ! -z "$WEWORK_TOKEN" ]; then
+        export WEWORK_TOKEN="$WEWORK_TOKEN"
+        echo -e "${GREEN}✅ WEWORK_TOKEN 已加载${NC}"
+    fi
+
+    if [ ! -z "$WEWORK_ENCODING_AES_KEY" ]; then
+        export WEWORK_ENCODING_AES_KEY="$WEWORK_ENCODING_AES_KEY"
+        echo -e "${GREEN}✅ WEWORK_ENCODING_AES_KEY 已加载${NC}"
+    fi
 fi
 
-echo "启动后端服务..."
-echo "后端运行在: http://localhost:8000"
-echo "健康检查: http://localhost:8000/health"
 echo ""
+echo "=========================================="
+echo "启动后端服务（双进程模式）"
+echo "=========================================="
 
 mkdir -p logs
 
-# 在后台启动后端（从项目根目录运行）
-# 环境变量已通过 export 传递给子进程
+# 启动 FastAPI 主服务（管理端API，端口8000）
+echo "🚀 启动 FastAPI 主服务（管理端API）..."
 python3 -m backend.main > logs/backend.log 2>&1 &
 BACKEND_PID=$!
-echo "后端进程 PID: $BACKEND_PID"
+echo $BACKEND_PID > logs/backend.pid
+echo "   PID: $BACKEND_PID"
+echo "   运行在: http://localhost:8000"
+echo "   健康检查: http://localhost:8000/health"
 
-# 等待后端启动
-echo "等待后端启动..."
+# 等待主服务启动
+echo "   等待启动..."
 sleep 3
 
-# 检查后端是否成功启动
+# 健康检查
 if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ 后端启动成功${NC}"
+    echo -e "${GREEN}✅ FastAPI 主服务启动成功${NC}"
 else
-    echo -e "${RED}❌ 后端启动失败${NC}"
+    echo -e "${RED}❌ FastAPI 主服务启动失败${NC}"
     echo "请查看日志: cat logs/backend.log"
     kill $BACKEND_PID 2>/dev/null || true
     exit 1
+fi
+
+echo ""
+
+# 启动 Flask 企微回调服务（员工端API，端口8080）
+echo "🚀 启动 Flask 企微回调服务（员工端API）..."
+python3 -m backend.wework_server > logs/wework.log 2>&1 &
+WEWORK_PID=$!
+echo $WEWORK_PID > logs/wework.pid
+echo "   PID: $WEWORK_PID"
+echo "   运行在: http://localhost:8080"
+echo "   回调地址: http://localhost:8080/api/wework/callback"
+
+# 等待Flask服务启动
+echo "   等待启动..."
+sleep 3
+
+# 简单检查端口是否监听
+if lsof -i:8080 > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Flask 企微回调服务启动成功${NC}"
+else
+    echo -e "${YELLOW}⚠️  Flask 企微回调服务可能未启动（端口8080未监听）${NC}"
+    echo "请查看日志: cat logs/wework.log"
 fi
 
 echo ""
@@ -203,36 +260,37 @@ fi
 cd ..
 echo ""
 
-# 保存进程 ID
-mkdir -p logs
-echo $BACKEND_PID > logs/backend.pid
+# 保存进程 ID（已在启动时保存）
 echo $FRONTEND_PID > logs/frontend.pid
 
 # 完成
 echo "=========================================="
-echo -e "${GREEN}🎉 启动完成！${NC}"
+echo -e "${GREEN}🎉 所有服务启动完成！${NC}"
 echo "=========================================="
 echo ""
 echo "📱 访问地址:"
-echo "   前端界面: http://localhost:3000"
-echo "   后端 API: http://localhost:8000"
+echo "   前端界面（管理端）: http://localhost:3000"
+echo "   FastAPI 主服务（管理端）: http://localhost:8000"
+echo "   Flask 企微回调服务（员工端）: http://localhost:8080"
 echo "   API 文档: http://localhost:8000/docs"
 echo ""
 echo "📊 进程信息:"
-echo "   后端 PID: $BACKEND_PID"
-echo "   前端 PID: $FRONTEND_PID"
+echo "   FastAPI 主服务 PID: $BACKEND_PID"
+echo "   Flask 企微回调服务 PID: $WEWORK_PID"
+echo "   前端服务 PID: $FRONTEND_PID"
 echo ""
 echo "📝 日志文件:"
-echo "   后端日志: logs/backend.log"
-echo "   前端日志: logs/frontend.log"
+echo "   FastAPI 主服务: logs/backend.log"
+echo "   Flask 企微回调服务: logs/wework.log"
+echo "   前端服务: logs/frontend.log"
 echo ""
 echo "🛑 停止服务:"
 echo "   ./scripts/stop.sh"
 echo ""
 echo "💡 提示:"
 echo "   - 打开浏览器访问 http://localhost:3000"
-echo "   - 查看启动指南: cat 启动指南.md"
 echo "   - 查看实时日志: tail -f logs/backend.log"
+echo "   - 查看企微回调日志: tail -f logs/wework.log"
 echo ""
 echo "=========================================="
 

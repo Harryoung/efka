@@ -7,6 +7,9 @@ pydantic>=2.10.0
 pydantic-settings>=2.7.0
 python-multipart==0.0.6
 
+# Flask (用于企微回调服务)
+flask==3.0.0
+
 # Redis (用于会话持久化)
 redis[asyncio]==5.0.1
 
@@ -18,6 +21,10 @@ markitdown-mcp>=0.0.1a4
 
 # 日志和监控
 python-json-logger==2.0.7
+
+# Excel 处理 (用于领域专家映射表)
+pandas==2.1.3
+openpyxl==3.1.2
 
 # 测试依赖
 pytest==7.4.3

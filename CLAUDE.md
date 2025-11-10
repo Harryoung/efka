@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-智能资料库管理员 (Intelligent Knowledge Base Administrator) - An AI-powered knowledge base management system built with Claude Agent SDK. The system uses a **single unified agent architecture** to provide intelligent Q&A, document management, and knowledge base administration capabilities.
+智能资料库管理员 (Intelligent Knowledge Base Administrator) - An AI-powered knowledge base management system built with Claude Agent SDK. The system uses a **dual-agent architecture** to provide intelligent Q&A (Employee Agent via WeChat Work) and document management/KB administration (Admin Agent via Web UI).
 
 ## Key Architecture Principles
 
@@ -15,21 +15,33 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 - **✅ CORRECT**: Provide minimal base tools (read, write, grep, glob, bash, markitdown-mcp) and let the Agent combine them intelligently
 - **Core Principle**: Business logic resides in Agent prompts, not in code. The Agent makes autonomous decisions based on context.
 
-### Single Agent Architecture
+### Dual-Agent Architecture (v2.0)
 ```
-Web Frontend (React + SSE)
-    ↓
-Unified Intelligent KB Agent
-(Intent recognition + Knowledge QA + Document Management + KB Administration)
-    ↓
-Base Tools: Read, Write, Grep, Glob, Bash, markitdown-mcp
+┌─────────────────────────────────────────────────────────┐
+│         Intelligent KBA (Dual-Agent Architecture)       │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  FastAPI Service (8000)      Flask Service (8080)      │
+│  ┌─────────────────────┐    ┌──────────────────────┐  │
+│  │   Admin Agent       │    │  Employee Agent      │  │
+│  │   - Web UI          │    │  - WeChat Work       │  │
+│  │   - Doc Mgmt        │    │  - Knowledge Q&A     │  │
+│  │   - Batch Notify    │    │  - Expert Routing    │  │
+│  └─────────────────────┘    └──────────────────────┘  │
+│         │                            │                 │
+│         └────────┬───────────────────┘                 │
+│                  ▼                                     │
+│     KBServiceFactory (Dual SDK Clients)               │
+│     ConversationStateManager (Redis)                  │
+│     DomainExpertRouter + SharedKBAccess               │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Key Benefits of Single Agent Architecture**:
-- ✅ Eliminated sub-agent call overhead (20-30% performance improvement)
-- ✅ Simplified codebase (reduced from 3 agents to 1)
-- ✅ Unified context management across all tasks
-- ✅ Easier maintenance and prompt optimization
+**Key Benefits of Dual-Agent Architecture**:
+- ✅ Channel-specific optimization (WeChat Work vs Web UI)
+- ✅ Independent scaling (employee queries vs admin tasks)
+- ✅ Tool isolation (Employee: wework only, Admin: wework + markitdown)
+- ✅ Clear separation of concerns
 
 ## Development Commands
 
@@ -342,24 +354,235 @@ Architecture supports easy channel integration via:
 
 **Port Conflicts:**
 ```bash
-lsof -i :8000  # Check backend port
+lsof -i :8000  # Check FastAPI main service
+lsof -i :8080  # Check Flask WeWork callback service
 lsof -i :3000  # Check frontend port
 kill -9 <PID>  # Force stop process
 ```
 
 **Health Checks:**
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/health  # Admin API
 curl http://localhost:8000/info
+lsof -i:8080                        # WeWork callback
 ```
 
 **View Real-time Logs:**
 ```bash
-tail -f logs/backend.log
-tail -f logs/frontend.log
+tail -f logs/backend.log  # FastAPI main service
+tail -f logs/wework.log   # Flask WeWork callback service
+tail -f logs/frontend.log # Frontend
 ```
 
 **Restart Services:**
 ```bash
 ./scripts/stop.sh && ./scripts/start.sh
 ```
+
+---
+
+## Architecture Changes (2025-01 Update)
+
+### Dual-Agent Architecture Details
+
+The system has been split into two specialized agents:
+
+**1. Employee Agent (`backend/agents/kb_qa_agent.py`)**
+- **Responsibilities**: Knowledge Q&A, Satisfaction feedback, Expert routing
+- **Interface**: WeChat Work (企业微信) via Flask service on port 8080
+- **MCP Tools**: wework only (no markitdown for lightweight operation)
+- **Characteristics**: Lightweight, high-frequency requests, async multi-turn conversations
+- **Key Features**:
+  - 6-stage retrieval workflow (FAQ → README → keyword search → adaptive retrieval → context expansion → answer generation)
+  - Expert routing when KB search fails
+  - Maintains conversation state for expert reply handling
+
+**2. Admin Agent (`backend/agents/kb_admin_agent.py`)**
+- **Responsibilities**: Document ingestion, KB management, Batch notifications
+- **Interface**: Web Admin UI (React SPA) via FastAPI service on port 8000
+- **MCP Tools**: markitdown + wework (full feature set)
+- **Characteristics**: Feature-complete, low-frequency admin tasks
+- **Key Features**:
+  - 5-stage document ingestion
+  - Semantic conflict detection
+  - Batch employee notification with data filtering
+
+### New Infrastructure Components
+
+**KBServiceFactory** (`backend/services/kb_service_factory.py`):
+- Manages two independent Claude SDK clients (one per agent)
+- Singleton pattern: `get_employee_service()`, `get_admin_service()`
+- Extensible to microservices (just change factory implementation)
+
+**ConversationStateManager** (`backend/services/conversation_state_manager.py`):
+- Manages asynchronous multi-turn conversations (Employee → Agent → Expert → Employee)
+- State machine: IDLE → WAITING_FOR_EXPERT → COMPLETED
+- Redis persistence with 24h TTL, memory fallback on Redis failure
+- Key methods:
+  - `get_conversation_context(user_id)`: Get current conversation state
+  - `check_pending_expert_reply(expert_userid)`: Check if expert has pending reply
+  - `update_state(...)`: Update conversation state
+
+**DomainExpertRouter** (`backend/services/domain_expert_router.py`):
+- Routes employee questions to domain experts based on semantic classification
+- Queries `knowledge_base/企业管理/人力资源/domain_experts.xlsx` mapping table
+- Falls back to default expert if domain not matched
+
+**SharedKBAccess** (`backend/services/shared_kb_access.py`):
+- File-level locking for concurrent writes (FAQ.md, BADCASE.md)
+- Uses `fcntl` for cross-process safety
+- Supports future microservices architecture
+- Usage:
+  ```python
+  with kb_access.file_lock('FAQ.md', timeout=5):
+      # Read, modify, write atomically
+      pass
+  ```
+
+### API Routes
+
+**WeWork Callback API** (`backend/api/wework_callback.py`):
+- Endpoint: `POST /api/wework/callback`
+- Handles WeChat Work message callbacks
+- URL verification (GET), message reception (POST)
+- Async message processing via global event loop
+- Distinguishes employee queries from expert replies
+
+### Deployment Architecture
+
+**Dual-Process Mode:**
+```
+./scripts/start.sh
+├── FastAPI Service (port 8000) - Admin Agent + Web API
+├── Flask Service (port 8080) - Employee Agent + WeWork Callback
+└── React Frontend (port 3000) - Admin UI
+```
+
+**Process Management:**
+- PID files: `logs/backend.pid`, `logs/wework.pid`, `logs/frontend.pid`
+- Log files: `logs/backend.log`, `logs/wework.log`, `logs/frontend.log`
+- Stop all: `./scripts/stop.sh`
+
+**Environment Variables:**
+New WeChat Work configuration (see `.env.example`):
+- `WEWORK_CORP_ID`, `WEWORK_CORP_SECRET`, `WEWORK_AGENT_ID`
+- `WEWORK_TOKEN`, `WEWORK_ENCODING_AES_KEY`
+- `CONVERSATION_STATE_TTL`, `EXPERT_REPLY_TIMEOUT`, `FILE_LOCK_TIMEOUT`
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`
+
+### Expert Routing Workflow
+
+When an employee question cannot be answered from the knowledge base:
+
+1. **Domain Identification**: Agent semantically classifies the question
+2. **Expert Lookup**: Query `domain_experts.xlsx` for responsible expert
+3. **Contact Expert**: Send notification via WeChat Work MCP
+4. **State Transition**: Update conversation state to WAITING_FOR_EXPERT
+5. **Notify Employee**: Inform employee that expert has been contacted
+6. **Wait for Reply**: Agent maintains session context (24h TTL)
+7. **Expert Replies**: Agent detects expert's message, forwards to employee
+8. **Auto FAQ**: Add Q&A to FAQ.md (with file lock)
+9. **Suggest Documentation**: Remind expert to add detailed docs
+10. **State Completion**: Mark conversation as COMPLETED
+
+### File Lock Mechanism
+
+To prevent concurrent write conflicts:
+
+```python
+from backend.services.shared_kb_access import get_shared_kb_access
+
+kb_access = get_shared_kb_access('/path/to/knowledge_base')
+
+with kb_access.file_lock('FAQ.md', timeout=5):
+    # Read current content
+    content = read_file('FAQ.md')
+    # Modify
+    content += new_entry
+    # Write back atomically
+    write_file('FAQ.md', content)
+```
+
+Uses `fcntl` for cross-process locking, compatible with future microservices deployment.
+
+### Testing Commands
+
+**Service Initialization:**
+```bash
+# Test Employee Service
+python3 -c "
+import asyncio
+from backend.services.kb_service_factory import get_employee_service
+
+async def test():
+    service = get_employee_service()
+    await service.initialize()
+    print('✅ Employee service initialized')
+
+asyncio.run(test())
+"
+
+# Test Admin Service
+python3 -c "
+import asyncio
+from backend.services.kb_service_factory import get_admin_service
+
+async def test():
+    service = get_admin_service()
+    await service.initialize()
+    print('✅ Admin service initialized')
+
+asyncio.run(test())
+"
+```
+
+**Conversation State Manager:**
+```bash
+python3 -c "
+import asyncio
+from pathlib import Path
+from backend.services.conversation_state_manager import get_conversation_state_manager
+from backend.models.conversation_state import ConversationState
+from datetime import datetime
+
+async def test():
+    mgr = get_conversation_state_manager(kb_root=Path('./knowledge_base'))
+
+    # Test state update
+    await mgr.update_state(
+        user_id='test_user',
+        state=ConversationState.WAITING_FOR_EXPERT,
+        employee_question='测试问题',
+        domain='薪酬福利',
+        expert_userid='expert_001',
+        contacted_at=datetime.now()
+    )
+
+    # Test retrieval
+    context = await mgr.get_conversation_context('test_user')
+    assert context.state == ConversationState.WAITING_FOR_EXPERT
+    print('✅ Conversation state manager working')
+
+asyncio.run(test())
+"
+```
+
+### Migration Notes
+
+**From Single Agent to Dual-Agent:**
+- Old: `backend/agents/unified_agent.py` (deprecated)
+- New: `backend/agents/kb_qa_agent.py` + `backend/agents/kb_admin_agent.py`
+- Service factory manages both agents independently
+- Web UI uses Admin Agent (no changes to frontend API)
+- WeChat Work integration uses Employee Agent (new Flask service)
+
+**Breaking Changes:**
+- Port 8080 now required for WeWork callback service
+- New environment variables must be configured
+- Redis recommended (but optional with memory fallback)
+
+---
+
+**Architecture Version**: v2.0 (Dual-Agent Architecture)
+**Last Updated**: 2025-01-09
+**Migration Status**: Phase 1-4 Complete, Ready for Production Testing
