@@ -304,9 +304,107 @@ else
     cd "$PROJECT_ROOT"
 fi
 
-# ==================== 步骤 5: 环境验证 ====================
+# ==================== 步骤 5: Redis 配置 ====================
 
-print_header "✅ 步骤 5/6: 环境验证"
+print_header "🗄️ 步骤 5/7: Redis 配置检查"
+
+print_step "检查 Redis 配置..."
+
+# 从 .env 读取 Redis 密码
+REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+REDIS_PORT=$(grep "^REDIS_PORT=" .env 2>/dev/null | cut -d'=' -f2 | tr -d ' ')
+REDIS_PORT=${REDIS_PORT:-6379}
+
+# 检查 Redis 是否运行
+print_step "检查 Redis 服务状态..."
+
+if command -v docker &> /dev/null; then
+    # 检查 Docker Redis 容器
+    if docker ps | grep -q "redis"; then
+        REDIS_CONTAINER=$(docker ps --filter "name=redis" --format "{{.Names}}" | head -1)
+        print_success "发现 Redis Docker 容器: $REDIS_CONTAINER"
+
+        # 验证 Redis 连接
+        if [ -n "$REDIS_PASSWORD" ]; then
+            if docker exec "$REDIS_CONTAINER" redis-cli --pass "$REDIS_PASSWORD" ping > /dev/null 2>&1; then
+                print_success "Redis 连接测试成功（有密码）"
+            else
+                print_warning "Redis 密码可能不正确"
+            fi
+        else
+            if docker exec "$REDIS_CONTAINER" redis-cli ping > /dev/null 2>&1; then
+                print_success "Redis 连接测试成功（无密码）"
+            fi
+        fi
+
+        # 检查 Redis 版本
+        REDIS_VERSION=$(docker exec "$REDIS_CONTAINER" redis-cli --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [ -n "$REDIS_VERSION" ]; then
+            print_success "Redis 版本: $REDIS_VERSION"
+
+            # 检查是否是推荐版本（Redis 7.x）
+            REDIS_MAJOR=$(echo "$REDIS_VERSION" | cut -d'.' -f1)
+            if [ "$REDIS_MAJOR" != "7" ]; then
+                print_warning "检测到 Redis $REDIS_VERSION，推荐使用 Redis 7.x"
+                echo ""
+                echo "如需更换为推荐版本，运行以下命令："
+                echo "  docker stop $REDIS_CONTAINER && docker rm $REDIS_CONTAINER"
+                echo "  docker run --name redis -d -p 127.0.0.1:6379:6379 redis:7-alpine redis-server --requirepass \"$REDIS_PASSWORD\""
+                echo ""
+            fi
+        fi
+    else
+        print_warning "未检测到运行中的 Redis 容器"
+        echo ""
+        echo "推荐使用 Docker 部署 Redis："
+        echo ""
+        if [ -n "$REDIS_PASSWORD" ]; then
+            echo "  docker run --name redis -d -p 127.0.0.1:6379:6379 \\"
+            echo "    redis:7-alpine redis-server --requirepass \"$REDIS_PASSWORD\""
+        else
+            print_warning ".env 中未配置 REDIS_PASSWORD，建议配置密码"
+            echo "  docker run --name redis -d -p 127.0.0.1:6379:6379 redis:7-alpine"
+        fi
+        echo ""
+        echo "或者使用系统包管理器安装 Redis："
+        echo "  macOS: brew install redis && brew services start redis"
+        echo "  Ubuntu: sudo apt install redis-server && sudo systemctl start redis"
+        echo ""
+        read -p "是否继续部署（不安装 Redis）？[y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_error "部署已取消"
+            exit 1
+        fi
+    fi
+elif command -v redis-cli &> /dev/null; then
+    # 检查本地 Redis 服务
+    if redis-cli ping > /dev/null 2>&1; then
+        print_success "发现本地 Redis 服务"
+        REDIS_VERSION=$(redis-cli --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [ -n "$REDIS_VERSION" ]; then
+            print_success "Redis 版本: $REDIS_VERSION"
+        fi
+    else
+        print_warning "本地 Redis 服务未响应"
+    fi
+else
+    print_warning "未检测到 Redis（Docker 或本地安装）"
+    echo ""
+    echo "Redis 用于会话持久化，建议安装。"
+    echo "如果不安装 Redis，系统将使用内存存储（重启后会话丢失）。"
+    echo ""
+    read -p "是否继续部署（不安装 Redis）？[y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_error "部署已取消"
+        exit 1
+    fi
+fi
+
+# ==================== 步骤 6: 环境验证 ====================
+
+print_header "✅ 步骤 6/7: 环境验证"
 
 print_step "验证 Python 模块导入..."
 
@@ -350,15 +448,82 @@ except Exception as e:
 PYTHON_TEST
 
 if [ $? -eq 0 ]; then
-    print_success "环境验证通过"
+    print_success "Python 模块导入验证通过"
 else
     print_error "环境验证失败"
     exit 1
 fi
 
-# ==================== 步骤 6: 生成启动脚本/服务 ====================
+# 测试 Redis 连接（如果配置了）
+if [ -n "$REDIS_PASSWORD" ] || command -v docker &> /dev/null; then
+    print_step "测试 Redis 连接..."
 
-print_header "🔧 步骤 6/6: 生成启动配置"
+    python3 << 'REDIS_TEST'
+import sys
+import os
+
+# 尝试连接 Redis
+try:
+    import redis
+
+    redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+    redis_password = os.getenv("REDIS_PASSWORD")
+
+    if redis_password:
+        r = redis.Redis(
+            host='127.0.0.1',
+            port=6379,
+            db=0,
+            password=redis_password,
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5
+        )
+    else:
+        r = redis.Redis(
+            host='127.0.0.1',
+            port=6379,
+            db=0,
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5
+        )
+
+    # 测试连接
+    result = r.ping()
+    if result:
+        print("✅ Redis 连接测试成功")
+
+        # 测试基本操作
+        r.set('deploy_test_key', 'deploy_test_value')
+        value = r.get('deploy_test_key')
+        if value == 'deploy_test_value':
+            print("✅ Redis 读写测试成功")
+        r.delete('deploy_test_key')
+
+        r.close()
+    else:
+        print("⚠️  Redis PING 失败", file=sys.stderr)
+
+except redis.exceptions.ConnectionError as e:
+    print(f"⚠️  Redis 连接失败: {e}", file=sys.stderr)
+    print("提示：应用将自动降级到内存存储（会话不持久化）", file=sys.stderr)
+except Exception as e:
+    print(f"⚠️  Redis 测试异常: {e}", file=sys.stderr)
+REDIS_TEST
+
+    # Redis 连接失败不阻止部署
+    if [ $? -ne 0 ]; then
+        print_warning "Redis 连接测试未通过，但不影响部署"
+        print_warning "应用将使用内存存储（重启后会话丢失）"
+    fi
+else
+    print_warning "跳过 Redis 连接测试（未配置密码或 Docker 不可用）"
+fi
+
+# ==================== 步骤 7: 生成启动脚本/服务 ====================
+
+print_header "🔧 步骤 7/7: 生成启动配置"
 
 if [ "$SYSTEMD_MODE" = true ]; then
     # 生成 systemd 服务文件
@@ -372,7 +537,9 @@ if [ "$SYSTEMD_MODE" = true ]; then
     cat > "$PROJECT_ROOT/intelligent-kba-admin.service" << EOF
 [Unit]
 Description=Intelligent KBA - Admin Service (FastAPI)
-After=network.target redis.service
+After=network.target
+# 如果使用 systemd 管理的 Redis，取消下面的注释
+# After=network.target redis.service
 
 [Service]
 Type=simple
@@ -394,7 +561,9 @@ EOF
     cat > "$PROJECT_ROOT/intelligent-kba-wework.service" << EOF
 [Unit]
 Description=Intelligent KBA - WeWork Callback Service (Flask)
-After=network.target redis.service intelligent-kba-admin.service
+After=network.target intelligent-kba-admin.service
+# 如果使用 systemd 管理的 Redis，取消下面的注释
+# After=network.target redis.service intelligent-kba-admin.service
 
 [Service]
 Type=simple
@@ -597,9 +766,9 @@ else
 fi
 
 echo "重要提示："
-echo "  1. 确保 .env 文件配置正确（特别是 API KEY）"
-echo "  2. 生产环境建议使用 Nginx 反向代理"
-echo "  3. 建议配置 Redis 用于会话持久化"
+echo "  1. 确保 .env 文件配置正确（特别是 API KEY 和 Redis 密码）"
+echo "  2. Redis 用于会话持久化，推荐使用 Redis 7.x Alpine 版本"
+echo "  3. 生产环境建议使用 Nginx 反向代理"
 echo "  4. 定期备份 knowledge_base 目录"
 echo ""
 
