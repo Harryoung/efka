@@ -60,9 +60,12 @@ async def initialize_services():
 
     # 初始化Conversation State Manager（Redis存储）
     try:
+        # 构建 Redis URL
+        redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}"
+
         redis_storage = RedisSessionStorage(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
+            redis_url=redis_url,
+            ttl_seconds=settings.CONVERSATION_STATE_TTL,
             password=settings.REDIS_PASSWORD,
             username=settings.REDIS_USERNAME
         )
