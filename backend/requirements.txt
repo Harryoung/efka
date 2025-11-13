@@ -1,25 +1,43 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-websockets==12.0
-python-dotenv==1.0.0
+# Web 框架
+fastapi==0.121.1
+uvicorn[standard]==0.38.0
+starlette==0.49.3
+
+# 异步和网络
+anyio==4.11.0
+websockets==15.0.1
 aiofiles==23.2.1
-pydantic>=2.10.0
-pydantic-settings>=2.7.0
-python-multipart==0.0.6
+httpx==0.28.1
+
+# 配置和数据验证
+python-dotenv==1.2.1
+pydantic==2.12.4
+pydantic-core==2.41.5
+pydantic-settings==2.12.0
+python-multipart==0.0.20
+
+# Flask (用于消息平台回调服务)
+flask==3.0.0
+Werkzeug==3.1.3
 
 # Redis (用于会话持久化)
-redis[asyncio]==5.0.1
+redis==7.0.1
 
 # Claude Agent SDK
-claude-agent-sdk>=0.1.0
+claude-agent-sdk==0.1.6
 
 # MCP Servers
-markitdown-mcp>=0.0.1a4
+markitdown-mcp==0.0.1a4
+mcp==1.8.1
 
 # 日志和监控
 python-json-logger==2.0.7
 
+# Excel 处理 (用于领域专家映射表)
+pandas==2.1.3
+openpyxl==3.1.2
+numpy==1.26.4
+
 # 测试依赖
 pytest==7.4.3
 pytest-asyncio==0.21.1
-httpx==0.25.1
