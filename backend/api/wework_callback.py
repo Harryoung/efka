@@ -317,4 +317,5 @@ def extract_metadata(text: str) -> Optional[Dict]:
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    wework_port = settings.WEWORK_PORT
+    app.run(host='0.0.0.0', port=wework_port, debug=False)

@@ -69,42 +69,9 @@ else
     echo -e "${GREEN}✅ .env 文件存在${NC}"
 fi
 
-echo ""
-
-# 步骤 2: 检查端口
-echo "🔍 步骤 2/4: 检查端口"
-echo "----------------------------------------"
-
-if ! check_port 8000; then
-    echo "提示: 可以使用 'lsof -i :8000' 查看占用进程"
-    exit 1
-fi
-
-if ! check_port 8080; then
-    echo "提示: 可以使用 'lsof -i :8080' 查看占用进程"
-    exit 1
-fi
-
-if ! check_port 3000; then
-    echo "提示: 可以使用 'lsof -i :3000' 查看占用进程"
-    exit 1
-fi
-
-echo ""
-
-# 步骤 3: 启动后端
-echo "🔧 步骤 3/4: 启动后端服务"
-echo "----------------------------------------"
-
-# 检查后端依赖
-if [ ! -f "backend/.venv_installed" ]; then
-    echo "⚠️  后端依赖未安装，正在安装..."
-    pip3 install -r backend/requirements.txt
-    touch backend/.venv_installed
-fi
-
 # ⚠️ 关键：从 .env 文件加载并导出环境变量
-# 这样可以确保 Python 子进程（包括子 Agent）都能访问认证信息
+# 这样可以确保端口配置在检查时可用，且 Python 子进程也能访问认证信息
+echo ""
 echo "加载环境变量..."
 if [ -f ".env" ]; then
     # shellcheck disable=SC1091
@@ -164,6 +131,47 @@ if [ -f ".env" ]; then
         export WEWORK_ENCODING_AES_KEY="$WEWORK_ENCODING_AES_KEY"
         echo -e "${GREEN}✅ WEWORK_ENCODING_AES_KEY 已加载${NC}"
     fi
+
+    if [ ! -z "$WEWORK_PORT" ]; then
+        echo -e "${GREEN}✅ WEWORK_PORT 已加载 ($WEWORK_PORT)${NC}"
+    fi
+fi
+
+echo ""
+
+# 步骤 2: 检查端口
+echo "🔍 步骤 2/4: 检查端口"
+echo "----------------------------------------"
+
+# 从.env文件读取WeWork端口配置（如果未设置则使用默认值8081）
+WEWORK_PORT=${WEWORK_PORT:-8081}
+
+if ! check_port 8000; then
+    echo "提示: 可以使用 'lsof -i :8000' 查看占用进程"
+    exit 1
+fi
+
+if ! check_port $WEWORK_PORT; then
+    echo "提示: 可以使用 'lsof -i :$WEWORK_PORT' 查看占用进程"
+    exit 1
+fi
+
+if ! check_port 3000; then
+    echo "提示: 可以使用 'lsof -i :3000' 查看占用进程"
+    exit 1
+fi
+
+echo ""
+
+# 步骤 3: 启动后端
+echo "🔧 步骤 3/4: 启动后端服务"
+echo "----------------------------------------"
+
+# 检查后端依赖
+if [ ! -f "backend/.venv_installed" ]; then
+    echo "⚠️  后端依赖未安装，正在安装..."
+    pip3 install -r backend/requirements.txt
+    touch backend/.venv_installed
 fi
 
 echo ""
@@ -198,24 +206,24 @@ fi
 
 echo ""
 
-# 启动 Flask 企微回调服务（员工端API，端口8080）
+# 启动 Flask 企微回调服务（员工端API，使用配置的端口）
 echo "🚀 启动 Flask 企微回调服务（员工端API）..."
 python3 -m backend.wework_server > logs/wework.log 2>&1 &
 WEWORK_PID=$!
 echo $WEWORK_PID > logs/wework.pid
 echo "   PID: $WEWORK_PID"
-echo "   运行在: http://localhost:8080"
-echo "   回调地址: http://localhost:8080/api/wework/callback"
+echo "   运行在: http://localhost:$WEWORK_PORT"
+echo "   回调地址: http://localhost:$WEWORK_PORT/api/wework/callback"
 
 # 等待Flask服务启动
 echo "   等待启动..."
 sleep 3
 
 # 简单检查端口是否监听
-if lsof -i:8080 > /dev/null 2>&1; then
+if lsof -i:$WEWORK_PORT > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Flask 企微回调服务启动成功${NC}"
 else
-    echo -e "${YELLOW}⚠️  Flask 企微回调服务可能未启动（端口8080未监听）${NC}"
+    echo -e "${YELLOW}⚠️  Flask 企微回调服务可能未启动（端口$WEWORK_PORT未监听）${NC}"
     echo "请查看日志: cat logs/wework.log"
 fi
 
@@ -271,7 +279,7 @@ echo ""
 echo "📱 访问地址:"
 echo "   前端界面（管理端）: http://localhost:3000"
 echo "   FastAPI 主服务（管理端）: http://localhost:8000"
-echo "   Flask 企微回调服务（员工端）: http://localhost:8080"
+echo "   Flask 企微回调服务（员工端）: http://localhost:$WEWORK_PORT"
 echo "   API 文档: http://localhost:8000/docs"
 echo ""
 echo "📊 进程信息:"

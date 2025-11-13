@@ -21,7 +21,7 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 │         Intelligent KBA (Dual-Agent Architecture)       │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  FastAPI Service (8000)      Flask Service (8080)      │
+│  FastAPI Service (8000)      Flask Service (8081)      │
 │  ┌─────────────────────┐    ┌──────────────────────┐  │
 │  │   Admin Agent       │    │  Employee Agent      │  │
 │  │   - Web UI          │    │  - WeChat Work       │  │
@@ -355,7 +355,7 @@ Architecture supports easy channel integration via:
 **Port Conflicts:**
 ```bash
 lsof -i :8000  # Check FastAPI main service
-lsof -i :8080  # Check Flask WeWork callback service
+lsof -i :8081  # Check Flask WeWork callback service (default, configurable via WEWORK_PORT)
 lsof -i :3000  # Check frontend port
 kill -9 <PID>  # Force stop process
 ```
@@ -364,7 +364,7 @@ kill -9 <PID>  # Force stop process
 ```bash
 curl http://localhost:8000/health  # Admin API
 curl http://localhost:8000/info
-lsof -i:8080                        # WeWork callback
+lsof -i:8081                        # WeWork callback (default port)
 ```
 
 **View Real-time Logs:**
@@ -389,7 +389,7 @@ The system has been split into two specialized agents:
 
 **1. Employee Agent (`backend/agents/kb_qa_agent.py`)**
 - **Responsibilities**: Knowledge Q&A, Satisfaction feedback, Expert routing
-- **Interface**: WeChat Work (企业微信) via Flask service on port 8080
+- **Interface**: WeChat Work (企业微信) via Flask service on configurable port (default 8081)
 - **MCP Tools**: wework only (no markitdown for lightweight operation)
 - **Characteristics**: Lightweight, high-frequency requests, async multi-turn conversations
 - **Key Features**:
@@ -454,7 +454,7 @@ The system has been split into two specialized agents:
 ```
 ./scripts/start.sh
 ├── FastAPI Service (port 8000) - Admin Agent + Web API
-├── Flask Service (port 8080) - Employee Agent + WeWork Callback
+├── Flask Service (port 8081, configurable) - Employee Agent + WeWork Callback
 └── React Frontend (port 3000) - Admin UI
 ```
 
@@ -467,6 +467,7 @@ The system has been split into two specialized agents:
 New WeChat Work configuration (see `.env.example`):
 - `WEWORK_CORP_ID`, `WEWORK_CORP_SECRET`, `WEWORK_AGENT_ID`
 - `WEWORK_TOKEN`, `WEWORK_ENCODING_AES_KEY`
+- `WEWORK_PORT` (default: 8081) - WeWork callback service port
 - `CONVERSATION_STATE_TTL`, `EXPERT_REPLY_TIMEOUT`, `FILE_LOCK_TIMEOUT`
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`
 
@@ -577,7 +578,7 @@ asyncio.run(test())
 - WeChat Work integration uses Employee Agent (new Flask service)
 
 **Breaking Changes:**
-- Port 8080 now required for WeWork callback service
+- WeWork callback service now runs on configurable port (default 8081, set via WEWORK_PORT)
 - New environment variables must be configured
 - Redis recommended (but optional with memory fallback)
 

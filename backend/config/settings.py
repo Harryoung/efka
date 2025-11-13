@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     WEWORK_AGENT_ID: Optional[str] = None
     WEWORK_TOKEN: Optional[str] = None
     WEWORK_ENCODING_AES_KEY: Optional[str] = None
+    WEWORK_PORT: int = 8081  # WeWork回调服务端口
 
     # 会话状态配置
     CONVERSATION_STATE_TTL: int = 86400  # 24小时

@@ -18,6 +18,14 @@ NC='\033[0m'
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# 从.env文件读取WeWork端口配置（如果未设置则使用默认值8081）
+if [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+fi
+WEWORK_PORT=${WEWORK_PORT:-8081}
+
 # 读取进程 ID
 # 停止 FastAPI 主服务（端口8000）
 if [ -f "logs/backend.pid" ]; then
@@ -43,7 +51,7 @@ else
     fi
 fi
 
-# 停止 Flask 企微回调服务（端口8080）
+# 停止 Flask 企微回调服务（使用配置的端口）
 if [ -f "logs/wework.pid" ]; then
     WEWORK_PID=$(cat logs/wework.pid)
     echo "停止 Flask 企微回调服务 (PID: $WEWORK_PID)..."
@@ -59,7 +67,7 @@ else
     echo -e "${YELLOW}⚠️  未找到 wework.pid 文件${NC}"
 
     # 尝试通过端口查找并停止
-    WEWORK_PID=$(lsof -ti :8080)
+    WEWORK_PID=$(lsof -ti :$WEWORK_PORT)
     if [ ! -z "$WEWORK_PID" ]; then
         echo "发现 Flask 企微回调服务进程 (PID: $WEWORK_PID)，正在停止..."
         kill $WEWORK_PID

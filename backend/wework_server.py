@@ -1,7 +1,7 @@
 """
 WeChat Work Callback Server - 企业微信消息接收服务
 
-独立的Flask进程，监听8080端口
+独立的Flask进程，监听可配置端口（默认8081）
 与FastAPI主服务（8000端口）独立运行
 
 启动命令:
@@ -101,6 +101,10 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
+    # 获取配置
+    settings = get_settings()
+    wework_port = settings.WEWORK_PORT
+
     # 创建并启动event loop线程
     _event_loop = asyncio.new_event_loop()
     _loop_thread = threading.Thread(target=start_event_loop, args=(_event_loop,), daemon=True)
@@ -116,9 +120,9 @@ def main():
         sys.exit(1)
 
     # 启动Flask服务器
-    logger.info("Starting WeChat Work callback server on port 8080...")
+    logger.info(f"Starting WeChat Work callback server on port {wework_port}...")
     try:
-        app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
+        app.run(host='0.0.0.0', port=wework_port, debug=False, threaded=True)
     except KeyboardInterrupt:
         logger.info("Shutting down WeWork server...")
     finally:
