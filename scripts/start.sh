@@ -69,6 +69,17 @@ else
     echo -e "${GREEN}✅ .env 文件存在${NC}"
 fi
 
+# 检查并激活虚拟环境（如果存在）
+if [ -d "venv" ]; then
+    echo -e "${GREEN}✅ 检测到虚拟环境，正在激活...${NC}"
+    source venv/bin/activate
+    echo -e "${GREEN}✅ 虚拟环境已激活${NC}"
+    PYTHON_CMD="python"
+else
+    echo -e "${YELLOW}⚠️  未检测到虚拟环境，使用全局 Python${NC}"
+    PYTHON_CMD="python3"
+fi
+
 # ⚠️ 关键：从 .env 文件加载并导出环境变量
 # 这样可以确保端口配置在检查时可用，且 Python 子进程也能访问认证信息
 echo ""
@@ -183,19 +194,33 @@ mkdir -p logs
 
 # 启动 FastAPI 主服务（管理端API，端口8000）
 echo "🚀 启动 FastAPI 主服务（管理端API）..."
-python3 -m backend.main > logs/backend.log 2>&1 &
+$PYTHON_CMD -m backend.main > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > logs/backend.pid
 echo "   PID: $BACKEND_PID"
 echo "   运行在: http://localhost:8000"
 echo "   健康检查: http://localhost:8000/health"
 
-# 等待主服务启动
-echo "   等待启动..."
-sleep 3
+# 等待主服务启动（MCP servers 初始化需要约 5-6 秒）
+echo "   等待服务初始化（MCP servers 加载需要约 6 秒）..."
+sleep 8
 
-# 健康检查
-if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+# 健康检查（带重试）
+MAX_RETRIES=5
+RETRY_COUNT=0
+SERVICE_STARTED=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+        SERVICE_STARTED=true
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "   健康检查失败，重试 $RETRY_COUNT/$MAX_RETRIES..."
+    sleep 2
+done
+
+if [ "$SERVICE_STARTED" = true ]; then
     echo -e "${GREEN}✅ FastAPI 主服务启动成功${NC}"
 else
     echo -e "${RED}❌ FastAPI 主服务启动失败${NC}"
@@ -208,19 +233,33 @@ echo ""
 
 # 启动 Flask 企微回调服务（员工端API，使用配置的端口）
 echo "🚀 启动 Flask 企微回调服务（员工端API）..."
-python3 -m backend.wework_server > logs/wework.log 2>&1 &
+$PYTHON_CMD -m backend.wework_server > logs/wework.log 2>&1 &
 WEWORK_PID=$!
 echo $WEWORK_PID > logs/wework.pid
 echo "   PID: $WEWORK_PID"
 echo "   运行在: http://localhost:$WEWORK_PORT"
 echo "   回调地址: http://localhost:$WEWORK_PORT/api/wework/callback"
 
-# 等待Flask服务启动
-echo "   等待启动..."
-sleep 3
+# 等待Flask服务启动（Employee service 初始化需要约 4 秒）
+echo "   等待 Flask 服务初始化（Employee service 加载需要约 4 秒）..."
+sleep 6
 
-# 简单检查端口是否监听
-if lsof -i:$WEWORK_PORT > /dev/null 2>&1; then
+# 检查端口是否监听（带重试）
+MAX_RETRIES=3
+RETRY_COUNT=0
+WEWORK_STARTED=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if lsof -i:$WEWORK_PORT > /dev/null 2>&1; then
+        WEWORK_STARTED=true
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "   Flask 服务检查失败，重试 $RETRY_COUNT/$MAX_RETRIES..."
+    sleep 2
+done
+
+if [ "$WEWORK_STARTED" = true ]; then
     echo -e "${GREEN}✅ Flask 企微回调服务启动成功${NC}"
 else
     echo -e "${YELLOW}⚠️  Flask 企微回调服务可能未启动（端口$WEWORK_PORT未监听）${NC}"
