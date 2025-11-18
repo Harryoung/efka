@@ -7,6 +7,7 @@ KB Service Factory - 知识库服务工厂
 
 import logging
 import os
+import asyncio
 from typing import AsyncIterator, Optional
 from pathlib import Path
 
@@ -124,7 +125,22 @@ class KBEmployeeService:
 
             # 创建客户端
             self.client = ClaudeSDKClient(options=options)
-            await self.client.connect()
+
+            # 连接到Claude API（可能因欠费/无效API key失败）
+            try:
+                logger.info("Connecting to Claude API...")
+                await self.client.connect()
+                logger.info("✅ Claude API connection successful")
+            except Exception as conn_error:
+                logger.error("❌ Failed to connect to Claude API")
+                logger.error(f"   Error type: {type(conn_error).__name__}")
+                logger.error(f"   Error message: {str(conn_error)}")
+                logger.error(f"   This may indicate:")
+                logger.error(f"   - Invalid API key (CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN)")
+                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - Network connectivity issues")
+                logger.error(f"   - API service unavailable")
+                raise
 
             self.is_initialized = True
             logger.info("✅ Employee service initialized successfully")
@@ -157,11 +173,46 @@ class KBEmployeeService:
 
         logger.info(f"Employee query from {user_id or 'unknown'}: {user_message[:100]}...")
 
-        async for message in self.client.send_message(
-            message=user_message,
-            session_id=session_id
-        ):
-            yield message
+        try:
+            message_count = 0
+            # 使用正确的 Claude SDK API
+            await self.client.query(user_message, session_id=session_id)
+            async for message in self.client.receive_response():
+                message_count += 1
+                yield message
+
+            # 检查是否收到响应
+            if message_count == 0:
+                logger.error("❌ No response from Claude API")
+                logger.error(f"   Session ID: {session_id}")
+                logger.error(f"   User ID: {user_id}")
+                logger.error(f"   This may indicate:")
+                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - API rate limit exceeded")
+                logger.error(f"   - Network timeout")
+            else:
+                logger.info(f"✅ Received {message_count} messages from Claude API")
+
+        except asyncio.TimeoutError:
+            logger.error("❌ Claude API call timeout")
+            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   User ID: {user_id}")
+            logger.error(f"   This may indicate:")
+            logger.error(f"   - Network connectivity issues")
+            logger.error(f"   - API service overload")
+            raise
+        except Exception as e:
+            logger.error("❌ Claude API call failed")
+            logger.error(f"   Error type: {type(e).__name__}")
+            logger.error(f"   Error message: {str(e)}")
+            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   User ID: {user_id}")
+            logger.error(f"   This may indicate:")
+            logger.error(f"   - Invalid API key or token")
+            logger.error(f"   - API account insufficent balance (欠费)")
+            logger.error(f"   - Exceeded rate limits")
+            logger.error(f"   - API service unavailable")
+            raise
 
 
 class KBAdminService:
@@ -271,7 +322,22 @@ class KBAdminService:
 
             # 创建客户端
             self.client = ClaudeSDKClient(options=options)
-            await self.client.connect()
+
+            # 连接到Claude API（可能因欠费/无效API key失败）
+            try:
+                logger.info("Connecting to Claude API...")
+                await self.client.connect()
+                logger.info("✅ Claude API connection successful")
+            except Exception as conn_error:
+                logger.error("❌ Failed to connect to Claude API")
+                logger.error(f"   Error type: {type(conn_error).__name__}")
+                logger.error(f"   Error message: {str(conn_error)}")
+                logger.error(f"   This may indicate:")
+                logger.error(f"   - Invalid API key (CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN)")
+                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - Network connectivity issues")
+                logger.error(f"   - API service unavailable")
+                raise
 
             self.is_initialized = True
             logger.info("✅ Admin service initialized successfully")
@@ -302,11 +368,43 @@ class KBAdminService:
 
         logger.info(f"Admin query: {user_message[:100]}...")
 
-        async for message in self.client.send_message(
-            message=user_message,
-            session_id=session_id
-        ):
-            yield message
+        try:
+            message_count = 0
+            # 使用正确的 Claude SDK API
+            await self.client.query(user_message, session_id=session_id)
+            async for message in self.client.receive_response():
+                message_count += 1
+                yield message
+
+            # 检查是否收到响应
+            if message_count == 0:
+                logger.error("❌ No response from Claude API")
+                logger.error(f"   Session ID: {session_id}")
+                logger.error(f"   This may indicate:")
+                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - API rate limit exceeded")
+                logger.error(f"   - Network timeout")
+            else:
+                logger.info(f"✅ Received {message_count} messages from Claude API")
+
+        except asyncio.TimeoutError:
+            logger.error("❌ Claude API call timeout")
+            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   This may indicate:")
+            logger.error(f"   - Network connectivity issues")
+            logger.error(f"   - API service overload")
+            raise
+        except Exception as e:
+            logger.error("❌ Claude API call failed")
+            logger.error(f"   Error type: {type(e).__name__}")
+            logger.error(f"   Error message: {str(e)}")
+            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   This may indicate:")
+            logger.error(f"   - Invalid API key or token")
+            logger.error(f"   - API account insufficent balance (欠费)")
+            logger.error(f"   - Exceeded rate limits")
+            logger.error(f"   - API service unavailable")
+            raise
 
 
 class KBServiceFactory:

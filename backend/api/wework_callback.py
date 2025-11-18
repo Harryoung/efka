@@ -229,18 +229,55 @@ name: {name_display}
         # 收集Agent响应和元数据
         agent_response_text = ""
         metadata = None
+        message_count = 0
 
         logger.info(f"Calling Employee Agent with session {session_id}")
-        async for message in employee_service.query(
-            user_message=formatted_message,
-            session_id=session_id,
-            user_id=sender_userid
-        ):
-            agent_response_text += message.text
+        try:
+            async for message in employee_service.query(
+                user_message=formatted_message,
+                session_id=session_id,
+                user_id=sender_userid
+            ):
+                message_count += 1
+                agent_response_text += message.text
 
-            # 检查是否包含元数据块
-            if "```metadata" in message.text:
-                metadata = extract_metadata(message.text)
+                # 检查是否包含元数据块
+                if "```metadata" in message.text:
+                    metadata = extract_metadata(message.text)
+
+            # 检查是否收到响应
+            if message_count == 0:
+                logger.error(f"❌ No response from Employee Agent for user {sender_userid}")
+                logger.error(f"   Session ID: {session_id}")
+                logger.error(f"   This may indicate:")
+                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - API rate limit exceeded")
+                logger.error(f"   - Network timeout")
+                logger.error(f"   - API service unavailable")
+                return
+            else:
+                logger.info(f"✅ Received {message_count} messages from Employee Agent")
+
+        except asyncio.TimeoutError:
+            logger.error(f"❌ Employee Agent call timeout for user {sender_userid}")
+            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   Message: {content[:100]}...")
+            logger.error(f"   This may indicate:")
+            logger.error(f"   - Network connectivity issues")
+            logger.error(f"   - API service overload")
+            return
+        except Exception as agent_error:
+            logger.error(f"❌ Employee Agent call failed for user {sender_userid}")
+            logger.error(f"   Error type: {type(agent_error).__name__}")
+            logger.error(f"   Error message: {str(agent_error)}")
+            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   Message: {content[:100]}...")
+            logger.error(f"   This may indicate:")
+            logger.error(f"   - Invalid API key or token")
+            logger.error(f"   - API account insufficent balance (欠费)")
+            logger.error(f"   - Exceeded rate limits")
+            logger.error(f"   - API service unavailable")
+            return
 
         # Step 6: 异步更新Session摘要（新增）
         if metadata:
