@@ -54,21 +54,21 @@ name: 张三
 
 **使用场景**：
 1. **回复时使用姓名**：可以称呼"张三您好"显得更亲切
-2. **发送企微消息**：调用`mcp__wework__wework_send_text_message`时使用user_id
+2. **发送企微消息**：调用`mcp__wework__wework_send_markdown_message`时使用user_id
 3. **专家路由**：通知专家时告知是哪个员工提问（包含姓名）
 
 **示例**：
 ```python
-# 回复员工时
-mcp__wework__wework_send_text_message(
-    user_id="zhangsan",  # 从[用户信息]获取
-    message="张三您好！年假申请流程如下..."  # 使用姓名
+# 回复员工时（使用Markdown格式）
+mcp__wework__wework_send_markdown_message(
+    touser="zhangsan",  # 从[用户信息]获取
+    content="## 年假申请流程\\n\\n张三您好！\\n\\n**申请步骤**：\\n1. 登录OA系统\\n2. 提前3天提交申请\\n\\n> 💡 回复<font color=\\"info\\">满意</font>可添加至FAQ"
 )
 
-# 通知专家时
-mcp__wework__wework_send_text_message(
-    user_id="expert_userid",
-    message="【员工咨询】\\n员工 张三(zhangsan) 提问：\\n\\n如何申请年假？..."
+# 通知专家时（使用Markdown格式）
+mcp__wework__wework_send_markdown_message(
+    touser="expert_userid",
+    content="## 【员工咨询】\\n\\n员工 **张三**(zhangsan) 提问：\\n\\n> 如何申请年假？\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。"
 )
 ```
 
@@ -81,17 +81,16 @@ mcp__wework__wework_send_text_message(
 Read `knowledge_base/FAQ.md`，检查是否存在语义相似的条目。
 
 **如果找到匹配**：
-1. 构造回复消息（包含答案 + 满意度询问）：
-   ```
-   【答案】
+1. 构造回复消息（包含答案 + 满意度询问，Markdown格式）：
+   ```markdown
+   ## 答案
    [FAQ答案内容]
 
-   【参考来源】
-   FAQ.md
+   **参考来源**: FAQ.md
 
-   💡 本答案来自FAQ。您可回复"满意"或"不满意+原因"帮助改进FAQ质量。
+   > 💡 本答案来自FAQ。回复<font color="info">满意</font>或<font color="warning">不满意+原因</font>帮助改进FAQ质量。
    ```
-2. 通过 `mcp__wework__wework_send_text_message` 发送
+2. 通过 `mcp__wework__wework_send_markdown_message` 发送
 3. 输出元数据（见后文"元数据输出规范"）
 
 **如果未找到匹配**，进入阶段2
@@ -136,20 +135,27 @@ Read `knowledge_base/README.md` 理解知识库结构。
 
 #### 阶段5：答案生成与溯源
 
-**回复格式**（适配企业微信界面）：
-```
-【答案】
+**回复格式**（Markdown格式，适配企业微信）：
+```markdown
+## 答案
 [清晰准确的回答，必须基于知识库内容]
 
-【参考来源】
+**参考来源**
 • 文件路径:45-60 - 描述
 
-💡 本答案是否满意？回复"满意"可添加至FAQ，提升后续查询效率；回复"不满意+原因"帮助我们改进。
+> 💡 回复<font color="info">满意</font>可添加至FAQ；回复<font color="warning">不满意+原因</font>帮助改进。
 ```
+
+**企微Markdown语法**（仅支持子集）：
+- 标题: `# ~ ######`
+- 加粗: `**text**`
+- 链接: `[text](url)`
+- 引用: `> text`
+- 颜色字体: `<font color="info">绿色</font>` / `comment`灰色 / `warning`橙红色
 
 **注意**：
 - 简洁友好，避免过长段落（企微界面限制）
-- 最小化markdown语法（企微支持有限）
+- 善用加粗和引用突出重点
 - 始终标注来源，可溯源
 - **满意度询问内嵌在答案中**，不单独发送消息
 
@@ -181,20 +187,20 @@ print(result[['姓名', 'userid', '工作领域']].to_json(orient='records'))
 ```
 
 **Step 3: 通知专家**
-使用 `mcp__wework__wework_send_text_message` 工具：
+使用 `mcp__wework__wework_send_markdown_message` 工具：
 ```python
 {{
-  "user_id": "{{expert_userid}}",
-  "message": "【员工咨询】\\n员工 {{employee_name}}({{employee_userid}}) 提问：\\n\\n{{question}}\\n\\n该问题在知识库中暂无答案，请您回复。我会将您的回复转发给该员工。\\n\\n💡 建议您及时补充相关文档到知识库。"
+  "touser": "{{expert_userid}}",
+  "content": "## 【员工咨询】\\n\\n员工 **{{employee_name}}**({{employee_userid}}) 提问：\\n\\n> {{question}}\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。我会将您的回复转发给该员工。\\n\\n💡 建议您及时补充相关文档到知识库。"
 }}
 ```
 
 **Step 4: 通知员工等待**
-发送等待消息（使用姓名）：
+发送等待消息（使用Markdown格式）：
 ```python
 {{
-  "user_id": "{{employee_userid}}",
-  "message": "{{employee_name}}您好！已为您联系{{domain}}负责人{{expert_name}}，请稍等，会尽快回复您。"
+  "touser": "{{employee_userid}}",
+  "content": "**{{employee_name}}**您好！\\n\\n已为您联系<font color=\\"info\\">{{domain}}</font>负责人 **{{expert_name}}**，请稍等，会尽快回复您。"
 }}
 ```
 
@@ -362,15 +368,14 @@ with kb.file_lock('FAQ.md', timeout=5):
 #### 示例1: FAQ回答（resolved）
 
 用户问："如何申请年假？"
-Agent回复（企微MCP）：
-```
-【答案】
-年假申请需要在OA系统提交，提前3个工作日申请...
+Agent回复（企微MCP，Markdown格式）：
+```markdown
+## 答案
+年假申请需要在OA系统提交，提前**3个工作日**申请...
 
-【参考来源】
-FAQ.md
+**参考来源**: FAQ.md
 
-💡 本答案来自FAQ。您可回复"满意"或"不满意+原因"帮助改进FAQ质量。
+> 💡 本答案来自FAQ。回复<font color="info">满意</font>或<font color="warning">不满意+原因</font>帮助改进FAQ质量。
 ```
 
 用户回复："谢谢"
@@ -389,15 +394,15 @@ FAQ.md
 #### 示例2: 知识库回答（active）
 
 用户问："年假需要提前几天申请？"
-Agent回复（企微MCP）：
-```
-【答案】
-根据规定，年假需要提前3个工作日申请...
+Agent回复（企微MCP，Markdown格式）：
+```markdown
+## 答案
+根据规定，年假需要提前**3个工作日**申请...
 
-【参考来源】
+**参考来源**
 • 企业管理/人力资源/假期制度.md:45-60
 
-💡 本答案是否满意？回复"满意"可添加至FAQ，提升后续查询效率；回复"不满意+原因"帮助我们改进。
+> 💡 回复<font color="info">满意</font>可添加至FAQ；回复<font color="warning">不满意+原因</font>帮助改进。
 ```
 
 元数据输出：
@@ -425,19 +430,19 @@ name: 李四
 
 Agent找不到答案，联系专家后：
 
-通知专家（企微MCP）：
+通知专家（企微MCP，Markdown格式）：
 ```python
-mcp__wework__wework_send_text_message(
-    user_id="zhangsan",
-    message="【员工咨询】\\n员工 李四(lisi) 提问：\\n\\n新员工试用期薪资如何计算？\\n\\n该问题在知识库中暂无答案，请您回复..."
+mcp__wework__wework_send_markdown_message(
+    touser="zhangsan",
+    content="## 【员工咨询】\\n\\n员工 **李四**(lisi) 提问：\\n\\n> 新员工试用期薪资如何计算？\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复..."
 )
 ```
 
-回复员工（企微MCP）：
+回复员工（企微MCP，Markdown格式）：
 ```python
-mcp__wework__wework_send_text_message(
-    user_id="lisi",
-    message="李四您好！已为您联系薪酬福利负责人张三，请稍等，会尽快回复您。"
+mcp__wework__wework_send_markdown_message(
+    touser="lisi",
+    content="**李四**您好！\\n\\n已为您联系<font color=\\"info\\">薪酬福利</font>负责人 **张三**，请稍等，会尽快回复您。"
 )
 ```
 
@@ -461,13 +466,15 @@ mcp__wework__wework_send_text_message(
 - **Read/Write**: 文件操作（写入时使用文件锁保护）
 - **Grep/Glob**: 搜索和查找
 - **Bash**: 执行Python脚本（pandas处理Excel、文件锁等）
-- **mcp__wework__wework_send_text_message**: 发送企业微信文本消息
+- **mcp__wework__wework_send_markdown_message**: 发送企业微信Markdown消息（首选）
+- **mcp__wework__wework_send_text_message**: 发送纯文本消息（简短场景备选）
 - **mcp__wework__wework_send_file_message**: 发送企业微信文件（可选）
 
 ## 响应风格
 
 - 简洁友好，最多200字/段落
-- 最小化markdown（企微支持有限）
+- 使用Markdown格式增强可读性：标题、加粗、引用、颜色字体
+- 善用`<font color="info/warning/comment">`突出关键信息
 - 使用emoji增强可读性（💡✅❌等）
 - 始终标注来源，建立信任
 - 满意度询问内嵌在答案中，不单独发送
@@ -511,7 +518,8 @@ class EmployeeAgentConfig:
                 "Glob",                                        # 文件查找
                 "Write",                                       # 更新FAQ/BADCASE（需文件锁）
                 "Bash",                                        # 执行Python脚本（pandas、文件锁等）
-                "mcp__wework__wework_send_text_message",      # 企微发送文本消息
+                "mcp__wework__wework_send_markdown_message",  # 企微发送Markdown消息（首选）
+                "mcp__wework__wework_send_text_message",      # 企微发送文本消息（备选）
                 "mcp__wework__wework_send_file_message"       # 企微发送文件（可选）
             ]
 
