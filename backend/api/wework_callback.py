@@ -15,6 +15,8 @@ import asyncio
 import time
 from pathlib import Path
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from backend.utils.wework_crypto import verify_url, decrypt_message, parse_message
 from backend.services.kb_service_factory import get_employee_service
@@ -43,6 +45,9 @@ WEWORK_CORP_ID = settings.WEWORK_CORP_ID
 employee_service = None
 state_manager = None
 
+# 线程池执行器（用于运行异步任务）
+executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="wework_async")
+
 
 def init_services():
     """初始化服务（由wework_server.py调用）"""
@@ -51,6 +56,33 @@ def init_services():
     state_manager = get_conversation_state_manager(
         kb_root=Path(settings.KB_ROOT_PATH)
     )
+
+
+def run_async_task(coro):
+    """
+    在独立线程中运行异步任务
+
+    解决Flask同步上下文与asyncio的兼容性问题
+    """
+    def _run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            logger.info(f"🚀 Starting async task in thread {threading.current_thread().name}")
+            loop.run_until_complete(coro)
+            logger.info(f"✅ Async task completed successfully")
+        except Exception as e:
+            logger.error(f"❌ Async task failed with exception")
+            logger.error(f"   Exception type: {type(e).__name__}")
+            logger.error(f"   Exception message: {str(e)}")
+            logger.error(f"   Thread: {threading.current_thread().name}", exc_info=True)
+        finally:
+            loop.close()
+            logger.debug(f"🔒 Event loop closed")
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    logger.debug(f"🧵 Created async task thread: {thread.name}")
 
 
 @app.route('/api/wework/callback', methods=['GET', 'POST'])
@@ -107,13 +139,9 @@ def wework_callback():
             logger.info(f"Received message from {message_data.get('FromUserName')}: {message_data.get('MsgType')}")
 
             # 异步处理消息（不阻塞回调响应）
-            # 使用全局event loop（由wework_server.py提供）
-            from backend.wework_server import get_event_loop
-            loop = get_event_loop()
-            if loop:
-                asyncio.run_coroutine_threadsafe(process_wework_message(message_data), loop)
-            else:
-                logger.error("Event loop not available, cannot process message")
+            # 使用独立线程运行异步任务
+            run_async_task(process_wework_message(message_data))
+            logger.info(f"Async task started for message from {message_data.get('FromUserName')}")
 
             # 立即返回成功
             response = make_response("success")
@@ -232,18 +260,25 @@ name: {name_display}
         message_count = 0
 
         logger.info(f"Calling Employee Agent with session {session_id}")
+        logger.info(f"📞 About to call employee_service.query()...")
+
         try:
+            logger.info(f"🔄 Entering async for loop to receive messages...")
             async for message in employee_service.query(
                 user_message=formatted_message,
                 session_id=session_id,
                 user_id=sender_userid
             ):
                 message_count += 1
+                logger.info(f"📨 Received message {message_count} from Employee Agent (text_len={len(message.text)})")
                 agent_response_text += message.text
 
                 # 检查是否包含元数据块
                 if "```metadata" in message.text:
                     metadata = extract_metadata(message.text)
+                    logger.info(f"✅ Metadata extracted from message {message_count}")
+
+            logger.info(f"✅ Async for loop completed, total messages: {message_count}")
 
             # 检查是否收到响应
             if message_count == 0:
