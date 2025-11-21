@@ -82,10 +82,26 @@ class KBEmployeeService:
             )
 
             # 配置MCP servers (仅wework)
+            # 查找 wework-mcp 命令的绝对路径（支持虚拟环境）
+            import sys
+            import shutil
+
+            wework_mcp_path = shutil.which("wework-mcp")
+            if not wework_mcp_path:
+                # 尝试在虚拟环境中查找
+                venv_path = Path(sys.executable).parent / "wework-mcp"
+                if venv_path.exists():
+                    wework_mcp_path = str(venv_path)
+                else:
+                    logger.warning("wework-mcp not found in PATH or venv, using 'wework-mcp' (may fail)")
+                    wework_mcp_path = "wework-mcp"
+
+            logger.info(f"Using wework-mcp at: {wework_mcp_path}")
+
             mcp_servers = {
                 "wework": {
                     "type": "stdio",
-                    "command": "wework-mcp",
+                    "command": wework_mcp_path,
                     "args": [],
                     "env": {
                         "WEWORK_CORP_ID": os.getenv("WEWORK_CORP_ID", ""),
@@ -175,11 +191,20 @@ class KBEmployeeService:
 
         try:
             message_count = 0
-            # 使用正确的 Claude SDK API
+
+            # 发送查询
+            logger.info(f"📤 Sending query to Claude API (session: {session_id})...")
             await self.client.query(user_message, session_id=session_id)
+            logger.info(f"✅ Query sent successfully, waiting for response...")
+
+            # 接收响应
+            logger.info(f"🔄 Starting to receive response stream...")
             async for message in self.client.receive_response():
                 message_count += 1
+                logger.debug(f"📨 Received message {message_count}: type={type(message)}, text_len={len(message.text) if hasattr(message, 'text') else 0}")
                 yield message
+
+            logger.info(f"✅ Response stream completed, total messages: {message_count}")
 
             # 检查是否收到响应
             if message_count == 0:
@@ -272,15 +297,40 @@ class KBAdminService:
             )
 
             # 配置MCP servers (markitdown + wework)
+            # 查找 MCP server 命令的绝对路径（支持虚拟环境）
+            import sys
+            import shutil
+
+            markitdown_mcp_path = shutil.which("markitdown-mcp")
+            if not markitdown_mcp_path:
+                venv_path = Path(sys.executable).parent / "markitdown-mcp"
+                if venv_path.exists():
+                    markitdown_mcp_path = str(venv_path)
+                else:
+                    logger.warning("markitdown-mcp not found in PATH or venv, using 'markitdown-mcp' (may fail)")
+                    markitdown_mcp_path = "markitdown-mcp"
+
+            wework_mcp_path = shutil.which("wework-mcp")
+            if not wework_mcp_path:
+                venv_path = Path(sys.executable).parent / "wework-mcp"
+                if venv_path.exists():
+                    wework_mcp_path = str(venv_path)
+                else:
+                    logger.warning("wework-mcp not found in PATH or venv, using 'wework-mcp' (may fail)")
+                    wework_mcp_path = "wework-mcp"
+
+            logger.info(f"Using markitdown-mcp at: {markitdown_mcp_path}")
+            logger.info(f"Using wework-mcp at: {wework_mcp_path}")
+
             mcp_servers = {
                 "markitdown": {
                     "type": "stdio",
-                    "command": "markitdown-mcp",
+                    "command": markitdown_mcp_path,
                     "args": []
                 },
                 "wework": {
                     "type": "stdio",
-                    "command": "wework-mcp",
+                    "command": wework_mcp_path,
                     "args": [],
                     "env": {
                         "WEWORK_CORP_ID": os.getenv("WEWORK_CORP_ID", ""),
