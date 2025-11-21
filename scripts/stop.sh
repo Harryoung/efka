@@ -42,27 +42,70 @@ else
     fi
 fi
 
-if [ -f "logs/frontend.pid" ]; then
-    FRONTEND_PID=$(cat logs/frontend.pid)
-    echo "停止前端服务 (PID: $FRONTEND_PID)..."
+# 停止前端服务的函数（处理 npm -> node -> vite 的进程链）
+stop_frontend() {
+    local main_pid=$1
+    local stopped=false
 
-    if kill $FRONTEND_PID 2>/dev/null; then
+    if [ ! -z "$main_pid" ]; then
+        echo "停止前端服务主进程 (PID: $main_pid)..."
+
+        # 查找所有子进程（递归）
+        local child_pids=$(pgrep -P $main_pid)
+
+        # 先尝试优雅停止主进程
+        if kill $main_pid 2>/dev/null; then
+            sleep 0.5
+
+            # 检查主进程是否退出
+            if ! kill -0 $main_pid 2>/dev/null; then
+                stopped=true
+            else
+                # 主进程未退出，强制杀死
+                kill -9 $main_pid 2>/dev/null
+                stopped=true
+            fi
+        fi
+
+        # 清理所有子进程
+        if [ ! -z "$child_pids" ]; then
+            echo "清理前端子进程: $child_pids"
+            for pid in $child_pids; do
+                # 递归清理子进程的子进程
+                local grandchild_pids=$(pgrep -P $pid)
+                if [ ! -z "$grandchild_pids" ]; then
+                    kill -9 $grandchild_pids 2>/dev/null
+                fi
+                kill -9 $pid 2>/dev/null
+            done
+        fi
+    fi
+
+    # 最终清理：通过端口查找并杀死所有占用 3000 端口的进程
+    local port_pids=$(lsof -ti :3000 2>/dev/null)
+    if [ ! -z "$port_pids" ]; then
+        echo "清理占用端口 3000 的进程: $port_pids"
+        kill -9 $port_pids 2>/dev/null
+        stopped=true
+    fi
+
+    if [ "$stopped" = true ]; then
         echo -e "${GREEN}✅ 前端服务已停止${NC}"
     else
-        echo -e "${YELLOW}⚠️  前端进程不存在或已停止${NC}"
+        echo -e "${YELLOW}⚠️  前端服务未运行${NC}"
     fi
+}
 
+# 停止前端服务
+if [ -f "logs/frontend.pid" ]; then
+    FRONTEND_PID=$(cat logs/frontend.pid)
+    stop_frontend $FRONTEND_PID
     rm logs/frontend.pid
 else
-    echo -e "${YELLOW}⚠️  未找到前端 PID 文件${NC}"
-
-    # 尝试通过端口查找并停止
-    FRONTEND_PID=$(lsof -ti :3000)
-    if [ ! -z "$FRONTEND_PID" ]; then
-        echo "发现前端进程 (PID: $FRONTEND_PID)，正在停止..."
-        kill $FRONTEND_PID
-        echo -e "${GREEN}✅ 前端服务已停止${NC}"
-    fi
+    echo -e "${YELLOW}⚠️  未找到 frontend.pid 文件${NC}"
+    # 直接通过端口查找
+    FRONTEND_PID=$(lsof -ti :3000 2>/dev/null | head -1)
+    stop_frontend $FRONTEND_PID
 fi
 
 echo ""
