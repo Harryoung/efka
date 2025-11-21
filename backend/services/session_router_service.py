@@ -99,7 +99,7 @@ class SessionRouterService:
                 # 已废弃的工具（保留代码但不注册）：
                 #   - query_user_sessions: 脚手架层已在route_to_session中查询
                 #   - get_session_history: Agent只需要summary，不需要完整历史
-                custom_tools={},  # 不注册工具
+                # custom_tools 不是 ClaudeAgentOptions 的有效参数，已移除
                 cwd=str(kb_path.parent),  # 项目根目录
                 permission_mode="acceptEdits",
                 env=env_vars,

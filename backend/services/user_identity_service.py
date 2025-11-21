@@ -82,9 +82,9 @@ class UserIdentityService:
             self._expert_name_cache = {}
 
             for _, row in df.iterrows():
-                userid = str(row['userid'])
+                userid = str(row.get('负责人UserID', row.get('userid', '')))  # 支持新旧列名
                 domain = str(row.get('工作领域', row.get('domain', '')))  # 支持中英文列名
-                name = str(row.get('姓名', row.get('name', '')))  # 支持中英文列名
+                name = str(row.get('负责人姓名', row.get('姓名', row.get('name', ''))))  # 支持新旧列名
 
                 if userid not in self._expert_cache:
                     self._expert_cache[userid] = []
