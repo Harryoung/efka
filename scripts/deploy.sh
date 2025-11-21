@@ -273,6 +273,20 @@ if [ -f "backend/requirements.txt" ]; then
     fi
     print_success "markitdown-mcp 已安装"
 
+    # 安装 wework-mcp（本地MCP服务器）
+    print_step "安装 wework-mcp MCP 服务器..."
+    if [ -d "$PROJECT_ROOT/wework-mcp" ]; then
+        pip install "$PROJECT_ROOT/wework-mcp"
+        if ! command -v wework-mcp &> /dev/null; then
+            print_error "wework-mcp 安装失败或不在PATH中"
+            exit 1
+        fi
+        print_success "wework-mcp 已安装"
+    else
+        print_warning "wework-mcp 目录不存在，跳过安装"
+        print_warning "注意：企微消息推送功能将不可用"
+    fi
+
 else
     print_error "backend/requirements.txt 不存在"
     exit 1
