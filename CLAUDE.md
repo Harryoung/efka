@@ -12,8 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This project follows an **Agent Autonomous Decision-Making** architecture:
 
 - **❌ AVOID**: Creating specialized tools for every business logic scenario
-- **✅ CORRECT**: Provide minimal base tools (read, write, grep, glob, bash, markitdown-mcp) and let the Agent combine them intelligently
+- **✅ CORRECT**: Provide minimal base tools (read, write, grep, glob, bash) and let the Agent combine them intelligently
 - **Core Principle**: Business logic resides in Agent prompts, not in code. The Agent makes autonomous decisions based on context.
+- **Document Conversion**: Use Bash tool to invoke `smart_convert.py` script, not external MCP servers
 
 ### Dual-Agent Architecture (v2.0)
 ```
@@ -40,7 +41,7 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 **Key Benefits of Dual-Agent Architecture**:
 - ✅ Channel-specific optimization (WeChat Work vs Web UI)
 - ✅ Independent scaling (employee queries vs admin tasks)
-- ✅ Tool isolation (Employee: wework only, Admin: wework + markitdown)
+- ✅ Tool isolation (Employee: wework only, Admin: wework + smart_convert via Bash)
 - ✅ Clear separation of concerns
 
 ## Development Commands
@@ -98,10 +99,14 @@ npm run lint          # Run ESLint
 ```bash
 pip3 install -r backend/requirements.txt
 
-# Important: markitdown-mcp is required for document conversion
-# It should be installed automatically via requirements.txt
-# Verify installation:
-which markitdown-mcp
+# Important dependencies for document conversion (smart_convert.py):
+# - PyMuPDF, pymupdf4llm (PDF processing)
+# - pypandoc (DOCX processing, requires pandoc installed)
+# - requests (PaddleOCR API for scanned PDFs)
+# All should be installed automatically via requirements.txt
+
+# Verify smart_convert.py is accessible:
+python backend/utils/smart_convert.py --help
 ```
 
 **Frontend:**
@@ -149,45 +154,57 @@ cp .env.example .env
 4. **SSE Streaming**: Knowledge QA responses stream via Server-Sent Events for real-time UX
 5. **MCP Integration**: MCP (Model Context Protocol) servers are configured programmatically via `ClaudeAgentOptions.mcp_servers`
 
-### MCP (Model Context Protocol) Configuration
+### Document Conversion: smart_convert.py
 
-**What is MCP?**
-MCP is a protocol that allows Claude to interact with external tools and services. In this project, we use the `markitdown-mcp` server to convert various file formats (PDF, DOCX, PPTX, XLSX, etc.) to Markdown.
+**What is smart_convert?**
+A standalone Python utility (`backend/utils/smart_convert.py`) that intelligently converts documents to Markdown with automatic format detection and optimized processing pipelines.
 
-**MCP Server Configuration** (`backend/services/kb_service.py:160-167`):
-```python
-mcp_servers = {
-    "markitdown": {
-        "type": "stdio",              # Communication method
-        "command": "markitdown-mcp",  # MCP server command
-        "args": []                    # Optional arguments
-    }
-}
+**Conversion Approach** (replaced markitdown-mcp):
+- ❌ **Removed**: External MCP server dependency (`markitdown-mcp`)
+- ✅ **Current**: Direct Python script invocation via Bash tool
+- ✅ **Benefits**: Faster, more control, no MCP overhead, better error handling
 
-options = ClaudeAgentOptions(
-    mcp_servers=mcp_servers,
-    allowed_tools=[
-        "Read", "Write", "Grep", "Glob", "Bash",
-        "mcp__markitdown__convert_to_markdown"  # MCP tool naming: mcp__{server}__{tool}
-    ],
-    ...
-)
+**Conversion Command**:
+```bash
+python backend/utils/smart_convert.py <input_file> --json-output
 ```
 
-**Key Points:**
-- ✅ **MCP servers MUST be configured in `ClaudeAgentOptions.mcp_servers`**
-- ✅ MCP tools are referenced as `mcp__{server_name}__{tool_name}` in `allowed_tools`
-- ✅ The `markitdown-mcp` command must be available in PATH (installed via `pip install markitdown-mcp`)
-- ❌ Don't just add MCP tools to `allowed_tools` without configuring the server
-- ❌ Don't use wildcards (`*`) in MCP tool names in `allowed_tools`
+**Supported Formats & Processing Pipelines**:
+1. **DOCX/DOC**: Pandoc (format preservation, image extraction)
+2. **PDF (Electronic)**: PyMuPDF4LLM (fast, local processing)
+3. **PDF (Scanned)**: PaddleOCR-VL API (automatic detection, OCR processing)
 
-**Supported File Formats** (via markitdown):
-PDF, DOCX, PPTX, XLSX, XLS, CSV, HTML, XML, JSON, images (with OCR), audio transcripts, and 29+ more formats.
+**JSON Output Format**:
+```json
+{
+  "success": true,
+  "markdown_file": "/absolute/path/to/output.md",
+  "images_dir": "filename_images",
+  "image_count": 5,
+  "input_file": "/absolute/path/to/input.pdf"
+}
+```
+
+**Key Features:**
+- ✅ **Automatic PDF type detection** (electronic vs. scanned)
+- ✅ **Image extraction** to `<filename>_images/` directory
+- ✅ **JSON output** for programmatic parsing
+- ✅ **Error handling** with detailed error messages
+- ✅ **Force OCR mode** via `--force-ocr` flag
+
+**Dependencies** (in `requirements.txt`):
+- `PyMuPDF` (PDF rendering)
+- `pymupdf4llm` (PDF to Markdown)
+- `pypandoc` (DOCX to Markdown)
+- `requests` (PaddleOCR API calls)
+
+**Environment Variables**:
+- `PADDLE_OCR_TOKEN`: PaddleOCR API token (for scanned PDFs)
 
 ### Custom Tool: image_read (SDK MCP Tool)
 
 **What is image_read?**
-A custom vision tool that allows agents to read and analyze image content using multimodal AI models. Unlike markitdown's generic image OCR, this tool provides targeted analysis based on agent-specified questions.
+A custom vision tool that allows agents to read and analyze image content using multimodal AI models. This tool provides targeted analysis based on agent-specified questions, enabling context-aware image understanding.
 
 **Implementation Approach:**
 - ✅ **SDK MCP Tool**: Created using `@tool` decorator and `create_sdk_mcp_server()`
@@ -280,8 +297,9 @@ unified_agent = AgentDefinition(
     - 5-stage processing for document ingestion
     - Agent autonomy and decision-making freedom
     - Semantic understanding over pattern matching
+    - Document conversion via smart_convert.py (Bash tool)
     """,
-    tools=["Read", "Write", "Grep", "Glob", "Bash", "mcp__markitdown__*"],
+    tools=["Read", "Write", "Grep", "Glob", "Bash"],
     model="sonnet"
 )
 ```
@@ -380,10 +398,11 @@ Located at `./knowledge_base/`:
 6. Sends via wework-mcp (supports up to 1000 users per call)
 
 **Table Processing Approach**:
-- ❌ Does NOT use markitdown for XLSX processing
+- ❌ Does NOT use external conversion tools for XLSX processing
 - ✅ Uses Bash tool to execute temporary Python scripts
 - ✅ Leverages pandas for SQL-like queries (filter, join, aggregate)
 - ✅ Supports complex filtering logic based on natural language conditions
+- ✅ excel-parser Skill available for analyzing complex Excel structures
 
 **Architecture Alignment**:
 - ✅ Agent-First: Business logic in prompt, not in code
@@ -491,7 +510,7 @@ The system has been split into two specialized agents:
 **1. Employee Agent (`backend/agents/kb_qa_agent.py`)**
 - **Responsibilities**: Knowledge Q&A, Satisfaction feedback, Expert routing
 - **Interface**: WeChat Work (企业微信) via Flask service on configurable port (default 8081)
-- **MCP Tools**: wework only (no markitdown for lightweight operation)
+- **MCP Tools**: wework only (lightweight operation, no document conversion needed)
 - **Characteristics**: Lightweight, high-frequency requests, async multi-turn conversations
 - **Key Features**:
   - 6-stage retrieval workflow (FAQ → README → keyword search → adaptive retrieval → context expansion → answer generation)
@@ -501,7 +520,7 @@ The system has been split into two specialized agents:
 **2. Admin Agent (`backend/agents/kb_admin_agent.py`)**
 - **Responsibilities**: Document ingestion, KB management, Batch notifications
 - **Interface**: Web Admin UI (React SPA) via FastAPI service on port 8000
-- **MCP Tools**: markitdown + wework (full feature set)
+- **Tools**: Bash (smart_convert.py for document conversion) + wework (full feature set)
 - **Characteristics**: Feature-complete, low-frequency admin tasks
 - **Key Features**:
   - 5-stage document ingestion

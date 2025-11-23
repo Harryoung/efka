@@ -27,8 +27,13 @@ redis==7.0.1
 claude-agent-sdk==0.1.6
 
 # MCP Servers
-markitdown-mcp==0.0.1a4
 mcp==1.8.1
+
+# 文档转换 (smart_convert.py)
+PyMuPDF>=1.24.2
+pymupdf4llm>=0.0.5
+pypandoc>=1.13
+requests>=2.31.0
 
 # 日志和监控
 python-json-logger==2.0.7

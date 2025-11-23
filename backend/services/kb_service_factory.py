@@ -37,7 +37,7 @@ class KBEmployeeService:
     - 异步多轮对话管理
 
     特点:
-    - 轻量级(无markitdown MCP)
+    - 轻量级(无文档转换功能)
     - 企业微信MCP集成
     """
 
@@ -263,7 +263,7 @@ class KBAdminService:
     - 批量员工通知
 
     特点:
-    - 完整功能(markitdown + wework MCP)
+    - 完整功能(smart_convert.py文档转换 + wework MCP)
     - SSE流式响应支持
     """
 
@@ -309,19 +309,10 @@ class KBAdminService:
                 faq_max_entries=self.settings.FAQ_MAX_ENTRIES
             )
 
-            # 配置MCP servers (markitdown + wework)
+            # 配置MCP servers (wework only for admin, document conversion via smart_convert.py)
             # 查找 MCP server 命令的绝对路径（支持虚拟环境）
             import sys
             import shutil
-
-            markitdown_mcp_path = shutil.which("markitdown-mcp")
-            if not markitdown_mcp_path:
-                venv_path = Path(sys.executable).parent / "markitdown-mcp"
-                if venv_path.exists():
-                    markitdown_mcp_path = str(venv_path)
-                else:
-                    logger.warning("markitdown-mcp not found in PATH or venv, using 'markitdown-mcp' (may fail)")
-                    markitdown_mcp_path = "markitdown-mcp"
 
             wework_mcp_path = shutil.which("wework-mcp")
             if not wework_mcp_path:
@@ -332,7 +323,6 @@ class KBAdminService:
                     logger.warning("wework-mcp not found in PATH or venv, using 'wework-mcp' (may fail)")
                     wework_mcp_path = "wework-mcp"
 
-            logger.info(f"Using markitdown-mcp at: {markitdown_mcp_path}")
             logger.info(f"Using wework-mcp at: {wework_mcp_path}")
 
             # 创建 SDK MCP server for image_read tool
@@ -343,11 +333,6 @@ class KBAdminService:
             )
 
             mcp_servers = {
-                "markitdown": {
-                    "type": "stdio",
-                    "command": markitdown_mcp_path,
-                    "args": []
-                },
                 "wework": {
                     "type": "stdio",
                     "command": wework_mcp_path,
@@ -375,12 +360,10 @@ class KBAdminService:
                     "Write",
                     "Grep",
                     "Glob",
-                    "Bash",
+                    "Bash",  # Document conversion via smart_convert.py
                     "Skill",  # Enable Claude Code Skills
                     # Image Vision MCP tool
                     "mcp__image_vision__image_read",
-                    # Markitdown MCP
-                    "mcp__markitdown__convert_to_markdown",
                     # WeWork MCP tools
                     "mcp__wework__wework_send_text_message",
                     "mcp__wework__wework_send_markdown_message",

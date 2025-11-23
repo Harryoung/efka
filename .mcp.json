@@ -1,10 +1,16 @@
 {
   "mcpServers": {
-    "markitdown": {
-      "command": "markitdown-mcp",
+    "wework": {
+      "command": "wework-mcp",
       "args": [],
-      "type": "stdio"
+      "type": "stdio",
+      "env": {
+        "WEWORK_CORP_ID": "${WEWORK_CORP_ID}",
+        "WEWORK_CORP_SECRET": "${WEWORK_CORP_SECRET}",
+        "WEWORK_AGENT_ID": "${WEWORK_AGENT_ID}"
+      }
     }
-  }
+  },
+  "_comment": "image_vision MCP server is created programmatically via create_sdk_mcp_server() in kb_service_factory.py"
 }
 

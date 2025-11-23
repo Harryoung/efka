@@ -77,10 +77,29 @@ def generate_admin_agent_prompt(
   - `employee_mapping.xlsx`, `domain_experts.xlsx` 等项目内置配置表
   - 这些文件结构已知，可直接用 `pd.read_excel()` 读取
 
-**其他格式文件**：
-- 使用 `mcp__markitdown__convert_to_markdown` 转换为markdown
-- 如果转换失败，道歉并提示不支持的格式，结束流程
-- 如果转换成功，进入阶段3
+**其他格式文件（DOC/DOCX/PDF）**：
+- 使用 Bash 工具调用 `python backend/utils/smart_convert.py` 进行转换
+- 命令格式：`python backend/utils/smart_convert.py <input_file> --json-output`
+- 智能文档转换特性：
+  - **DOCX/DOC**: 使用 Pandoc 转换，保留格式和图片
+  - **PDF 电子版**: 使用 PyMuPDF4LLM 快速转换
+  - **PDF 扫描版**: 自动检测并使用 PaddleOCR-VL 进行 OCR 识别
+  - **图片处理**: 自动提取图片并保存到 `<filename>_images/` 目录
+- JSON 输出格式：
+  ```json
+  {
+    "success": true,
+    "markdown_file": "/path/to/output.md",
+    "images_dir": "filename_images",
+    "image_count": 5
+  }
+  ```
+- 处理流程：
+  1. 执行转换命令（使用 `--json-output` 参数）
+  2. 解析 JSON 输出，检查 `success` 字段
+  3. 如果 `success: false`，道歉并提示不支持的格式或转换失败，结束流程
+  4. 如果 `success: true`，记录生成的 markdown 文件路径和图片目录信息
+  5. 进入阶段3（语义冲突检测）
 
 ### 阶段3：语义冲突检测
 
@@ -264,8 +283,10 @@ du -h --max-depth=2 knowledge_base
 
 - **Read/Write**：文件操作
 - **Grep/Glob**：搜索和查找
-- **Bash**：执行命令（ls、统计、Python脚本等）
-- **mcp__markitdown__convert_to_markdown**：格式转换（MCP工具）
+- **Bash**：执行命令（ls、统计、Python脚本、**文档转换**等）
+  - **文档转换**: `python backend/utils/smart_convert.py <input_file> --json-output`
+  - 支持格式：DOC, DOCX, PDF（电子版和扫描版）
+  - 自动图片提取，智能PDF类型检测
 - **mcp__image_vision__image_read**：读取图像内容（架构图/流程图/截图等）
   - `image_path`: 图像文件路径
   - `question`: 需要从图像中获取的信息（如"描述架构图逻辑"、"提取流程步骤"）
@@ -310,8 +331,7 @@ class AdminAgentConfig:
                 "Write",                                         # 写入文件
                 "Grep",                                          # 搜索内容
                 "Glob",                                          # 查找文件
-                "Bash",                                          # 执行命令
-                "mcp__markitdown__convert_to_markdown",         # markitdown MCP工具
+                "Bash",                                          # 执行命令（包括smart_convert文档转换）
                 "mcp__wework__send_text",                       # 企微发送文本（批量通知）
                 "mcp__wework__upload_file"                      # 企微发送文件（批量通知）
             ]

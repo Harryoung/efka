@@ -29,6 +29,10 @@
 - Docker（用于运行 Redis，或可选容器化部署）
 - Redis 7+ 实例（推荐通过 Docker 启动）
 - Claude API Key
+- Pandoc（文档格式转换，处理 DOCX/DOC 文件）
+  - Mac: `brew install pandoc`
+  - Ubuntu: `apt-get install pandoc`
+  - Windows: 从 [官网](https://pandoc.org/installing.html) 下载安装
 
 ## 🚀 快速开始
 
@@ -138,6 +142,7 @@ intelligent-kba/
 | FAQ_MAX_ENTRIES | FAQ最大条目数 | 50 |
 | SESSION_TIMEOUT | 会话超时时间(秒) | 1800 |
 | MAX_UPLOAD_SIZE | 最大上传文件大小(字节) | 10485760 |
+| PADDLE_OCR_TOKEN | PaddleOCR API Token（处理扫描版PDF） | 可选 |
 | REDIS_URL | Redis 连接 URL | redis://127.0.0.1:6379/0 |
 | REDIS_USERNAME | Redis ACL 用户名 | (可选) |
 | REDIS_PASSWORD | Redis 密码 | 必填（启用认证时） |
@@ -151,6 +156,10 @@ intelligent-kba/
 
 - 通过Web界面上传文档（支持PDF、Word、TXT、Markdown等格式）
 - 系统自动转换为Markdown格式
+  - **DOCX/DOC**: 保留格式和图片
+  - **PDF（电子版）**: 快速转换，保持布局
+  - **PDF（扫描版）**: 自动识别并使用OCR处理
+  - **图片提取**: 自动保存到独立目录
 - 智能检测语义冲突
 - 自动归置到合适的目录
 
