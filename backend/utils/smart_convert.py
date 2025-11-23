@@ -13,8 +13,8 @@ import pymupdf4llm
 import pathlib
 
 # ================= 配置区域 =================
-# PaddleOCR API Token (默认使用你提供的)
-DEFAULT_PADDLE_TOKEN = "9bd0989698f6e1c63a4c79ec0dae66c0356cd782"
+# PaddleOCR API Token (从环境变量读取)
+DEFAULT_PADDLE_TOKEN = os.getenv("PADDLE_OCR_TOKEN", "")
 PADDLE_API_URL = "https://1fx7w5m1a19fg4aa.aistudio-app.com/layout-parsing"
 
 # LibreOffice 路径 (Mac 通常需要指定完整路径，Linux 通常在 PATH 中)
