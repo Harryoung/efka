@@ -184,6 +184,78 @@ options = ClaudeAgentOptions(
 **Supported File Formats** (via markitdown):
 PDF, DOCX, PPTX, XLSX, XLS, CSV, HTML, XML, JSON, images (with OCR), audio transcripts, and 29+ more formats.
 
+### Custom Tool: image_read (SDK MCP Tool)
+
+**What is image_read?**
+A custom vision tool that allows agents to read and analyze image content using multimodal AI models. Unlike markitdown's generic image OCR, this tool provides targeted analysis based on agent-specified questions.
+
+**Implementation Approach:**
+- ✅ **SDK MCP Tool**: Created using `@tool` decorator and `create_sdk_mcp_server()`
+- ✅ **In-process execution**: Runs within the Python application (no external MCP server needed)
+- ✅ **Multi-provider support**: Doubao (Volcano Engine), OpenAI GPT-4V, Anthropic Claude 3
+
+**Configuration** (`backend/services/kb_service_factory.py`):
+```python
+from backend.tools.image_read import image_read_handler
+from claude_agent_sdk import create_sdk_mcp_server
+
+# Create SDK MCP server
+image_vision_server = create_sdk_mcp_server(
+    name="image_vision",
+    version="1.0.0",
+    tools=[image_read_handler]
+)
+
+# Add to ClaudeAgentOptions
+options = ClaudeAgentOptions(
+    mcp_servers={
+        "image_vision": image_vision_server,
+        # ... other MCP servers
+    },
+    allowed_tools=[
+        "mcp__image_vision__image_read",
+        # ... other tools
+    ]
+)
+```
+
+**Tool Parameters:**
+- `image_path`: Path to image file (absolute or relative to KB_ROOT_PATH)
+- `question`: Specific question about the image (e.g., "描述图中的架构图逻辑", "提取图中的操作步骤")
+- `context`: Optional context to help the model understand the question better
+
+**Supported Providers** (configured via environment variables):
+1. **Doubao (火山引擎)** - Default
+   - `VISION_MODEL_PROVIDER=doubao`
+   - `VISION_MODEL_API_KEY=<your_api_key>`
+   - `VISION_MODEL_BASE_URL=https://ark.cn-beijing.volces.com/api/v3`
+   - `VISION_MODEL_NAME=ep-20250122183949-wz66v` (Doubao Seed 1.6 Vision)
+
+2. **OpenAI GPT-4V**
+   - `VISION_MODEL_PROVIDER=openai`
+   - `VISION_MODEL_API_KEY=<your_api_key>`
+   - `VISION_MODEL_BASE_URL=https://api.openai.com/v1`
+   - `VISION_MODEL_NAME=gpt-4o`
+
+3. **Anthropic Claude 3**
+   - `VISION_MODEL_PROVIDER=anthropic`
+   - `VISION_MODEL_API_KEY=<your_api_key>`
+   - `VISION_MODEL_BASE_URL=https://api.anthropic.com`
+   - `VISION_MODEL_NAME=claude-3-5-sonnet-20241022`
+
+**Key Benefits:**
+- ✅ **Targeted analysis**: Agent can specify what to look for in the image
+- ✅ **Context-aware**: Supports additional context for better understanding
+- ✅ **Architecture alignment**: Follows Agent-First philosophy (provides capability, agent decides how to use it)
+- ✅ **Multi-provider**: Easy to switch between vision model providers
+
+**Usage Example:**
+Agent autonomously decides when and how to use the tool:
+```
+User: "知识库中有个架构图，请分析一下"
+Agent: [Uses Glob to find image] → [Uses image_read with question="描述图中的架构图逻辑和组件关系"] → [Provides analysis to user]
+```
+
 ### Frontend Structure
 
 **React + Vite** setup with:

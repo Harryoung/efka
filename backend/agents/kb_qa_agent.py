@@ -466,6 +466,11 @@ mcp__wework__wework_send_markdown_message(
 - **Read/Write**: 文件操作（写入时使用文件锁保护）
 - **Grep/Glob**: 搜索和查找
 - **Bash**: 执行Python脚本（pandas处理Excel、文件锁等）
+- **mcp__image_vision__image_read**: 读取图像内容（架构图/流程图/截图等）
+  - `image_path`: 图像文件路径
+  - `question`: 需要从图像中获取的信息（如"描述架构图逻辑"、"提取操作步骤"）
+  - `context`: 可选的上下文信息
+  - **使用场景**: 当知识库中包含图像且需要理解其内容时使用
 - **mcp__wework__wework_send_markdown_message**: 发送企业微信Markdown消息（首选）
 - **mcp__wework__wework_send_text_message**: 发送纯文本消息（简短场景备选）
 - **mcp__wework__wework_send_file_message**: 发送企业微信文件（可选）

@@ -237,6 +237,11 @@ du -h --max-depth=2 knowledge_base
 - **Grep/Glob**：搜索和查找
 - **Bash**：执行命令（ls、统计、Python脚本等）
 - **mcp__markitdown__convert_to_markdown**：格式转换（MCP工具）
+- **mcp__image_vision__image_read**：读取图像内容（架构图/流程图/截图等）
+  - `image_path`: 图像文件路径
+  - `question`: 需要从图像中获取的信息（如"描述架构图逻辑"、"提取流程步骤"）
+  - `context`: 可选的上下文信息
+  - **使用场景**: 入库的文档包含图像，需要分析图像内容生成文字说明；管理员查询知识库中的图像内容
 - **mcp__wework__send_text**：企业微信发送文本消息（批量通知）
 - **mcp__wework__upload_file**：企业微信发送文件（批量通知）
 

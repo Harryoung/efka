@@ -14,12 +14,14 @@ from pathlib import Path
 from claude_agent_sdk import (
     ClaudeSDKClient,
     ClaudeAgentOptions,
-    Message
+    Message,
+    create_sdk_mcp_server
 )
 
 from backend.agents.kb_qa_agent import get_employee_agent_definition
 from backend.agents.kb_admin_agent import get_admin_agent_definition
 from backend.config.settings import get_settings
+from backend.tools.image_read import image_read_handler
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,13 @@ class KBEmployeeService:
 
             logger.info(f"Using wework-mcp at: {wework_mcp_path}")
 
+            # 创建 SDK MCP server for image_read tool
+            image_vision_server = create_sdk_mcp_server(
+                name="image_vision",
+                version="1.0.0",
+                tools=[image_read_handler]
+            )
+
             mcp_servers = {
                 "wework": {
                     "type": "stdio",
@@ -108,7 +117,8 @@ class KBEmployeeService:
                         "WEWORK_CORP_SECRET": os.getenv("WEWORK_CORP_SECRET", ""),
                         "WEWORK_AGENT_ID": os.getenv("WEWORK_AGENT_ID", ""),
                     }
-                }
+                },
+                "image_vision": image_vision_server
             }
 
             # 创建Claude Agent Options
@@ -126,6 +136,8 @@ class KBEmployeeService:
                     "Glob",
                     "Write",
                     "Bash",
+                    # Image Vision MCP tool
+                    "mcp__image_vision__image_read",
                     # WeWork MCP tools
                     "mcp__wework__wework_send_text_message",
                     "mcp__wework__wework_send_markdown_message",
@@ -322,6 +334,13 @@ class KBAdminService:
             logger.info(f"Using markitdown-mcp at: {markitdown_mcp_path}")
             logger.info(f"Using wework-mcp at: {wework_mcp_path}")
 
+            # 创建 SDK MCP server for image_read tool
+            image_vision_server = create_sdk_mcp_server(
+                name="image_vision",
+                version="1.0.0",
+                tools=[image_read_handler]
+            )
+
             mcp_servers = {
                 "markitdown": {
                     "type": "stdio",
@@ -337,7 +356,8 @@ class KBAdminService:
                         "WEWORK_CORP_SECRET": os.getenv("WEWORK_CORP_SECRET", ""),
                         "WEWORK_AGENT_ID": os.getenv("WEWORK_AGENT_ID", ""),
                     }
-                }
+                },
+                "image_vision": image_vision_server
             }
 
             # 创建Claude Agent Options
@@ -355,6 +375,8 @@ class KBAdminService:
                     "Grep",
                     "Glob",
                     "Bash",
+                    # Image Vision MCP tool
+                    "mcp__image_vision__image_read",
                     # Markitdown MCP
                     "mcp__markitdown__convert_to_markdown",
                     # WeWork MCP tools
