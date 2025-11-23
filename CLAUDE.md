@@ -235,6 +235,35 @@ The system uses a minimal permission callback (`kb_service.py`) that:
 - Restricts file writes to knowledge base directory or /tmp
 - Gives Agents maximum freedom within safety boundaries
 
+### Skills Integration
+
+**What are Skills?**
+Skills are specialized capabilities that extend Claude's abilities with domain knowledge, workflows, or tool integrations. They are enabled by adding `"Skill"` to `allowed_tools` in `ClaudeAgentOptions`.
+
+**Official Documentation:**
+```python
+# Enable Skills in your agent
+options = ClaudeAgentOptions(
+    allowed_tools=["Read", "Write", "Skill"],  # Add "Skill" to enable
+    ...
+)
+```
+
+**When to Use Skills:**
+- ✅ **Complex multi-step workflows** (e.g., code review process, security audit flow)
+- ✅ **Domain knowledge guidance** (e.g., brand design guidelines, internal communication templates)
+- ✅ **Cross-project reusable capabilities** (e.g., algorithmic art generation, MCP server builder)
+
+**When NOT to Use Skills:**
+- ❌ **Simple script invocations** - Just document in Agent prompt instead
+  - Example: Converting docs with `python backend/utils/smart_convert.py` doesn't need a Skill
+  - Reason: Skill prompt would be trivial ("call this script"), adding unnecessary abstraction
+- ❌ **Project-specific one-off tasks** - Use Agent prompt + base tools
+- ❌ **Basic tool combinations** - Let Agent autonomously combine base tools
+
+**Design Principle:**
+If the Skill prompt would be extremely simple (e.g., "call script X with args Y"), it's a signal that you should just document the approach directly in the Agent's system prompt instead of creating a Skill wrapper.
+
 ## Knowledge Base Structure
 
 Located at `./knowledge_base/`:
