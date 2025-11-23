@@ -136,6 +136,7 @@ class KBEmployeeService:
                     "Glob",
                     "Write",
                     "Bash",
+                    "Skill",  # Enable Claude Code Skills
                     # Image Vision MCP tool
                     "mcp__image_vision__image_read",
                     # WeWork MCP tools
@@ -375,6 +376,7 @@ class KBAdminService:
                     "Grep",
                     "Glob",
                     "Bash",
+                    "Skill",  # Enable Claude Code Skills
                     # Image Vision MCP tool
                     "mcp__image_vision__image_read",
                     # Markitdown MCP

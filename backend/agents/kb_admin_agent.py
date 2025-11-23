@@ -49,6 +49,35 @@ def generate_admin_agent_prompt(
 - 如果不是markdown格式，进入阶段2
 
 ### 阶段2：格式转换
+
+**Excel/CSV 文件特殊处理（重要！）**:
+- **Excel 文件保留原格式入库，不转换为 Markdown！**
+- 处理流程：
+  1. **复杂度分析**：使用 excel-parser Skill 分析文件结构
+  2. **数据解析**：根据 Skill 推荐的策略读取数据（Pandas 或 HTML 模式）
+  3. **生成元数据说明**：
+     - 提取数据结构信息（Sheet名称、列名、数据类型、行数等）
+     - 如果结构说明 ≤100字：直接补充到 README.md 相关章节
+     - 如果结构说明 >100字：在 `knowledge_base/contents_overview/` 创建概览附件（如 `data_structure_<filename>.md`），并在 README.md 中注明附件路径
+  4. **文件存储**：将 Excel 文件原样保存到目标目录（阶段4选定）
+
+- **数据结构说明模板**：
+  ```markdown
+  ### 文件名.xlsx
+  - **Sheet**: Sheet1, Sheet2
+  - **数据结构**:
+    - 列: [列名1(类型), 列名2(类型), ...]
+    - 行数: 约 X 行
+    - 特点: 标准表格 / 复杂报表（合并单元格）
+  - **读取方式**: `pd.read_excel('文件名.xlsx', sheet_name='Sheet1', header=2)`
+  - **概览附件**: `概览/data_structure_文件名.md` （如果>100字）
+  ```
+
+- **已知结构的配置表无需 Skill**：
+  - `employee_mapping.xlsx`, `domain_experts.xlsx` 等项目内置配置表
+  - 这些文件结构已知，可直接用 `pd.read_excel()` 读取
+
+**其他格式文件**：
 - 使用 `mcp__markitdown__convert_to_markdown` 转换为markdown
 - 如果转换失败，道歉并提示不支持的格式，结束流程
 - 如果转换成功，进入阶段3

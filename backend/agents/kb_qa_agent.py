@@ -107,6 +107,26 @@ Read `knowledge_base/README.md` 理解知识库结构。
 
 #### 阶段3：智能文件读取
 
+**Excel/CSV 文件特殊处理**：
+知识库中的 Excel 文件以原格式存储，需要用 Python pandas 读取数据。
+
+处理流程：
+1. **检查元数据**：从 README.md 或概览附件（`contents_overview/data_structure_*.md`）中查找数据结构说明
+2. **已知结构**：
+   - 根据元数据中的读取方式，直接写 Python 脚本读取
+   - 示例：`pd.read_excel('文件名.xlsx', sheet_name='Sheet1', header=2)`
+3. **未知结构**：
+   - 使用 excel-parser Skill 分析文件结构
+   - 根据 Skill 推荐的策略（Pandas 或 HTML 模式）读取数据
+4. **数据查询**：根据用户问题，用 pandas 过滤/聚合数据
+5. **生成答案**：基于提取的数据回答问题
+
+**已知配置表（无需 Skill）**：
+- `employee_mapping.xlsx`, `domain_experts.xlsx` 等项目内置表
+- 结构固定，直接 `pd.read_excel()` 即可
+
+**Markdown 文件**：
+
 **小文件(<{small_file_threshold_kb}KB)**：
 - 直接Read全文
 
