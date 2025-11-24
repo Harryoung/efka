@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-智能资料库管理员 (Intelligent Knowledge Base Administrator) - An AI-powered knowledge base management system built with Claude Agent SDK. The system uses a **dual-agent architecture** to provide intelligent Q&A (Employee Agent via WeChat Work) and document management/KB administration (Admin Agent via Web UI).
+智能资料库管理员 (Intelligent Knowledge Base Administrator) - An AI-powered knowledge base management system built with Claude Agent SDK. The system uses a **unified multi-channel architecture (v3.0)** to provide:
+- **Dual-Agent System**: Admin Agent (document management, batch notifications) + Employee Agent (knowledge Q&A, expert routing)
+- **Multi-Channel Support**: Web UI (Admin + Employee) + IM platforms (WeChat Work, Feishu, DingTalk, Slack)
+- **Channel Abstraction**: Unified interface for multi-platform messaging via Channel Adapter pattern
+
+**Architecture Evolution**: v1.0 (Single Agent) → v2.0 (Dual-Agent + WeWork) → v3.0 (Unified Multi-Channel)
 
 ## Key Architecture Principles
 
@@ -16,7 +21,71 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 - **Core Principle**: Business logic resides in Agent prompts, not in code. The Agent makes autonomous decisions based on context.
 - **Document Conversion**: Use Bash tool to invoke `smart_convert.py` script, not external MCP servers
 
-### Dual-Agent Architecture (v2.0)
+### v3.0 Unified Multi-Channel Architecture (Current)
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│       Intelligent KBA (v3.0 Unified Multi-Channel)                   │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Frontend Layer                                                      │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────────────┐ │
+│  │  Admin UI    │  │  Employee UI  │  │  IM Platforms            │ │
+│  │  (port 3000) │  │  (port 3001)  │  │  WeWork/Feishu/DingTalk  │ │
+│  └──────┬───────┘  └───────┬───────┘  └──────────┬───────────────┘ │
+│         │                  │                      │                 │
+│         └──────────────────┴──────────────────────┘                 │
+│                            │                                        │
+│  Backend Layer (FastAPI 8000)                                       │
+│  ┌──────────────────────────┴────────────────────────┐             │
+│  │                                                    │             │
+│  │  ┌──────────────┐         ┌──────────────────┐   │             │
+│  │  │ Admin Agent  │         │ Employee Agent   │   │             │
+│  │  │ - Doc Mgmt   │         │ - Knowledge Q&A  │   │             │
+│  │  │ - Batch      │         │ - Expert Routing │   │             │
+│  │  │   Notify     │         │                  │   │             │
+│  │  └──────────────┘         └──────────────────┘   │             │
+│  │                                                    │             │
+│  │  KBServiceFactory (Dual SDK Clients)              │             │
+│  └────────────────────────────────────────────────────┘             │
+│                            │                                        │
+│  Channel Layer                                                      │
+│  ┌──────────────────────────┴────────────────────────┐             │
+│  │         ChannelRouter (Message Routing)           │             │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────┐  │             │
+│  │  │ WeWork      │  │ Feishu       │  │ Web     │  │             │
+│  │  │ Adapter     │  │ Adapter      │  │ Adapter │  │             │
+│  │  │ (port 8081) │  │ (port 8082)  │  │         │  │             │
+│  │  └─────────────┘  └──────────────┘  └─────────┘  │             │
+│  │           (BaseChannelAdapter)                    │             │
+│  └───────────────────────────────────────────────────┘             │
+│                            │                                        │
+│  Infrastructure Layer                                               │
+│  ┌──────────────────────────┴────────────────────────┐             │
+│  │  Redis  │  ConversationStateManager               │             │
+│  │         │  DomainExpertRouter                     │             │
+│  │         │  SharedKBAccess (File Locking)          │             │
+│  └─────────────────────────────────────────────────────┘             │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**v3.0 Key Features**:
+- ✅ **Channel Abstraction Layer**: `BaseChannelAdapter` for multi-IM platform support
+- ✅ **Three Interfaces**: Admin UI + Employee Web UI + IM Platforms
+- ✅ **Hybrid Configuration**: Auto-detect configured channels (auto/enabled/disabled modes)
+- ✅ **Dual-Agent System**: Preserved from v2.0, enhanced with multi-channel support
+- ✅ **Scalability**: Independent scaling per channel, platform-agnostic design
+- ✅ **Developer Experience**: Smart startup script (`start_v3.sh`) with automatic channel detection
+
+**v3.0 vs v2.0 Comparison**:
+| Feature | v2.0 | v3.0 |
+|---------|------|------|
+| Admin Interface | Web UI only | Web UI only |
+| Employee Interface | WeChat Work only | Web UI + Multi-IM platforms |
+| Channel Support | WeChat Work (hardcoded) | WeWork/Feishu/DingTalk/Slack (pluggable) |
+| Configuration | Manual setup | Auto-detection (hybrid mode) |
+| Architecture | Dual-Agent | Dual-Agent + Channel Adapter |
+
+### v2.0 Dual-Agent Architecture (Legacy)
 ```
 ┌─────────────────────────────────────────────────────────┐
 │         Intelligent KBA (Dual-Agent Architecture)       │
@@ -38,7 +107,7 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Key Benefits of Dual-Agent Architecture**:
+**Key Benefits of Dual-Agent Architecture** (v2.0):
 - ✅ Channel-specific optimization (WeChat Work vs Web UI)
 - ✅ Independent scaling (employee queries vs admin tasks)
 - ✅ Tool isolation (Employee: wework only, Admin: wework + smart_convert via Bash)
@@ -46,28 +115,55 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 
 ## Development Commands
 
-### Running the Application
+### Running the Application (v3.0)
 
 **Quick Start (Recommended):**
 ```bash
-# Start both backend and frontend
-./scripts/start.sh
+# v3.0: Smart startup script with automatic channel detection
+./scripts/start_v3.sh
 
 # Stop all services
 ./scripts/stop.sh
 ```
 
-**Manual Start:**
+**What starts automatically?**:
+- ✅ Backend API (port 8000) - Always starts
+- ✅ Admin UI (port 3000) - Always starts
+- ✅ Employee UI (port 3001) - If `EMPLOYEE_UI_ENABLED=true` in .env
+- ✅ IM Channel Services - Auto-detected based on configuration:
+  - WeWork callback (port 8081) - If WEWORK env vars configured
+  - Feishu callback (port 8082) - If FEISHU env vars configured
+  - DingTalk callback (port 8083) - If DINGTALK env vars configured
+  - Slack callback (port 8084) - If SLACK env vars configured
+
+**Manual Start (v3.0):**
 ```bash
-# Terminal 1 - Backend (from project root)
+# Terminal 1 - Backend (FastAPI with both Admin and Employee agents)
 python3 -m backend.main
 # Runs on http://localhost:8000
 # Health check: http://localhost:8000/health
 
-# Terminal 2 - Frontend
-cd frontend
-npm run dev
+# Terminal 2 - Admin UI
+cd frontend && npm run dev
 # Runs on http://localhost:3000
+
+# Terminal 3 - Employee UI (optional)
+cd frontend-employee && npm run dev
+# Runs on http://localhost:3001
+
+# Terminal 4 - IM Channel Services (optional, if configured)
+# WeWork callback service (if WEWORK env vars configured)
+python -m backend.channels.wework.server
+# Runs on port 8081 (or WEWORK_PORT from .env)
+```
+
+**Legacy Start (v2.0):**
+```bash
+# For backward compatibility only
+./scripts/start.sh
+
+# Starts: Backend (8000) + Admin UI (3000)
+# Does NOT start: Employee UI, Channel services
 ```
 
 ### Testing
@@ -704,6 +800,206 @@ asyncio.run(test())
 
 ---
 
-**Architecture Version**: v2.0 (Dual-Agent Architecture)
-**Last Updated**: 2025-01-09
-**Migration Status**: Phase 1-4 Complete, Ready for Production Testing
+## v3.0 Unified Multi-Channel Architecture (Latest)
+
+**Status**: Phase 1-3 Complete (71%), Phase 4-6 Pending
+**Last Updated**: 2025-01-25
+
+### New Architecture Components
+
+#### 1. Channel Abstraction Layer (`backend/channels/`)
+
+**Core Files**:
+- `backend/channels/base.py` (443 lines) - Abstract base classes and data models
+- `backend/channels/wework/` - WeChat Work adapter implementation (1051 lines)
+- `backend/services/channel_router.py` (332 lines) - Unified message routing
+
+**Key Classes**:
+```python
+# Base adapter for all IM platforms
+class BaseChannelAdapter:
+    def send_message(msg: ChannelMessage) -> ChannelResponse
+    def parse_message(raw_data) -> ChannelMessage
+    def verify_signature(signature, data) -> bool
+    def is_configured() -> bool
+
+# Unified data models
+@dataclass
+class ChannelMessage:
+    channel_type: ChannelType  # WEWORK/FEISHU/DINGTALK/SLACK/WEB
+    message_type: MessageType  # TEXT/MARKDOWN/IMAGE/FILE/EVENT
+    user_id: str
+    content: str
+    ...
+
+# Channel router
+class ChannelRouter:
+    async def route_message(channel_msg) -> ChannelResponse
+    async def send_batch_response(channel, users, content)
+```
+
+**Design Principles**:
+- ✅ Platform-agnostic: Same interface for all IM platforms
+- ✅ Lazy loading: Adapters initialize only when configured
+- ✅ Extensible: Add new channels by implementing BaseChannelAdapter
+- ✅ Type-safe: Pydantic models for all data structures
+
+#### 2. Hybrid Configuration System (`backend/config/channel_config.py`)
+
+**Configuration Modes**:
+```bash
+# .env file
+ENABLE_WEWORK=auto      # Auto-detect (default) - enables if env vars configured
+ENABLE_FEISHU=enabled   # Force enable - fails if not configured
+ENABLE_DINGTALK=disabled  # Force disable - ignores even if configured
+```
+
+**Auto-Detection Logic**:
+```python
+from backend.config.channel_config import get_channel_config
+
+config = get_channel_config()
+enabled_channels = config.get_enabled_channels()
+# Returns: ['wework'] if only WEWORK_* env vars configured
+# Returns: ['wework', 'feishu'] if both configured
+# Returns: [] if none configured
+```
+
+**Benefits**:
+- ✅ Zero configuration overhead (works out-of-the-box if env vars set)
+- ✅ Flexible deployment scenarios (single channel, multi-channel, or no channels)
+- ✅ Clear error messages when required env vars missing
+
+#### 3. Employee Web UI (`frontend-employee/`)
+
+**Features**:
+- 💬 Chat-style interface (similar to ChatGPT)
+- 🚀 SSE streaming for real-time responses
+- 📝 Markdown rendering with code highlighting
+- 🎨 Tailwind CSS for consistent design
+- 🔒 No authentication (localStorage-based user ID)
+
+**API Endpoint**:
+```python
+# backend/api/employee.py
+@router.get("/api/employee/query")
+async def employee_query(
+    question: str,
+    user_id: str,
+    session_id: Optional[str] = None
+):
+    # Uses Employee Agent (kb_qa_agent.py)
+    # Returns SSE stream
+```
+
+**Access**:
+- URL: http://localhost:3001
+- Ports: Configurable via `EMPLOYEE_UI_PORT` in .env
+
+#### 4. Smart Startup Script (`scripts/start_v3.sh`)
+
+**Automatic Channel Detection**:
+```bash
+#!/bin/bash
+# Auto-detects configured channels and starts only those services
+
+# Example output:
+# ✅ Detected channels: wework, feishu
+# 🚀 Starting Backend API (port 8000)...
+# 🚀 Starting WeWork callback (port 8081)...
+# 🚀 Starting Feishu callback (port 8082)...
+# 🚀 Starting Admin UI (port 3000)...
+# 🚀 Starting Employee UI (port 3001)...
+```
+
+**Port Management**:
+- Checks port availability before starting
+- Configurable ports for each channel
+- Health checks after startup
+
+### Migration Path: v2.0 → v3.0
+
+**Backward Compatibility**:
+- ✅ v2.0 code fully preserved (no breaking changes)
+- ✅ `scripts/start.sh` still works (legacy mode)
+- ✅ WeWork integration unchanged from user perspective
+
+**New Files (v3.0)**:
+| File | Lines | Purpose |
+|------|-------|---------|
+| `backend/channels/base.py` | 443 | Channel abstraction |
+| `backend/channels/wework/*.py` | 1051 | WeWork adapter |
+| `backend/services/channel_router.py` | 332 | Message routing |
+| `backend/config/channel_config.py` | 232 | Hybrid config |
+| `backend/api/employee.py` | 155 | Employee API |
+| `frontend-employee/` | ~2000 | Employee Web UI |
+| `scripts/start_v3.sh` | 382 | Smart startup |
+| **Total** | **~4600** | **v3.0 core** |
+
+**Modified Files**:
+- `.env.example` - Added multi-channel configuration templates
+- `backend/config/settings.py` - Added CORS for port 3001
+- `backend/main.py` - Initialize both Admin and Employee agents
+- `backend/requirements.txt` - Removed markitdown-mcp, added PyMuPDF/pypandoc
+
+**Deprecated Files**:
+- `backend/agents/unified_agent.py` - Use kb_admin_agent.py + kb_qa_agent.py instead
+
+### Future Roadmap
+
+**Phase 4: Feishu Adapter** (Optional - 2 days)
+- Create `backend/channels/feishu/` following WeWork pattern
+- Test multi-channel routing
+
+**Phase 5: Documentation** (1 day) - Current Phase
+- ✅ Update CLAUDE.md to v3.0
+- Create MIGRATION_V3.md
+- Create CHANNELS.md (channel development guide)
+
+**Phase 6: Testing & Deployment** (2 days)
+- Unit tests for channel adapters
+- Integration tests for multi-channel routing
+- Docker Compose configuration
+
+### Quick Reference (v3.0)
+
+**Check Configured Channels**:
+```bash
+python -c "
+from backend.config.channel_config import get_channel_config
+config = get_channel_config()
+print('Enabled channels:', config.get_enabled_channels())
+print('Status:', config.get_channel_status())
+"
+```
+
+**Test WeWork Adapter**:
+```bash
+python -c "
+from backend.channels.wework import WeWorkAdapter
+adapter = WeWorkAdapter()
+print('Configured:', adapter.is_configured())
+print('Required env vars:', adapter.get_required_env_vars())
+"
+```
+
+**Startup Troubleshooting**:
+```bash
+# If services don't start, check:
+1. Port availability: lsof -i :8000,:3000,:3001,:8081-8084
+2. Configuration: cat .env | grep ENABLE_
+3. Logs: tail -f logs/backend.log logs/wework.log logs/frontend.log
+```
+
+---
+
+**Architecture Version**: v3.0 (Unified Multi-Channel Architecture)
+**Last Updated**: 2025-01-25
+**Implementation Status**: Phase 1-3 Complete (71%), Phase 4-6 Pending
+**Branch**: main (merged from wework_integration)
+
+**Further Reading**:
+- Migration Guide: `docs/MIGRATION_V3.md` (to be created)
+- Channel Development: `docs/CHANNELS.md` (to be created)
+- Progress Tracking: `docs/PROGRESS_V3.md`
+- Task List: `docs/TODO_V3.md`

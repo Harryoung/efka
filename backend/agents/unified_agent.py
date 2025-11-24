@@ -1,6 +1,25 @@
 """
 Unified Agent - 统一智能体
 整合知识问答、文档管理和知识库管理功能
+
+⚠️  DEPRECATED / 已废弃
+================================================================================
+This file is DEPRECATED and maintained only for backward compatibility.
+
+自v2.0起，本项目采用双Agent架构，请使用：
+- backend/agents/kb_admin_agent.py - Admin Agent（文档管理、批量通知）
+- backend/agents/kb_qa_agent.py - Employee Agent（知识问答、专家路由）
+
+自v3.0起，本项目采用统一多渠道架构，支持：
+- Web UI（Admin + Employee）
+- IM平台（企微、飞书、钉钉、Slack）
+- 渠道抽象层（backend/channels/）
+
+Migration Guide: See docs/MIGRATION_V3.md
+Channel Development: See docs/CHANNELS.md
+
+Do NOT use this file for new features or modifications.
+================================================================================
 """
 from dataclasses import dataclass
 from claude_agent_sdk import AgentDefinition
