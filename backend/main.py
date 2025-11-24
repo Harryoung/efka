@@ -31,7 +31,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.config.settings import settings
-from backend.services.kb_service_factory import get_admin_service
+from backend.services.kb_service_factory import get_admin_service, get_employee_service
 from backend.services.session_manager import get_session_manager
 from backend.storage.redis_storage import RedisSessionStorage
 
@@ -83,6 +83,11 @@ async def lifespan(app: FastAPI):
     await admin_service.initialize()
     logger.info("Admin Service initialized (kb_admin_agent.py)")
 
+    # 初始化 Employee Service（双 Agent 架构）
+    employee_service = get_employee_service()
+    await employee_service.initialize()
+    logger.info("Employee Service initialized (kb_qa_agent.py)")
+
     # 启动 SessionManager 清理任务
     await session_manager.start_cleanup_task()
     logger.info("SessionManager cleanup task started")
@@ -117,9 +122,11 @@ app.add_middleware(
 # 注册路由
 from backend.api.query import router as query_router
 from backend.api.upload import router as upload_router
+from backend.api.employee import router as employee_router
 
 app.include_router(query_router)
 app.include_router(upload_router)
+app.include_router(employee_router)
 
 
 # 全局异常处理

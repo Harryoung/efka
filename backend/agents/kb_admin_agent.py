@@ -87,12 +87,12 @@ def generate_admin_agent_prompt(
   - **图片处理**: 自动提取图片并保存到 `<filename>_images/` 目录
 - JSON 输出格式：
   ```json
-  {
+  {{
     "success": true,
     "markdown_file": "/path/to/output.md",
     "images_dir": "filename_images",
     "image_count": 5
-  }
+  }}
   ```
 - 处理流程：
   1. 执行转换命令（使用 `--json-output` 参数）

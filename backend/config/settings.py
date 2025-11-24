@@ -52,7 +52,16 @@ class Settings(BaseSettings):
     FILE_LOCK_TIMEOUT: int = 5  # 5秒
 
     # CORS配置
-    ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost"]
+    ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001", "http://localhost"]
+
+    # Vision Model配置（用于image_read工具）
+    VISION_MODEL_PROVIDER: Optional[str] = None  # doubao, openai, anthropic
+    VISION_MODEL_API_KEY: Optional[str] = None
+    VISION_MODEL_BASE_URL: Optional[str] = None
+    VISION_MODEL_NAME: Optional[str] = None
+
+    # PaddleOCR配置（用于smart_convert.py）
+    PADDLE_OCR_TOKEN: Optional[str] = None
 
     @model_validator(mode='after')
     def validate_api_key(self):
