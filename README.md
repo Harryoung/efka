@@ -2,25 +2,60 @@
 
 *Intelligent Knowledge Base Administrator, without embedding based search. Maybe slower, but result is much more reliable!*
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Harryoung/intelligent-kba)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/Harryoung/intelligent-kba)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Architecture](https://img.shields.io/badge/architecture-v3.0_Multi--Channel-orange.svg)]()
 
-基于 Claude Agent SDK 开发的智能知识库管理系统（单一Agent架构），提供精准的资料查询和智能化的文档管理能力。
+基于 Claude Agent SDK 开发的智能知识库管理系统，采用**v3.0 统一多渠道架构**，支持Web UI和多种IM平台（企业微信、飞书、钉钉、Slack）的双Agent系统。
 
 ## 🌟 核心特性
 
-- **🤖 智能问答**: 多阶段检索策略，精准回答，可溯源无捏造
+### v3.0 新特性 (Latest)
+- **🌐 多渠道支持**: Web UI + 企业微信/飞书/钉钉/Slack，统一的Channel Adapter架构
+- **👥 双Agent系统**: Admin Agent (文档管理) + Employee Agent (知识问答)
+- **⚙️ 混合配置**: 自动检测已配置渠道 (auto/enabled/disabled模式)
+- **🎯 三端界面**: Admin Web UI (3000) + Employee Web UI (3001) + IM平台集成
+- **🚀 智能启动**: 一键启动脚本，自动检测并启动配置的渠道服务
+
+### 核心能力
+- **🤖 智能问答**: 7阶段检索策略 + 专家路由，精准回答，可溯源无捏造
 - **⚡ FAQ机制**: 常见问题快速响应，持续学习优化
 - **📁 智能入库**: 自动格式转换，语义冲突检测，智能文件归置
 - **🗂️ 结构维护**: 自动维护知识库结构，保持组织有序
-- **💬 Web界面**: 简洁直观的聊天式交互体验
+- **💬 对话式UI**: Admin UI + Employee UI，简洁直观的聊天式交互体验
+- **📱 IM集成**: 企业微信/飞书/钉钉/Slack无缝集成
 
 ## 🏗️ 技术栈
 
-- **后端**: Python 3.10+ / FastAPI / Claude Agent SDK / WebSocket / Redis
-- **前端**: React 18 / Vite / Marked (Markdown渲染)
-- **部署**: Docker（规划中的容器化脚本）
+- **后端**: Python 3.10+ / FastAPI + Flask / Claude Agent SDK / SSE / Redis
+- **前端**: React 18 / Vite / Tailwind CSS / Marked (Markdown渲染)
+- **多渠道**: Channel Adapter模式 / 企业微信/飞书/钉钉/Slack API
+- **部署**: Docker（规划中的容器化脚本）/ 智能启动脚本
 - **AI**: Claude Sonnet 4.5 (通过Agent SDK)
+
+## 🎯 架构演进
+
+| 版本 | 架构 | 特性 |
+|------|------|------|
+| v1.0 | 单Agent | Web UI + 统一Agent |
+| v2.0 | 双Agent | Web UI + 企业微信集成 |
+| **v3.0** | **统一多渠道** | **Web UI (Admin + Employee) + 多IM平台** |
+
+**v3.0 架构图**:
+```
+┌────────────────────────────────────────────────┐
+│  Frontend Layer                                │
+│  Admin UI | Employee UI | IM Platforms         │
+│  (3000)   | (3001)      | (WeWork/Feishu)     │
+├────────────────────────────────────────────────┤
+│  Backend (FastAPI 8000)                        │
+│  Admin Agent | Employee Agent                  │
+├────────────────────────────────────────────────┤
+│  Channel Layer                                 │
+│  ChannelRouter + BaseChannelAdapter            │
+│  WeWork | Feishu | DingTalk | Slack           │
+└────────────────────────────────────────────────┘
+```
 
 ## 📋 系统要求
 
@@ -36,18 +71,49 @@
 
 ## 🚀 快速开始
 
-### 方式一：使用启动脚本（推荐）
+### 方式一：v3.0 智能启动脚本（推荐）
 
 ```bash
 git clone https://github.com/Harryoung/intelligent-kba.git
 cd intelligent-kba
-cp .env.example .env              # 配置 Claude / Redis 环境变量
-./scripts/start.sh                # 启动后端 + 前端，日志输出到 logs/
+
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env，配置 Claude API Key 和其他选项
+
+# 2. 赋予启动脚本执行权限
+chmod +x scripts/start_v3.sh
+
+# 3. 一键启动（自动检测并启动配置的服务）
+./scripts/start_v3.sh
 ```
 
-浏览器访问 http://localhost:3000，如需停止可运行 `./scripts/stop.sh`。
+**启动后访问**:
+- Admin UI: http://localhost:3000 (管理员界面)
+- Employee UI: http://localhost:3001 (员工知识查询界面)
+- Backend API: http://localhost:8000/health (健康检查)
 
-### 方式二：手动本地开发环境
+**停止服务**: `./scripts/stop.sh`
+
+**自动启动的服务**:
+- ✅ Backend API (port 8000) - 总是启动
+- ✅ Admin UI (port 3000) - 总是启动
+- ✅ Employee UI (port 3001) - 如果 `EMPLOYEE_UI_ENABLED=true`
+- ✅ IM渠道服务 - 自动检测并启动已配置的渠道:
+  - WeWork callback (8081) - 如果配置了企业微信
+  - Feishu callback (8082) - 如果配置了飞书
+  - DingTalk callback (8083) - 如果配置了钉钉
+  - Slack callback (8084) - 如果配置了Slack
+
+### 方式二：使用传统启动脚本（v2.0兼容）
+
+```bash
+./scripts/start.sh  # 仅启动 Backend (8000) + Admin UI (3000)
+```
+
+浏览器访问 http://localhost:3000。
+
+### 方式三：手动本地开发环境
 
 #### 1. 克隆项目并配置环境变量
 
@@ -91,40 +157,69 @@ npm run dev
 
 前端将在 http://localhost:3000 启动。
 
-### 方式三：Docker部署
+### 方式四：Docker部署
 
-容器化部署脚本正在完善中，当前 `scripts/deploy.sh` 为占位文件。后续版本将补充 docker-compose 与一键部署能力，欢迎关注仓库更新。
+容器化部署脚本正在完善中(Phase 6)。后续版本将补充 docker-compose 与一键部署能力，欢迎关注仓库更新。
 
 ## 📖 项目结构
 
 ```
 intelligent-kba/
-├── backend/                    # 后端服务
-│   ├── agents/                 # Agent 定义
-│   ├── api/                    # FastAPI 路由
-│   ├── config/                 # 配置（包含 redis_secure.conf）
-│   ├── services/               # 业务服务层
-│   ├── storage/                # Redis 等存储实现
-│   ├── utils/                  # 工具函数
-│   ├── main.py                 # 应用入口
+├── backend/                        # 后端服务
+│   ├── agents/                     # Agent 定义 (Admin + Employee)
+│   ├── api/                        # FastAPI 路由
+│   ├── channels/                   # 📱 v3.0: 渠道抽象层
+│   │   ├── base.py                 # BaseChannelAdapter (443行)
+│   │   └── wework/                 # 企业微信适配器示例
+│   │       ├── client.py           # API客户端 (360行)
+│   │       ├── adapter.py          # 适配器实现 (454行)
+│   │       └── server.py           # 回调服务 (237行)
+│   ├── config/                     # 配置（settings + channel_config）
+│   ├── services/                   # 业务服务层
+│   │   ├── channel_router.py      # 📱 v3.0: 渠道路由器 (332行)
+│   │   ├── kb_service_factory.py  # 双Agent服务工厂
+│   │   └── ...
+│   ├── storage/                    # Redis 等存储实现
+│   ├── tools/                      # 自定义工具 (image_read等)
+│   ├── utils/                      # 工具函数 (smart_convert.py等)
+│   ├── main.py                     # 应用入口
 │   └── requirements.txt
-├── frontend/                   # 前端应用
+├── frontend/                       # Admin UI (管理员界面)
 │   ├── src/
-│   │   ├── components/         # React 组件
-│   │   ├── services/           # API Hooks
-│   │   ├── utils/              # 工具方法
-│   │   └── App.jsx
-│   ├── package.json
-│   └── vite.config.js
-├── knowledge_base/             # 知识库存储（FAQ、文档等）
-├── scripts/                    # 启动/部署脚本
-├── docs/                       # 项目文档
-├── logs/                       # 运行日志（启动脚本生成）
+│   │   ├── components/             # React 组件
+│   │   └── ...
+│   └── package.json
+├── frontend-employee/              # 📱 v3.0: Employee UI (员工界面)
+│   ├── src/
+│   │   ├── components/             # ChatView, Message
+│   │   ├── services/               # API客户端 (SSE)
+│   │   └── utils/                  # userManager
+│   └── package.json
+├── knowledge_base/                 # 知识库存储（FAQ、文档等）
+├── scripts/                        # 启动/部署脚本
+│   ├── start_v3.sh                 # 📱 v3.0: 智能启动脚本 (382行)
+│   ├── start.sh                    # v2.0: 传统启动脚本
+│   └── stop.sh
+├── docs/                           # 项目文档
+│   ├── PROGRESS_V3.md              # 📱 v3.0: 进度跟踪
+│   ├── TODO_V3.md                  # 📱 v3.0: 任务清单
+│   ├── MIGRATION_V3.md             # 📱 v3.0: 迁移指南 (800+行)
+│   └── CHANNELS.md                 # 📱 v3.0: 渠道开发指南 (700+行)
+├── logs/                           # 运行日志
+├── CLAUDE.md                       # Claude Code开发指南 (v3.0架构)
 └── README.md
 ```
 
 ## 📚 文档
 
+### v3.0 文档 (Latest)
+- **[架构文档 (CLAUDE.md)](CLAUDE.md)** - v3.0统一多渠道架构完整说明
+- **[迁移指南 (MIGRATION_V3.md)](docs/MIGRATION_V3.md)** - v2.0 → v3.0 迁移步骤(800+行)
+- **[渠道开发指南 (CHANNELS.md)](docs/CHANNELS.md)** - 新增IM平台支持教程(700+行)
+- **[进度跟踪 (PROGRESS_V3.md)](docs/PROGRESS_V3.md)** - Phase 1-3完成情况
+- **[任务清单 (TODO_V3.md)](docs/TODO_V3.md)** - Phase 4-6待办事项
+
+### 历史文档
 - [产品需求文档 (PRD)](过程文档/智能资料库管理员-PRD.md)
 - [技术方案](过程文档/智能资料库管理员-技术方案.md)
 - [Phase4 验收报告](过程文档/Phase4-验收报告.md)
@@ -132,8 +227,9 @@ intelligent-kba/
 
 ## 🔧 配置说明
 
-主要配置项在 `.env` 文件中：
+主要配置项在 `.env` 文件中 (详见 `.env.example`):
 
+### 核心配置 (必需)
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | CLAUDE_API_KEY | Claude API密钥 | 必填 |
@@ -141,14 +237,52 @@ intelligent-kba/
 | SMALL_FILE_KB_THRESHOLD | 小文件阈值(KB) | 30 |
 | FAQ_MAX_ENTRIES | FAQ最大条目数 | 50 |
 | SESSION_TIMEOUT | 会话超时时间(秒) | 1800 |
+
+### v3.0 多渠道配置 (可选)
+
+**配置模式**:
+- `auto` (推荐): 自动检测 - 配置了就启用，未配置就跳过
+- `enabled`: 强制启用 - 未配置会报错
+- `disabled`: 强制禁用 - 即使配置了也不启用
+
+**企业微信 (WeChat Work)**:
+```bash
+ENABLE_WEWORK=auto              # auto | enabled | disabled
+WEWORK_CORP_ID=ww...
+WEWORK_CORP_SECRET=...
+WEWORK_AGENT_ID=...
+WEWORK_TOKEN=...
+WEWORK_ENCODING_AES_KEY=...
+WEWORK_PORT=8081               # 默认8081
+```
+
+**飞书 (Feishu)**:
+```bash
+ENABLE_FEISHU=auto
+FEISHU_APP_ID=cli_...
+FEISHU_APP_SECRET=...
+FEISHU_VERIFICATION_TOKEN=...
+FEISHU_ENCRYPT_KEY=...
+FEISHU_PORT=8082
+```
+
+**其他平台**: DingTalk (8083), Slack (8084) - 参考 `.env.example`
+
+### Employee Web UI (v3.0)
+```bash
+EMPLOYEE_UI_ENABLED=true        # true | false
+EMPLOYEE_UI_PORT=3001           # 默认3001
+```
+
+### 其他配置
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
 | MAX_UPLOAD_SIZE | 最大上传文件大小(字节) | 10485760 |
 | PADDLE_OCR_TOKEN | PaddleOCR API Token（处理扫描版PDF） | 可选 |
 | REDIS_URL | Redis 连接 URL | redis://127.0.0.1:6379/0 |
-| REDIS_USERNAME | Redis ACL 用户名 | (可选) |
 | REDIS_PASSWORD | Redis 密码 | 必填（启用认证时） |
-| ALLOWED_ORIGINS | CORS 白名单（JSON 数组字符串） | ["http://localhost:3000","http://localhost"] |
 
-> 提示：仓库内置的 `backend/config/redis_secure.conf` 会为 Docker 启动的 Redis 设置强口令并绑定到本机，请确保 `.env` 中的 `REDIS_PASSWORD` 与该文件保持一致，或同步修改后重新启动容器。
+> 提示：仓库内置的 `backend/config/redis_secure.conf` 会为 Docker 启动的 Redis 设置强口令并绑定到本机，请确保 `.env` 中的 `REDIS_PASSWORD` 与该文件保持一致。
 
 ## 🎯 使用指南
 
@@ -178,45 +312,60 @@ intelligent-kba/
 
 ## 🧪 开发状态
 
-### Phase 1: 项目初始化 ✅ 已完成
-- [x] 项目结构创建
-- [x] 后端配置文件
-- [x] 前端基础配置
-- [x] 知识库初始化
-- [x] 环境变量模板
+### v1.0 (2025-10) ✅ 已完成
+- [x] 单Agent架构 - 统一智能体
+- [x] Web Admin UI - 文档管理和知识查询
+- [x] 7阶段检索策略 + 5阶段文档入库
+- [x] SSE流式响应 + Markdown渲染
 
-### Phase 2: Agent 定义与实现 ✅ 已完成
-- [x] 统一智能体实现（整合知识问答、文档管理、知识库维护）
-- [x] 7阶段检索策略实现
-- [x] 5阶段文档入库流程实现
-- [x] 权限管理系统
-- [x] 会话管理器
+### v2.0 (2025-01) ✅ 已完成
+- [x] 双Agent架构 - Admin Agent + Employee Agent
+- [x] 企业微信集成 - WeWork消息收发
+- [x] 专家路由系统 - 自动转接领域专家
+- [x] 会话状态管理 - Redis持久化 + 24h TTL
+- [x] 批量员工通知 - 数据筛选 + 批量发送
+- [x] 智能文档转换 - smart_convert.py (PyMuPDF + pypandoc)
+- [x] 视觉工具集成 - image_read (多模态图片分析)
 
-### 架构优化 ✅ 已完成
-- [x] 重构为单一Agent架构（消除子Agent调用开销）
-- [x] 简化代码结构（从3个Agent合并为1个）
-- [x] 性能提升 20-30%
+### v3.0 (2025-01, Current) - 71% 已完成
 
-### Phase 3: 后端 API 路由 ✅ 已完成
-- [x] 智能问答接口（/api/query）
-- [x] SSE 流式响应（/api/query/stream）
-- [x] 文件上传接口（/api/upload）
-- [x] 会话管理接口
-- [x] FastAPI 主应用配置
+#### ✅ 已完成 (Phase 1-3)
+- [x] **Phase 1: 渠道抽象层** (100%)
+  - [x] BaseChannelAdapter 抽象基类 (443行)
+  - [x] WeWork适配器重构 (client + adapter + server, 1051行)
+  - [x] ChannelRouter 统一路由 (332行)
 
-### Phase 4: 前端实现 ✅ 已完成
-- [x] ChatView 主界面组件
-- [x] Message 消息组件
-- [x] FileUpload 文件上传组件
-- [x] SSE 流式响应集成
-- [x] Markdown 渲染
-- [x] 响应式设计
+- [x] **Phase 2: Employee Web UI** (100%)
+  - [x] 对话式UI界面 (ChatView + Message)
+  - [x] SSE流式响应集成
+  - [x] Markdown渲染 + 代码高亮
+  - [x] Employee API endpoint (155行)
+  - [x] 服务部署: http://localhost:3001
 
-### 待实施功能
-- [ ] 集成测试和端到端测试
-- [ ] Docker 容器化部署
-- [ ] 性能优化和监控
-- [ ] 多渠道接入（企业微信等）
+- [x] **Phase 3: 混合配置系统** (100%)
+  - [x] ChannelConfig 配置管理器 (232行)
+  - [x] 自动检测 (auto/enabled/disabled模式)
+  - [x] 智能启动脚本 start_v3.sh (382行)
+  - [x] 环境变量模板更新
+
+- [x] **Phase 5: 文档与合并** (100%)
+  - [x] 分支合并 (wework_integration → main)
+  - [x] CLAUDE.md 更新为v3.0架构说明
+  - [x] MIGRATION_V3.md 迁移指南 (800+行)
+  - [x] CHANNELS.md 渠道开发指南 (700+行)
+  - [x] README.md 更新
+
+#### 🚧 进行中/待实施
+- [ ] **Phase 4: 飞书适配器** (可选)
+  - [ ] 创建 backend/channels/feishu/
+  - [ ] 验证多渠道架构可扩展性
+
+- [ ] **Phase 6: 测试与部署** (待开始)
+  - [ ] 单元测试 (渠道适配器、配置系统)
+  - [ ] 集成测试 (端到端、跨渠道)
+  - [ ] Docker Compose 配置
+  - [ ] Nginx反向代理
+  - [ ] 性能优化和监控
 
 ## 🤝 贡献
 
