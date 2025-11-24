@@ -32,11 +32,36 @@ class Settings(BaseSettings):
 
     # Redis 配置
     REDIS_URL: str = "redis://127.0.0.1:6379/0"
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
     REDIS_USERNAME: Optional[str] = None
     REDIS_PASSWORD: Optional[str] = None
 
+    # 企业微信配置（可选）
+    WEWORK_CORP_ID: Optional[str] = None
+    WEWORK_CORP_SECRET: Optional[str] = None
+    WEWORK_AGENT_ID: Optional[str] = None
+    WEWORK_TOKEN: Optional[str] = None
+    WEWORK_ENCODING_AES_KEY: Optional[str] = None
+    WEWORK_PORT: int = 8081  # WeWork回调服务端口
+
+    # 会话状态配置
+    CONVERSATION_STATE_TTL: int = 86400  # 24小时
+    EXPERT_REPLY_TIMEOUT: int = 86400  # 24小时
+    FILE_LOCK_TIMEOUT: int = 5  # 5秒
+
     # CORS配置
-    ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost"]
+    ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001", "http://localhost"]
+
+    # Vision Model配置（用于image_read工具）
+    VISION_MODEL_PROVIDER: Optional[str] = None  # doubao, openai, anthropic
+    VISION_MODEL_API_KEY: Optional[str] = None
+    VISION_MODEL_BASE_URL: Optional[str] = None
+    VISION_MODEL_NAME: Optional[str] = None
+
+    # PaddleOCR配置（用于smart_convert.py）
+    PADDLE_OCR_TOKEN: Optional[str] = None
 
     @model_validator(mode='after')
     def validate_api_key(self):

@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "wework-mcp"
+version = "1.0.0"
+description = "MCP server for WeWork (Enterprise WeChat) messaging integration"
+authors = ["Intelligent KBA Team <team@example.com>"]
+readme = "README.md"
+packages = [{include = "wework_mcp", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+mcp = "^1.0.0"
+requests = "^2.31.0"
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+black = "^23.7.0"
+ruff = "^0.0.282"
+mypy = "^1.4.1"
+types-requests = "^2.31.0"
+
+[tool.poetry.scripts]
+wework-mcp = "wework_mcp.server:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

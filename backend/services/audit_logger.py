@@ -86,7 +86,7 @@ class AuditLogger:
         Args:
             message: 告警消息
         """
-        # TODO: Integrate with messaging platform or notification channels
+        # TODO: 集成企微告警或其他通知渠道
         logger.warning(f"ALERT: {message}")
 
 

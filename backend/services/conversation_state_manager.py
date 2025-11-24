@@ -1,9 +1,8 @@
 """
 Conversation State Manager - 会话状态管理器
 
-管理用户-专家异步多轮对话的状态持久化
+管理员工-专家异步多轮对话的状态持久化
 支持 Redis 存储和内存降级
-支持多平台（WeChat Work, Feishu, Slack等）
 """
 
 import asyncio
@@ -14,7 +13,6 @@ from pathlib import Path
 
 from backend.models.conversation_state import ConversationState, ConversationContext
 from backend.storage.base import SessionStorage
-from backend.config.messaging_platforms import MessagingPlatformType
 from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
@@ -25,23 +23,20 @@ class ConversationStateManager:
     会话状态管理器
 
     职责:
-    1. 管理用户提问后等待专家回复的状态
+    1. 管理员工提问后等待专家回复的状态
     2. 检查某个专家是否有待回复的问题
     3. 更新会话状态(IDLE → WAITING_FOR_EXPERT → COMPLETED)
     4. 支持 Redis 持久化和内存降级
-    5. 支持多平台（每个平台使用独立的Redis key前缀）
 
     架构说明:
-    - 状态存储在 Redis key: {platform}:conv_state:{userid}
+    - 状态存储在 Redis key: wework:conv_state:{userid}
     - 24小时TTL自动清理已完成的会话
     - Redis 故障时降级到内存存储
-    - 平台前缀通过 MessagingPlatformFactory 获取
     """
 
     def __init__(
         self,
         kb_root: Path,
-        platform: MessagingPlatformType,
         storage: Optional[SessionStorage] = None
     ):
         """
@@ -49,28 +44,16 @@ class ConversationStateManager:
 
         Args:
             kb_root: 知识库根目录
-            platform: 消息平台类型
             storage: Session storage backend (Redis or memory)
         """
         self.kb_root = kb_root
-        self.platform = platform
         self.storage = storage
-
-        # 从平台配置获取 Redis key 前缀
-        from backend.services.messaging_platform_factory import get_messaging_platform_factory
-        factory = get_messaging_platform_factory()
-
-        # 确保平台已注册
-        if not factory.is_registered(platform):
-            factory.register_platform(platform)
-
-        self.redis_key_prefix = factory.get_redis_key_prefix(platform)
 
         # 内存降级存储 (userid -> ConversationContext)
         self._memory_state: Dict[str, ConversationContext] = {}
         self._using_fallback = False
 
-        logger.info(f"ConversationStateManager initialized (platform={platform.value}, prefix={self.redis_key_prefix})")
+        logger.info("ConversationStateManager initialized")
 
     async def initialize_storage(self) -> None:
         """初始化存储后端"""
@@ -87,18 +70,6 @@ class ConversationStateManager:
             logger.info("Using memory storage for conversation state")
             self._using_fallback = True
 
-    def _make_redis_key(self, user_id: str) -> str:
-        """
-        构建平台特定的Redis key
-
-        Args:
-            user_id: Platform user ID
-
-        Returns:
-            Redis key: {platform}:conv_state:{user_id}
-        """
-        return f"{self.redis_key_prefix}:conv_state:{user_id}"
-
     async def get_conversation_context(
         self,
         user_id: str
@@ -107,14 +78,14 @@ class ConversationStateManager:
         获取用户会话上下文
 
         Args:
-            user_id: Platform user ID
+            user_id: 用户 WeChat Work UserID
 
         Returns:
             ConversationContext 对象
 
         如果不存在,返回新的 IDLE 状态上下文
         """
-        redis_key = self._make_redis_key(user_id)
+        redis_key = f"wework:conv_state:{user_id}"
 
         # 尝试从 Redis 读取
         if not self._using_fallback and self.storage:
@@ -137,7 +108,7 @@ class ConversationStateManager:
         new_context = ConversationContext(
             session_id="",
             state=ConversationState.IDLE,
-            user_id=user_id,
+            employee_userid=user_id,
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
@@ -154,14 +125,14 @@ class ConversationStateManager:
         更新会话状态
 
         Args:
-            user_id: Platform user ID
-            **kwargs: 要更新的字段 (state, user_question, domain, expert_userid, etc.)
+            user_id: 用户 UserID
+            **kwargs: 要更新的字段 (state, employee_question, domain, expert_userid, etc.)
 
         Example:
             await state_mgr.update_state(
                 user_id='zhangsan',
                 state=ConversationState.WAITING_FOR_EXPERT,
-                user_question='如何调整薪资?',
+                employee_question='如何调整薪资?',
                 domain='薪酬福利',
                 expert_userid='wangwu',
                 expert_name='王五',
@@ -179,7 +150,7 @@ class ConversationStateManager:
         context.updated_at = datetime.now()
 
         # 持久化到 Redis
-        redis_key = self._make_redis_key(user_id)
+        redis_key = f"wework:conv_state:{user_id}"
         ttl = 86400  # 24 hours
 
         if not self._using_fallback and self.storage:
@@ -212,7 +183,7 @@ class ConversationStateManager:
         匹配 expert_userid
 
         Args:
-            expert_userid: Platform expert user ID
+            expert_userid: 专家 UserID
 
         Returns:
             如果有待回复的问题,返回对应的 ConversationContext,否则返回 None
@@ -221,13 +192,13 @@ class ConversationStateManager:
             pending = await state_mgr.check_pending_expert_reply('wangwu')
             if pending:
                 # 专家 wangwu 有待回复的问题
-                employee_id = pending.user_id
-                question = pending.user_question
+                employee_id = pending.employee_userid
+                question = pending.employee_question
         """
-        # 如果使用 Redis,扫描所有 {platform}:conv_state:* keys
+        # 如果使用 Redis,扫描所有 wework:conv_state:* keys
         if not self._using_fallback and self.storage:
             try:
-                pattern = f"{self.redis_key_prefix}:conv_state:*"
+                pattern = "wework:conv_state:*"
                 cursor = "0"
 
                 while True:
@@ -247,7 +218,7 @@ class ConversationStateManager:
                                 context.expert_userid == expert_userid):
                                 logger.info(
                                     f"Found pending reply for expert {expert_userid}: "
-                                    f"employee={context.user_id}"
+                                    f"employee={context.employee_userid}"
                                 )
                                 return context
 
@@ -265,7 +236,7 @@ class ConversationStateManager:
                 context.expert_userid == expert_userid):
                 logger.info(
                     f"Found pending reply in memory for expert {expert_userid}: "
-                    f"employee={context.user_id}"
+                    f"employee={context.employee_userid}"
                 )
                 return context
 
@@ -286,7 +257,7 @@ class ConversationStateManager:
         # 从 Redis 扫描
         if not self._using_fallback and self.storage:
             try:
-                pattern = f"{self.redis_key_prefix}:conv_state:*"
+                pattern = "wework:conv_state:*"
                 cursor = "0"
 
                 while True:
@@ -324,9 +295,9 @@ class ConversationStateManager:
         清除用户会话上下文 (重置为 IDLE)
 
         Args:
-            user_id: Platform user ID
+            user_id: 用户 UserID
         """
-        redis_key = self._make_redis_key(user_id)
+        redis_key = f"wework:conv_state:{user_id}"
 
         # 从 Redis 删除
         if not self._using_fallback and self.storage:
@@ -370,45 +341,38 @@ class ConversationStateManager:
         return expired_count
 
 
-# Singleton instance per platform
-_conversation_state_managers: Dict[MessagingPlatformType, ConversationStateManager] = {}
+# Singleton instance
+_conversation_state_manager_instance: Optional[ConversationStateManager] = None
 
 
 def get_conversation_state_manager(
-    platform: MessagingPlatformType,
     kb_root: Optional[Path] = None,
     storage: Optional[SessionStorage] = None
 ) -> ConversationStateManager:
     """
-    获取会话状态管理器单例（每个平台一个实例）
+    获取 ConversationStateManager 单例
 
     Args:
-        platform: 消息平台类型
-        kb_root: 知识库根目录
-        storage: Session storage backend
+        kb_root: 知识库根目录 (首次调用必需)
+        storage: Session storage backend (首次调用可选)
 
     Returns:
-        ConversationStateManager实例
+        ConversationStateManager 实例
     """
-    global _conversation_state_managers
+    global _conversation_state_manager_instance
 
-    if platform not in _conversation_state_managers:
+    if _conversation_state_manager_instance is None:
         if kb_root is None:
-            from backend.config.settings import get_settings
-            settings = get_settings()
-            kb_root = Path(settings.KB_ROOT_PATH)
-
-        _conversation_state_managers[platform] = ConversationStateManager(
+            raise ValueError("kb_root must be provided on first call")
+        _conversation_state_manager_instance = ConversationStateManager(
             kb_root=kb_root,
-            platform=platform,
             storage=storage
         )
 
-    return _conversation_state_managers[platform]
+    return _conversation_state_manager_instance
 
 
-# 导出
 __all__ = [
-    "ConversationStateManager",
-    "get_conversation_state_manager"
+    'ConversationStateManager',
+    'get_conversation_state_manager'
 ]

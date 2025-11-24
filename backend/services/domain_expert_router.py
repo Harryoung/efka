@@ -1,10 +1,8 @@
 """
 Domain Expert Router
 
-Routes user questions to appropriate domain experts based on
+Routes employee questions to appropriate domain experts based on
 semantic domain classification. Uses the domain_experts.xlsx mapping table.
-
-Platform-agnostic design: Works with any messaging platform (WeChat Work, Feishu, Slack, etc.)
 """
 
 from pathlib import Path
@@ -74,7 +72,7 @@ class DomainExpertRouter:
             Dictionary with expert information:
                 {
                     'name': str,      # Expert's display name
-                    'userid': str,    # Platform user ID
+                    'userid': str,    # WeChat Work UserID
                     'domain': str,    # Domain name
                     'contact': str    # Contact info (optional)
                 }
@@ -192,7 +190,7 @@ class DomainExpertRouter:
         Useful for routing incoming messages (is this an expert replying?)
 
         Args:
-            userid: Platform user ID to check
+            userid: WeChat Work UserID to check
 
         Returns:
             True if userid is configured as an expert

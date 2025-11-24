@@ -40,7 +40,7 @@ class UserIdentityService:
         识别用户角色
 
         Args:
-            user_id: Platform user ID
+            user_id: 企业微信userid
 
         Returns:
             {

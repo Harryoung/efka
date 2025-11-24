@@ -1,7 +1,8 @@
 """
 Query API routes - 智能问答接口
-核心原则：不硬编码业务逻辑，由统一 Agent 自主判断和处理
+核心原则：不硬编码业务逻辑，由 Admin Agent 自主判断和处理
 支持基于 user_id 的持久化会话（Redis + 降级到内存）
+双 Agent 架构：此接口使用 Admin Agent (kb_admin_agent.py)
 """
 import logging
 import uuid
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 from typing import Optional
 import json
 
-from backend.services.kb_service import get_kb_service
+from backend.services.kb_service_factory import get_admin_service
 from backend.services.session_manager import get_session_manager
 
 logger = logging.getLogger(__name__)
@@ -40,14 +41,14 @@ async def query(req: QueryRequest):
 
     核心逻辑：
     1. 获取或创建会话（支持基于 user_id 的持久化）
-    2. 将用户消息传递给统一的 Intelligent KB Agent
-    3. Agent 自主判断意图并直接处理（知识查询、文档入库、知识库管理）
+    2. 将用户消息传递给 Admin Agent (kb_admin_agent.py)
+    3. Admin Agent 自主判断意图并直接处理（文档入库、知识库管理、批量通知）
     4. 等待 Agent 完成处理并返回结果
 
     不在此处做任何意图判断或业务逻辑！
     """
     try:
-        kb_service = get_kb_service()
+        admin_service = get_admin_service()
         session_manager = get_session_manager()
 
         # 新逻辑：基于 user_id 的持久化会话
@@ -56,17 +57,17 @@ async def query(req: QueryRequest):
             claude_session_id = await session_manager.get_or_create_user_session(req.user_id)
             logger.info(f"Processing query for user {req.user_id} (claude_session: {claude_session_id})")
 
-            # 确保 KB Service 已初始化
-            if not kb_service.is_initialized:
-                await kb_service.initialize()
+            # 确保 Admin Service 已初始化
+            if not admin_service.is_initialized:
+                await admin_service.initialize()
 
-            # 直接将用户消息发送给统一 Agent
+            # 直接将用户消息发送给 Admin Agent
             response_parts = []
             turn_count = None
 
             from claude_agent_sdk import AssistantMessage, TextBlock, ResultMessage
 
-            async for message in kb_service.query(req.message, session_id=claude_session_id):
+            async for message in admin_service.query(req.message, session_id=claude_session_id):
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
                         if isinstance(block, TextBlock):
@@ -98,15 +99,15 @@ async def query(req: QueryRequest):
 
             logger.info(f"Processing query for session {session.session_id}: {req.message[:50]}...")
 
-            # 确保 KB Service 已初始化
-            if not kb_service.is_initialized:
-                await kb_service.initialize()
+            # 确保 Admin Service 已初始化
+            if not admin_service.is_initialized:
+                await admin_service.initialize()
 
-            # 直接将用户消息发送给统一 Agent
+            # 直接将用户消息发送给 Admin Agent
             response_parts = []
             from claude_agent_sdk import AssistantMessage, TextBlock
 
-            async for message in kb_service.query(req.message, session_id=session.session_id):
+            async for message in admin_service.query(req.message, session_id=session.session_id):
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
                         if isinstance(block, TextBlock):
@@ -138,15 +139,15 @@ async def query_stream(
 
     核心逻辑：
     1. 与 /query 相同的流程（支持基于 user_id 的持久化）
-    2. 使用 Server-Sent Events (SSE) 流式返回 Agent 的响应
-    3. Agent 的输出会实时推送给前端
+    2. 使用 Server-Sent Events (SSE) 流式返回 Admin Agent 的响应
+    3. Admin Agent 的输出会实时推送给前端
 
     不做任何业务逻辑判断！
 
     注意：SSE 只能使用 GET 请求，所以参数通过查询字符串传递
     """
     try:
-        kb_service = get_kb_service()
+        admin_service = get_admin_service()
         session_manager = get_session_manager()
 
         # 新逻辑：基于 user_id 的持久化会话
@@ -155,9 +156,9 @@ async def query_stream(
             claude_session_id = await session_manager.get_or_create_user_session(user_id)
             logger.info(f"Processing streaming query for user {user_id} (claude_session: {claude_session_id})")
 
-            # 确保 KB Service 已初始化
-            if not kb_service.is_initialized:
-                await kb_service.initialize()
+            # 确保 Admin Service 已初始化
+            if not admin_service.is_initialized:
+                await admin_service.initialize()
 
             # 定义 SSE 生成器
             async def event_generator():
@@ -170,8 +171,8 @@ async def query_stream(
 
                     turn_count = None
 
-                    # 流式接收 Agent 响应
-                    async for msg in kb_service.query(message, session_id=claude_session_id):
+                    # 流式接收 Admin Agent 响应
+                    async for msg in admin_service.query(message, session_id=claude_session_id):
                         if isinstance(msg, AssistantMessage):
                             # 提取文本块
                             for block in msg.content:
@@ -216,9 +217,9 @@ async def query_stream(
 
             logger.info(f"Processing streaming query for session {session.session_id}")
 
-            # 确保 KB Service 已初始化
-            if not kb_service.is_initialized:
-                await kb_service.initialize()
+            # 确保 Admin Service 已初始化
+            if not admin_service.is_initialized:
+                await admin_service.initialize()
 
             # 定义 SSE 生成器
             async def event_generator():
@@ -229,8 +230,8 @@ async def query_stream(
                     # 发送会话 ID
                     yield f"data: {json.dumps({'type': 'session', 'session_id': session.session_id})}\n\n"
 
-                    # 流式接收 Agent 响应
-                    async for msg in kb_service.query(message, session_id=session.session_id):
+                    # 流式接收 Admin Agent 响应
+                    async for msg in admin_service.query(message, session_id=session.session_id):
                         if isinstance(msg, AssistantMessage):
                             # 提取文本块
                             for block in msg.content:

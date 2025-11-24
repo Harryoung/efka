@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-智能资料库管理员 (Intelligent Knowledge Base Administrator) - An AI-powered knowledge base management system built with Claude Agent SDK. The system uses a **single unified agent architecture** to provide intelligent Q&A, document management, and knowledge base administration capabilities.
+智能资料库管理员 (Intelligent Knowledge Base Administrator) - An AI-powered knowledge base management system built with Claude Agent SDK. The system uses a **dual-agent architecture** to provide intelligent Q&A (Employee Agent via WeChat Work) and document management/KB administration (Admin Agent via Web UI).
 
 ## Key Architecture Principles
 
@@ -12,24 +12,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This project follows an **Agent Autonomous Decision-Making** architecture:
 
 - **❌ AVOID**: Creating specialized tools for every business logic scenario
-- **✅ CORRECT**: Provide minimal base tools (read, write, grep, glob, bash, markitdown-mcp) and let the Agent combine them intelligently
+- **✅ CORRECT**: Provide minimal base tools (read, write, grep, glob, bash) and let the Agent combine them intelligently
 - **Core Principle**: Business logic resides in Agent prompts, not in code. The Agent makes autonomous decisions based on context.
+- **Document Conversion**: Use Bash tool to invoke `smart_convert.py` script, not external MCP servers
 
-### Single Agent Architecture
+### Dual-Agent Architecture (v2.0)
 ```
-Web Frontend (React + SSE)
-    ↓
-Unified Intelligent KB Agent
-(Intent recognition + Knowledge QA + Document Management + KB Administration)
-    ↓
-Base Tools: Read, Write, Grep, Glob, Bash, markitdown-mcp
+┌─────────────────────────────────────────────────────────┐
+│         Intelligent KBA (Dual-Agent Architecture)       │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  FastAPI Service (8000)      Flask Service (8081)      │
+│  ┌─────────────────────┐    ┌──────────────────────┐  │
+│  │   Admin Agent       │    │  Employee Agent      │  │
+│  │   - Web UI          │    │  - WeChat Work       │  │
+│  │   - Doc Mgmt        │    │  - Knowledge Q&A     │  │
+│  │   - Batch Notify    │    │  - Expert Routing    │  │
+│  └─────────────────────┘    └──────────────────────┘  │
+│         │                            │                 │
+│         └────────┬───────────────────┘                 │
+│                  ▼                                     │
+│     KBServiceFactory (Dual SDK Clients)               │
+│     ConversationStateManager (Redis)                  │
+│     DomainExpertRouter + SharedKBAccess               │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Key Benefits of Single Agent Architecture**:
-- ✅ Eliminated sub-agent call overhead (20-30% performance improvement)
-- ✅ Simplified codebase (reduced from 3 agents to 1)
-- ✅ Unified context management across all tasks
-- ✅ Easier maintenance and prompt optimization
+**Key Benefits of Dual-Agent Architecture**:
+- ✅ Channel-specific optimization (WeChat Work vs Web UI)
+- ✅ Independent scaling (employee queries vs admin tasks)
+- ✅ Tool isolation (Employee: wework only, Admin: wework + smart_convert via Bash)
+- ✅ Clear separation of concerns
 
 ## Development Commands
 
@@ -86,10 +99,14 @@ npm run lint          # Run ESLint
 ```bash
 pip3 install -r backend/requirements.txt
 
-# Important: markitdown-mcp is required for document conversion
-# It should be installed automatically via requirements.txt
-# Verify installation:
-which markitdown-mcp
+# Important dependencies for document conversion (smart_convert.py):
+# - PyMuPDF, pymupdf4llm (PDF processing)
+# - pypandoc (DOCX processing, requires pandoc installed)
+# - requests (PaddleOCR API for scanned PDFs)
+# All should be installed automatically via requirements.txt
+
+# Verify smart_convert.py is accessible:
+python backend/utils/smart_convert.py --help
 ```
 
 **Frontend:**
@@ -137,40 +154,124 @@ cp .env.example .env
 4. **SSE Streaming**: Knowledge QA responses stream via Server-Sent Events for real-time UX
 5. **MCP Integration**: MCP (Model Context Protocol) servers are configured programmatically via `ClaudeAgentOptions.mcp_servers`
 
-### MCP (Model Context Protocol) Configuration
+### Document Conversion: smart_convert.py
 
-**What is MCP?**
-MCP is a protocol that allows Claude to interact with external tools and services. In this project, we use the `markitdown-mcp` server to convert various file formats (PDF, DOCX, PPTX, XLSX, etc.) to Markdown.
+**What is smart_convert?**
+A standalone Python utility (`backend/utils/smart_convert.py`) that intelligently converts documents to Markdown with automatic format detection and optimized processing pipelines.
 
-**MCP Server Configuration** (`backend/services/kb_service.py:160-167`):
-```python
-mcp_servers = {
-    "markitdown": {
-        "type": "stdio",              # Communication method
-        "command": "markitdown-mcp",  # MCP server command
-        "args": []                    # Optional arguments
-    }
+**Conversion Approach** (replaced markitdown-mcp):
+- ❌ **Removed**: External MCP server dependency (`markitdown-mcp`)
+- ✅ **Current**: Direct Python script invocation via Bash tool
+- ✅ **Benefits**: Faster, more control, no MCP overhead, better error handling
+
+**Conversion Command**:
+```bash
+python backend/utils/smart_convert.py <input_file> --json-output
+```
+
+**Supported Formats & Processing Pipelines**:
+1. **DOCX/DOC**: Pandoc (format preservation, image extraction)
+2. **PDF (Electronic)**: PyMuPDF4LLM (fast, local processing)
+3. **PDF (Scanned)**: PaddleOCR-VL API (automatic detection, OCR processing)
+
+**JSON Output Format**:
+```json
+{
+  "success": true,
+  "markdown_file": "/absolute/path/to/output.md",
+  "images_dir": "filename_images",
+  "image_count": 5,
+  "input_file": "/absolute/path/to/input.pdf"
 }
+```
 
+**Key Features:**
+- ✅ **Automatic PDF type detection** (electronic vs. scanned)
+- ✅ **Image extraction** to `<filename>_images/` directory
+- ✅ **JSON output** for programmatic parsing
+- ✅ **Error handling** with detailed error messages
+- ✅ **Force OCR mode** via `--force-ocr` flag
+
+**Dependencies** (in `requirements.txt`):
+- `PyMuPDF` (PDF rendering)
+- `pymupdf4llm` (PDF to Markdown)
+- `pypandoc` (DOCX to Markdown)
+- `requests` (PaddleOCR API calls)
+
+**Environment Variables**:
+- `PADDLE_OCR_TOKEN`: PaddleOCR API token (for scanned PDFs)
+
+### Custom Tool: image_read (SDK MCP Tool)
+
+**What is image_read?**
+A custom vision tool that allows agents to read and analyze image content using multimodal AI models. This tool provides targeted analysis based on agent-specified questions, enabling context-aware image understanding.
+
+**Implementation Approach:**
+- ✅ **SDK MCP Tool**: Created using `@tool` decorator and `create_sdk_mcp_server()`
+- ✅ **In-process execution**: Runs within the Python application (no external MCP server needed)
+- ✅ **Multi-provider support**: Doubao (Volcano Engine), OpenAI GPT-4V, Anthropic Claude 3
+
+**Configuration** (`backend/services/kb_service_factory.py`):
+```python
+from backend.tools.image_read import image_read_handler
+from claude_agent_sdk import create_sdk_mcp_server
+
+# Create SDK MCP server
+image_vision_server = create_sdk_mcp_server(
+    name="image_vision",
+    version="1.0.0",
+    tools=[image_read_handler]
+)
+
+# Add to ClaudeAgentOptions
 options = ClaudeAgentOptions(
-    mcp_servers=mcp_servers,
+    mcp_servers={
+        "image_vision": image_vision_server,
+        # ... other MCP servers
+    },
     allowed_tools=[
-        "Read", "Write", "Grep", "Glob", "Bash",
-        "mcp__markitdown__convert_to_markdown"  # MCP tool naming: mcp__{server}__{tool}
-    ],
-    ...
+        "mcp__image_vision__image_read",
+        # ... other tools
+    ]
 )
 ```
 
-**Key Points:**
-- ✅ **MCP servers MUST be configured in `ClaudeAgentOptions.mcp_servers`**
-- ✅ MCP tools are referenced as `mcp__{server_name}__{tool_name}` in `allowed_tools`
-- ✅ The `markitdown-mcp` command must be available in PATH (installed via `pip install markitdown-mcp`)
-- ❌ Don't just add MCP tools to `allowed_tools` without configuring the server
-- ❌ Don't use wildcards (`*`) in MCP tool names in `allowed_tools`
+**Tool Parameters:**
+- `image_path`: Path to image file (absolute or relative to KB_ROOT_PATH)
+- `question`: Specific question about the image (e.g., "描述图中的架构图逻辑", "提取图中的操作步骤")
+- `context`: Optional context to help the model understand the question better
 
-**Supported File Formats** (via markitdown):
-PDF, DOCX, PPTX, XLSX, XLS, CSV, HTML, XML, JSON, images (with OCR), audio transcripts, and 29+ more formats.
+**Supported Providers** (configured via environment variables):
+1. **Doubao (火山引擎)** - Default
+   - `VISION_MODEL_PROVIDER=doubao`
+   - `VISION_MODEL_API_KEY=<your_api_key>`
+   - `VISION_MODEL_BASE_URL=https://ark.cn-beijing.volces.com/api/v3`
+   - `VISION_MODEL_NAME=ep-20250122183949-wz66v` (Doubao Seed 1.6 Vision)
+
+2. **OpenAI GPT-4V**
+   - `VISION_MODEL_PROVIDER=openai`
+   - `VISION_MODEL_API_KEY=<your_api_key>`
+   - `VISION_MODEL_BASE_URL=https://api.openai.com/v1`
+   - `VISION_MODEL_NAME=gpt-4o`
+
+3. **Anthropic Claude 3**
+   - `VISION_MODEL_PROVIDER=anthropic`
+   - `VISION_MODEL_API_KEY=<your_api_key>`
+   - `VISION_MODEL_BASE_URL=https://api.anthropic.com`
+   - `VISION_MODEL_NAME=claude-3-5-sonnet-20241022`
+
+**Key Benefits:**
+- ✅ **Targeted analysis**: Agent can specify what to look for in the image
+- ✅ **Context-aware**: Supports additional context for better understanding
+- ✅ **Architecture alignment**: Follows Agent-First philosophy (provides capability, agent decides how to use it)
+- ✅ **Multi-provider**: Easy to switch between vision model providers
+
+**Usage Example:**
+Agent autonomously decides when and how to use the tool:
+```
+User: "知识库中有个架构图，请分析一下"
+Agent: [Uses Glob to find image] → [Uses image_read with question="描述图中的架构图逻辑和组件关系"] → [Provides analysis to user]
+```
 
 ### Frontend Structure
 
@@ -196,8 +297,9 @@ unified_agent = AgentDefinition(
     - 5-stage processing for document ingestion
     - Agent autonomy and decision-making freedom
     - Semantic understanding over pattern matching
+    - Document conversion via smart_convert.py (Bash tool)
     """,
-    tools=["Read", "Write", "Grep", "Glob", "Bash", "mcp__markitdown__*"],
+    tools=["Read", "Write", "Grep", "Glob", "Bash"],
     model="sonnet"
 )
 ```
@@ -223,6 +325,35 @@ The system uses a minimal permission callback (`kb_service.py`) that:
 - Restricts file writes to knowledge base directory or /tmp
 - Gives Agents maximum freedom within safety boundaries
 
+### Skills Integration
+
+**What are Skills?**
+Skills are specialized capabilities that extend Claude's abilities with domain knowledge, workflows, or tool integrations. They are enabled by adding `"Skill"` to `allowed_tools` in `ClaudeAgentOptions`.
+
+**Official Documentation:**
+```python
+# Enable Skills in your agent
+options = ClaudeAgentOptions(
+    allowed_tools=["Read", "Write", "Skill"],  # Add "Skill" to enable
+    ...
+)
+```
+
+**When to Use Skills:**
+- ✅ **Complex multi-step workflows** (e.g., code review process, security audit flow)
+- ✅ **Domain knowledge guidance** (e.g., brand design guidelines, internal communication templates)
+- ✅ **Cross-project reusable capabilities** (e.g., algorithmic art generation, MCP server builder)
+
+**When NOT to Use Skills:**
+- ❌ **Simple script invocations** - Just document in Agent prompt instead
+  - Example: Converting docs with `python backend/utils/smart_convert.py` doesn't need a Skill
+  - Reason: Skill prompt would be trivial ("call this script"), adding unnecessary abstraction
+- ❌ **Project-specific one-off tasks** - Use Agent prompt + base tools
+- ❌ **Basic tool combinations** - Let Agent autonomously combine base tools
+
+**Design Principle:**
+If the Skill prompt would be extremely simple (e.g., "call script X with args Y"), it's a signal that you should just document the approach directly in the Agent's system prompt instead of creating a Skill wrapper.
+
 ## Knowledge Base Structure
 
 Located at `./knowledge_base/`:
@@ -244,6 +375,40 @@ Located at `./knowledge_base/`:
 5. Context expansion (semantic paragraphs, not fixed line counts)
 6. Answer generation with source attribution
 7. FAQ learning (user feedback loop)
+
+## Batch Employee Notification
+
+**Feature Overview**:
+- Admins can batch notify employees via WeChat Work (企业微信)
+- Supports 3 scenarios:
+  1. Upload data file + filtering criteria (e.g., "notify employees with welfare points > 0")
+  2. Upload target employee list directly
+  3. Specify notification targets (e.g., @all, specific departments)
+
+**Key Files**:
+- `knowledge_base/企业管理/人力资源/employee_mapping.xlsx`: Employee-userid mapping table
+- `backend/agents/prompts/batch_notification.md`: Detailed 5-stage process guide
+
+**How It Works**:
+1. Agent recognizes batch notification intent
+2. Reads `batch_notification.md` (progressive disclosure)
+3. Parses employee mapping table **using temporary Python scripts (pandas)**
+4. Extracts target employee list with SQL-like queries (pandas filtering/joining)
+5. Constructs message and waits for admin confirmation
+6. Sends via wework-mcp (supports up to 1000 users per call)
+
+**Table Processing Approach**:
+- ❌ Does NOT use external conversion tools for XLSX processing
+- ✅ Uses Bash tool to execute temporary Python scripts
+- ✅ Leverages pandas for SQL-like queries (filter, join, aggregate)
+- ✅ Supports complex filtering logic based on natural language conditions
+- ✅ excel-parser Skill available for analyzing complex Excel structures
+
+**Architecture Alignment**:
+- ✅ Agent-First: Business logic in prompt, not in code
+- ✅ Uses existing tools: Read, Bash (Python), wework-mcp
+- ✅ Single Agent architecture: No sub-agents needed
+- ✅ Progressive disclosure: Detailed logic loaded only when needed
 
 ## Important Implementation Details
 
@@ -309,24 +474,236 @@ Architecture supports easy channel integration via:
 
 **Port Conflicts:**
 ```bash
-lsof -i :8000  # Check backend port
+lsof -i :8000  # Check FastAPI main service
+lsof -i :8081  # Check Flask WeWork callback service (default, configurable via WEWORK_PORT)
 lsof -i :3000  # Check frontend port
 kill -9 <PID>  # Force stop process
 ```
 
 **Health Checks:**
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/health  # Admin API
 curl http://localhost:8000/info
+lsof -i:8081                        # WeWork callback (default port)
 ```
 
 **View Real-time Logs:**
 ```bash
-tail -f logs/backend.log
-tail -f logs/frontend.log
+tail -f logs/backend.log  # FastAPI main service
+tail -f logs/wework.log   # Flask WeWork callback service
+tail -f logs/frontend.log # Frontend
 ```
 
 **Restart Services:**
 ```bash
 ./scripts/stop.sh && ./scripts/start.sh
 ```
+
+---
+
+## Architecture Changes (2025-01 Update)
+
+### Dual-Agent Architecture Details
+
+The system has been split into two specialized agents:
+
+**1. Employee Agent (`backend/agents/kb_qa_agent.py`)**
+- **Responsibilities**: Knowledge Q&A, Satisfaction feedback, Expert routing
+- **Interface**: WeChat Work (企业微信) via Flask service on configurable port (default 8081)
+- **MCP Tools**: wework only (lightweight operation, no document conversion needed)
+- **Characteristics**: Lightweight, high-frequency requests, async multi-turn conversations
+- **Key Features**:
+  - 6-stage retrieval workflow (FAQ → README → keyword search → adaptive retrieval → context expansion → answer generation)
+  - Expert routing when KB search fails
+  - Maintains conversation state for expert reply handling
+
+**2. Admin Agent (`backend/agents/kb_admin_agent.py`)**
+- **Responsibilities**: Document ingestion, KB management, Batch notifications
+- **Interface**: Web Admin UI (React SPA) via FastAPI service on port 8000
+- **Tools**: Bash (smart_convert.py for document conversion) + wework (full feature set)
+- **Characteristics**: Feature-complete, low-frequency admin tasks
+- **Key Features**:
+  - 5-stage document ingestion
+  - Semantic conflict detection
+  - Batch employee notification with data filtering
+
+### New Infrastructure Components
+
+**KBServiceFactory** (`backend/services/kb_service_factory.py`):
+- Manages two independent Claude SDK clients (one per agent)
+- Singleton pattern: `get_employee_service()`, `get_admin_service()`
+- Extensible to microservices (just change factory implementation)
+
+**ConversationStateManager** (`backend/services/conversation_state_manager.py`):
+- Manages asynchronous multi-turn conversations (Employee → Agent → Expert → Employee)
+- State machine: IDLE → WAITING_FOR_EXPERT → COMPLETED
+- Redis persistence with 24h TTL, memory fallback on Redis failure
+- Key methods:
+  - `get_conversation_context(user_id)`: Get current conversation state
+  - `check_pending_expert_reply(expert_userid)`: Check if expert has pending reply
+  - `update_state(...)`: Update conversation state
+
+**DomainExpertRouter** (`backend/services/domain_expert_router.py`):
+- Routes employee questions to domain experts based on semantic classification
+- Queries `knowledge_base/企业管理/人力资源/domain_experts.xlsx` mapping table
+- Falls back to default expert if domain not matched
+
+**SharedKBAccess** (`backend/services/shared_kb_access.py`):
+- File-level locking for concurrent writes (FAQ.md, BADCASE.md)
+- Uses `fcntl` for cross-process safety
+- Supports future microservices architecture
+- Usage:
+  ```python
+  with kb_access.file_lock('FAQ.md', timeout=5):
+      # Read, modify, write atomically
+      pass
+  ```
+
+### API Routes
+
+**WeWork Callback API** (`backend/api/wework_callback.py`):
+- Endpoint: `POST /api/wework/callback`
+- Handles WeChat Work message callbacks
+- URL verification (GET), message reception (POST)
+- Async message processing via global event loop
+- Distinguishes employee queries from expert replies
+
+### Deployment Architecture
+
+**Dual-Process Mode:**
+```
+./scripts/start.sh
+├── FastAPI Service (port 8000) - Admin Agent + Web API
+├── Flask Service (port 8081, configurable) - Employee Agent + WeWork Callback
+└── React Frontend (port 3000) - Admin UI
+```
+
+**Process Management:**
+- PID files: `logs/backend.pid`, `logs/wework.pid`, `logs/frontend.pid`
+- Log files: `logs/backend.log`, `logs/wework.log`, `logs/frontend.log`
+- Stop all: `./scripts/stop.sh`
+
+**Environment Variables:**
+New WeChat Work configuration (see `.env.example`):
+- `WEWORK_CORP_ID`, `WEWORK_CORP_SECRET`, `WEWORK_AGENT_ID`
+- `WEWORK_TOKEN`, `WEWORK_ENCODING_AES_KEY`
+- `WEWORK_PORT` (default: 8081) - WeWork callback service port
+- `CONVERSATION_STATE_TTL`, `EXPERT_REPLY_TIMEOUT`, `FILE_LOCK_TIMEOUT`
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`
+
+### Expert Routing Workflow
+
+When an employee question cannot be answered from the knowledge base:
+
+1. **Domain Identification**: Agent semantically classifies the question
+2. **Expert Lookup**: Query `domain_experts.xlsx` for responsible expert
+3. **Contact Expert**: Send notification via WeChat Work MCP
+4. **State Transition**: Update conversation state to WAITING_FOR_EXPERT
+5. **Notify Employee**: Inform employee that expert has been contacted
+6. **Wait for Reply**: Agent maintains session context (24h TTL)
+7. **Expert Replies**: Agent detects expert's message, forwards to employee
+8. **Auto FAQ**: Add Q&A to FAQ.md (with file lock)
+9. **Suggest Documentation**: Remind expert to add detailed docs
+10. **State Completion**: Mark conversation as COMPLETED
+
+### File Lock Mechanism
+
+To prevent concurrent write conflicts:
+
+```python
+from backend.services.shared_kb_access import get_shared_kb_access
+
+kb_access = get_shared_kb_access('/path/to/knowledge_base')
+
+with kb_access.file_lock('FAQ.md', timeout=5):
+    # Read current content
+    content = read_file('FAQ.md')
+    # Modify
+    content += new_entry
+    # Write back atomically
+    write_file('FAQ.md', content)
+```
+
+Uses `fcntl` for cross-process locking, compatible with future microservices deployment.
+
+### Testing Commands
+
+**Service Initialization:**
+```bash
+# Test Employee Service
+python3 -c "
+import asyncio
+from backend.services.kb_service_factory import get_employee_service
+
+async def test():
+    service = get_employee_service()
+    await service.initialize()
+    print('✅ Employee service initialized')
+
+asyncio.run(test())
+"
+
+# Test Admin Service
+python3 -c "
+import asyncio
+from backend.services.kb_service_factory import get_admin_service
+
+async def test():
+    service = get_admin_service()
+    await service.initialize()
+    print('✅ Admin service initialized')
+
+asyncio.run(test())
+"
+```
+
+**Conversation State Manager:**
+```bash
+python3 -c "
+import asyncio
+from pathlib import Path
+from backend.services.conversation_state_manager import get_conversation_state_manager
+from backend.models.conversation_state import ConversationState
+from datetime import datetime
+
+async def test():
+    mgr = get_conversation_state_manager(kb_root=Path('./knowledge_base'))
+
+    # Test state update
+    await mgr.update_state(
+        user_id='test_user',
+        state=ConversationState.WAITING_FOR_EXPERT,
+        employee_question='测试问题',
+        domain='薪酬福利',
+        expert_userid='expert_001',
+        contacted_at=datetime.now()
+    )
+
+    # Test retrieval
+    context = await mgr.get_conversation_context('test_user')
+    assert context.state == ConversationState.WAITING_FOR_EXPERT
+    print('✅ Conversation state manager working')
+
+asyncio.run(test())
+"
+```
+
+### Migration Notes
+
+**From Single Agent to Dual-Agent:**
+- Old: `backend/agents/unified_agent.py` (deprecated)
+- New: `backend/agents/kb_qa_agent.py` + `backend/agents/kb_admin_agent.py`
+- Service factory manages both agents independently
+- Web UI uses Admin Agent (no changes to frontend API)
+- WeChat Work integration uses Employee Agent (new Flask service)
+
+**Breaking Changes:**
+- WeWork callback service now runs on configurable port (default 8081, set via WEWORK_PORT)
+- New environment variables must be configured
+- Redis recommended (but optional with memory fallback)
+
+---
+
+**Architecture Version**: v2.0 (Dual-Agent Architecture)
+**Last Updated**: 2025-01-09
+**Migration Status**: Phase 1-4 Complete, Ready for Production Testing
