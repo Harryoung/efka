@@ -1,0 +1,218 @@
+# Intelligent KBA v3.0 - Docker Compose 配置
+# 统一多渠道架构部署配置
+#
+# 使用方法:
+#   docker-compose up -d              # 启动所有服务
+#   docker-compose up -d backend      # 只启动后端
+#   docker-compose logs -f backend    # 查看后端日志
+#   docker-compose down               # 停止所有服务
+#
+# 环境配置:
+#   创建 .env 文件并设置必要的环境变量
+#   参考 .env.example
+
+version: '3.8'
+
+services:
+  # ============================================
+  # 基础设施服务
+  # ============================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: ikba-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ikba-network
+
+  # ============================================
+  # 后端服务
+  # ============================================
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    container_name: ikba-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Claude API 配置
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+
+      # 知识库配置
+      - KB_ROOT_PATH=/app/knowledge_base
+      - SMALL_FILE_KB_THRESHOLD=${SMALL_FILE_KB_THRESHOLD:-30}
+      - FAQ_MAX_ENTRIES=${FAQ_MAX_ENTRIES:-50}
+
+      # Redis 配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+
+      # 会话配置
+      - SESSION_TIMEOUT=${SESSION_TIMEOUT:-1800}
+      - CONVERSATION_STATE_TTL=${CONVERSATION_STATE_TTL:-86400}
+
+      # 渠道配置
+      - ENABLE_WEWORK=${ENABLE_WEWORK:-auto}
+      - ENABLE_FEISHU=${ENABLE_FEISHU:-auto}
+      - ENABLE_DINGTALK=${ENABLE_DINGTALK:-auto}
+      - ENABLE_SLACK=${ENABLE_SLACK:-auto}
+
+      # Employee UI 配置
+      - EMPLOYEE_UI_ENABLED=${EMPLOYEE_UI_ENABLED:-true}
+
+      # Vision 模型配置
+      - VISION_MODEL_PROVIDER=${VISION_MODEL_PROVIDER:-doubao}
+      - VISION_MODEL_API_KEY=${VISION_MODEL_API_KEY:-}
+      - VISION_MODEL_BASE_URL=${VISION_MODEL_BASE_URL:-}
+      - VISION_MODEL_NAME=${VISION_MODEL_NAME:-}
+
+      # OCR 配置
+      - PADDLE_OCR_TOKEN=${PADDLE_OCR_TOKEN:-}
+    volumes:
+      - ./knowledge_base:/app/knowledge_base
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - ikba-network
+
+  # ============================================
+  # 渠道回调服务 (WeWork)
+  # ============================================
+
+  wework-callback:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.wework
+    container_name: ikba-wework
+    ports:
+      - "${WEWORK_PORT:-8081}:8081"
+    environment:
+      # Claude API 配置 (继承自 backend)
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+
+      # 知识库配置
+      - KB_ROOT_PATH=/app/knowledge_base
+
+      # Redis 配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+
+      # WeWork 配置
+      - WEWORK_CORP_ID=${WEWORK_CORP_ID:-}
+      - WEWORK_CORP_SECRET=${WEWORK_CORP_SECRET:-}
+      - WEWORK_AGENT_ID=${WEWORK_AGENT_ID:-}
+      - WEWORK_TOKEN=${WEWORK_TOKEN:-}
+      - WEWORK_ENCODING_AES_KEY=${WEWORK_ENCODING_AES_KEY:-}
+      - WEWORK_PORT=8081
+    volumes:
+      - ./knowledge_base:/app/knowledge_base
+      - ./logs:/app/logs
+    depends_on:
+      - backend
+      - redis
+    profiles:
+      - wework
+    restart: unless-stopped
+    networks:
+      - ikba-network
+
+  # ============================================
+  # 前端服务
+  # ============================================
+
+  admin-ui:
+    build:
+      context: ./frontend
+      dockerfile: ../deploy/Dockerfile.frontend
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+    container_name: ikba-admin-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - ikba-network
+
+  employee-ui:
+    build:
+      context: ./frontend-employee
+      dockerfile: ../deploy/Dockerfile.frontend
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+    container_name: ikba-employee-ui
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    profiles:
+      - employee-ui
+    restart: unless-stopped
+    networks:
+      - ikba-network
+
+  # ============================================
+  # Nginx 反向代理 (可选)
+  # ============================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: ikba-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - admin-ui
+    profiles:
+      - production
+    restart: unless-stopped
+    networks:
+      - ikba-network
+
+# ============================================
+# 网络配置
+# ============================================
+
+networks:
+  ikba-network:
+    driver: bridge
+
+# ============================================
+# 数据卷
+# ============================================
+
+volumes:
+  redis_data:
+    driver: local
