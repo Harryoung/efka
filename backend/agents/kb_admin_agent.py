@@ -45,8 +45,8 @@ def generate_admin_agent_prompt(
 
 ### 阶段1：接收和验证
 - 根据文件后缀判断文件格式
-- 如果是markdown格式，进入阶段3
-- 如果不是markdown格式，进入阶段2
+- 如果是 markdown（.md）或纯文本格式（.txt、.text、.log 等），直接进入阶段3
+- 如果是其他格式（需要转换），进入阶段2
 
 ### 阶段2：格式转换
 
