@@ -4,6 +4,7 @@ Employee API routes - 员工知识查询接口
 支持基于 user_id 的持久化会话
 """
 import logging
+import re
 import uuid
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -15,6 +16,45 @@ from backend.services.kb_service_factory import get_employee_service
 from backend.services.session_manager import get_session_manager
 
 logger = logging.getLogger(__name__)
+
+# 用于过滤 Agent 元数据的正则表达式
+# 匹配 ```metadata\n{...}\n``` 或 ```json\n{...}\n``` 格式的元数据块
+METADATA_PATTERN = re.compile(
+    r'```(?:metadata|json)\s*\n\s*(\{[^`]*?\})\s*\n```',
+    re.DOTALL
+)
+
+
+def filter_metadata_from_content(content: str) -> tuple[str, dict | None]:
+    """
+    从 Agent 输出中过滤元数据块，同时提取元数据供日志记录和会话管理使用
+
+    设计说明：
+    - 企微场景：Agent 通过 MCP 直接发送消息，元数据供脚手架层解析
+    - Web 前端场景：元数据不应展示给用户，但需记录日志以便调试
+
+    Args:
+        content: Agent 输出的原始内容
+
+    Returns:
+        (过滤后的内容, 提取的元数据字典或None)
+    """
+    metadata = None
+
+    # 查找元数据块
+    match = METADATA_PATTERN.search(content)
+    if match:
+        json_str = match.group(1)
+        try:
+            metadata = json.loads(json_str)
+            logger.info(f"[Metadata] Extracted from Agent output: {json.dumps(metadata, ensure_ascii=False)}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"[Metadata] Failed to parse JSON: {e}, raw: {json_str[:100]}...")
+
+        # 从内容中移除元数据块（前端不展示）
+        content = METADATA_PATTERN.sub('', content).strip()
+
+    return content, metadata
 
 router = APIRouter(prefix="/api/employee", tags=["employee"])
 
@@ -84,7 +124,10 @@ async def employee_query_stream(
                             # 提取文本块
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
-                                    yield f"data: {json.dumps({'type': 'message', 'content': block.text})}\n\n"
+                                    # 过滤元数据，不展示给前端，但记录日志
+                                    filtered_content, metadata = filter_metadata_from_content(block.text)
+                                    if filtered_content:  # 只发送非空内容
+                                        yield f"data: {json.dumps({'type': 'message', 'content': filtered_content})}\n\n"
                                 elif isinstance(block, ToolUseBlock):
                                     # 可选：发送工具使用信息
                                     yield f"data: {json.dumps({'type': 'tool_use', 'tool': block.name})}\n\n"
@@ -150,7 +193,10 @@ async def employee_query_stream(
                             # 提取文本块
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
-                                    yield f"data: {json.dumps({'type': 'message', 'content': block.text})}\n\n"
+                                    # 过滤元数据，不展示给前端，但记录日志
+                                    filtered_content, metadata = filter_metadata_from_content(block.text)
+                                    if filtered_content:  # 只发送非空内容
+                                        yield f"data: {json.dumps({'type': 'message', 'content': filtered_content})}\n\n"
                                 elif isinstance(block, ToolUseBlock):
                                     # 可选：发送工具使用信息
                                     yield f"data: {json.dumps({'type': 'tool_use', 'tool': block.name})}\n\n"
