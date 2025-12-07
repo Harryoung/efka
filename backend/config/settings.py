@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # PaddleOCR配置（用于smart_convert.py）
     PADDLE_OCR_TOKEN: Optional[str] = None
 
+    # 客户端连接池配置
+    EMPLOYEE_CLIENT_POOL_SIZE: int = 3  # 员工服务池大小（高频查询）
+    ADMIN_CLIENT_POOL_SIZE: int = 2     # 管理员服务池大小（低频操作）
+    CLIENT_POOL_MAX_WAIT: int = 30      # 获取客户端最大等待时间（秒）
+
     @model_validator(mode='after')
     def validate_api_key(self):
         """验证至少配置了一种认证方式"""
