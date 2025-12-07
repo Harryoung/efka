@@ -1180,10 +1180,10 @@ backend/channels/wework/
 
 ---
 
-**Happy Coding!** 🚀
+**Happy Coding!**
 
-如有问题,请参考:
+如有问题，请参考:
 - 架构文档: `CLAUDE.md`
-- 迁移指南: `docs/MIGRATION_V3.md`
+- 部署指南: `docs/DEPLOYMENT.md`
 - WeWork参考: `backend/channels/wework/`
 - 问题反馈: GitHub Issues

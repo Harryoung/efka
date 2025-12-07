@@ -79,9 +79,16 @@ session持久化方案.md
 智能资料库管理员-技术方案.md
 智能资料库管理员-PRD.md
 超级智能体产品白皮书.md
+AGENTS.md
 
 # Process documentation directory
 过程文档/
+
+# Claude Code local config
+.claude/
+
+# MCP configuration
+.mcp.json
 
 # Docker
 .dockerignore

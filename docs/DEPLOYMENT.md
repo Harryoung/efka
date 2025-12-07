@@ -1,23 +1,23 @@
-# Intelligent KBA v3.0 - 部署指南
+# Deployment Guide
 
-本文档提供 Intelligent KBA v3.0 统一多渠道架构的完整部署指南。
+This document provides deployment instructions for the Intelligent Knowledge Base Administrator.
 
-## 目录
+## Table of Contents
 
-1. [部署架构](#部署架构)
-2. [环境要求](#环境要求)
-3. [快速部署](#快速部署)
-4. [详细配置](#详细配置)
-5. [Docker 部署](#docker-部署)
-6. [Kubernetes 部署](#kubernetes-部署)
-7. [监控与运维](#监控与运维)
-8. [故障排除](#故障排除)
+1. [Architecture Overview](#architecture-overview)
+2. [Requirements](#requirements)
+3. [Quick Deployment](#quick-deployment)
+4. [Configuration](#configuration)
+5. [Docker Deployment](#docker-deployment)
+6. [Production Setup](#production-setup)
+7. [Monitoring](#monitoring)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
-## 部署架构
+## Architecture Overview
 
-### 生产环境架构图
+### Production Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -27,168 +27,148 @@
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    Nginx / Load Balancer                            │
-│                    (SSL 终止, 反向代理)                              │
+│                    (SSL termination, reverse proxy)                 │
 └─────────────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│  Admin UI   │ │ Employee UI │ │ Backend API │ │ IM Callbacks│
-│  (3000)     │ │   (3001)    │ │   (8000)    │ │ (8081-8084) │
-└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
-                                       │
-                                       ▼
-                            ┌─────────────────┐
-                            │     Redis       │
-                            │    (6379)       │
-                            └─────────────────┘
+         │                            │                    │
+         ▼                            ▼                    ▼
+┌─────────────────┐        ┌─────────────────┐   ┌─────────────────┐
+│    Web UI       │        │  Backend API    │   │  IM Callbacks   │
+│    (3000)       │        │    (8000)       │   │  (8081-8084)    │
+└─────────────────┘        └─────────────────┘   └─────────────────┘
+                                    │
+                                    ▼
+                          ┌─────────────────┐
+                          │     Redis       │
+                          │    (6379)       │
+                          └─────────────────┘
 ```
 
-### 服务端口说明
+### Service Ports
 
-| 服务 | 端口 | 说明 |
-|------|------|------|
-| Admin UI | 3000 | 管理员 Web 界面 |
-| Employee UI | 3001 | 员工 Web 界面 |
-| Backend API | 8000 | FastAPI 后端服务 |
-| WeWork Callback | 8081 | 企业微信回调服务 |
-| Feishu Callback | 8082 | 飞书回调服务 (可选) |
-| DingTalk Callback | 8083 | 钉钉回调服务 (可选) |
-| Slack Callback | 8084 | Slack 回调服务 (可选) |
-| Redis | 6379 | 会话状态存储 |
+| Service | Port | Description |
+|---------|------|-------------|
+| Web UI | 3000 | React frontend |
+| Backend API | 8000 | FastAPI service |
+| WeWork Callback | 8081 | WeChat Work integration |
+| Feishu Callback | 8082 | Feishu integration (optional) |
+| DingTalk Callback | 8083 | DingTalk integration (optional) |
+| Slack Callback | 8084 | Slack integration (optional) |
+| Redis | 6379 | Session storage |
 
 ---
 
-## 环境要求
+## Requirements
 
-### 硬件要求
+### Hardware
 
-| 环境 | CPU | 内存 | 存储 |
-|------|-----|------|------|
-| 开发 | 2 核 | 4 GB | 20 GB |
-| 测试 | 4 核 | 8 GB | 50 GB |
-| 生产 | 8 核 | 16 GB | 100 GB |
+| Environment | CPU | Memory | Storage |
+|-------------|-----|--------|---------|
+| Development | 2 cores | 4 GB | 20 GB |
+| Testing | 4 cores | 8 GB | 50 GB |
+| Production | 8 cores | 16 GB | 100 GB |
 
-### 软件要求
+### Software
 
-- **操作系统**: Ubuntu 20.04+ / CentOS 7+ / macOS 12+
+- **OS**: Ubuntu 20.04+ / CentOS 7+ / macOS 12+
 - **Python**: 3.10+
 - **Node.js**: 18+
-- **Docker**: 20.10+ (Docker 部署)
-- **Docker Compose**: 2.0+ (Docker 部署)
+- **Docker**: 20.10+ (for Docker deployment)
+- **Docker Compose**: 2.0+ (for Docker deployment)
 
-### 网络要求
+### Network
 
-- **入站端口**: 80, 443 (HTTP/HTTPS), 8081-8084 (IM 回调)
-- **出站访问**: Anthropic API, 企业微信 API, 飞书 API 等
+- **Inbound**: 80, 443 (HTTP/HTTPS), 8081-8084 (IM callbacks)
+- **Outbound**: Anthropic API, WeChat Work API, Feishu API, etc.
 
 ---
 
-## 快速部署
+## Quick Deployment
 
-### 方式一: 本地开发部署
+### Local Development
 
 ```bash
-# 1. 克隆代码
+# 1. Clone the repository
 git clone <repository-url>
-cd intelligent_kba
+cd intelligent-kba
 
-# 2. 配置环境变量
+# 2. Configure environment
 cp .env.example .env
-# 编辑 .env 文件，设置必要的 API Key
+# Edit .env with your API keys
 
-# 3. 安装后端依赖
+# 3. Set up Python environment
+python -m venv venv
+source venv/bin/activate
 pip install -r backend/requirements.txt
 
-# 4. 安装前端依赖
+# 4. Install frontend dependencies
 cd frontend && npm install && cd ..
-cd frontend-employee && npm install && cd ..
 
-# 5. 启动服务
-./scripts/start_v3.sh
+# 5. Start services
+./scripts/start.sh
 
-# 6. 访问服务
-# Admin UI: http://localhost:3000
-# Employee UI: http://localhost:3001
+# 6. Access the application
+# Web UI: http://localhost:3000
 # API: http://localhost:8000
 ```
 
-### 方式二: Docker 快速部署
+### Docker Quick Start
 
 ```bash
-# 1. 配置环境变量
+# 1. Configure environment
 cp .env.example .env
-# 编辑 .env 文件
+# Edit .env with your configuration
 
-# 2. 启动所有服务
+# 2. Start all services
 docker-compose up -d
 
-# 3. 查看日志
+# 3. View logs
 docker-compose logs -f
 
-# 4. 停止服务
+# 4. Stop services
 docker-compose down
 ```
 
 ---
 
-## 详细配置
+## Configuration
 
-### 环境变量说明
-
-创建 `.env` 文件并配置以下变量:
-
-#### Claude API 配置 (必需)
+### Required Environment Variables
 
 ```bash
-# 方式一: 使用 Claude API Key
+# Claude API (required - choose one)
 CLAUDE_API_KEY=your_claude_api_key
 
-# 方式二: 使用 Anthropic Token (企业版)
+# Or use Anthropic Token (enterprise)
 ANTHROPIC_AUTH_TOKEN=your_auth_token
 ANTHROPIC_BASE_URL=https://api.anthropic.com
 ```
 
-#### 知识库配置
+### Knowledge Base Configuration
 
 ```bash
-# 知识库根目录
 KB_ROOT_PATH=./knowledge_base
-
-# 小文件阈值 (KB)
 SMALL_FILE_KB_THRESHOLD=30
-
-# FAQ 最大条目数
 FAQ_MAX_ENTRIES=50
-
-# 会话超时 (秒)
 SESSION_TIMEOUT=1800
 ```
 
-#### Redis 配置
+### Redis Configuration
 
 ```bash
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
+REDIS_PASSWORD=your_password  # If authentication enabled
 ```
 
-#### 渠道配置
+### Channel Configuration
 
 ```bash
-# 渠道启用模式: auto | enabled | disabled
+# Channel enable mode: auto | enabled | disabled
 ENABLE_WEWORK=auto
 ENABLE_FEISHU=auto
-ENABLE_DINGTALK=auto
-ENABLE_SLACK=auto
 
-# Employee UI
-EMPLOYEE_UI_ENABLED=true
-EMPLOYEE_UI_PORT=3001
-```
-
-#### 企业微信配置
-
-```bash
+# WeChat Work
 WEWORK_CORP_ID=your_corp_id
 WEWORK_CORP_SECRET=your_corp_secret
 WEWORK_AGENT_ID=your_agent_id
@@ -197,7 +177,7 @@ WEWORK_ENCODING_AES_KEY=your_aes_key
 WEWORK_PORT=8081
 ```
 
-#### Vision 模型配置 (可选)
+### Vision Model (Optional)
 
 ```bash
 VISION_MODEL_PROVIDER=doubao
@@ -208,154 +188,144 @@ VISION_MODEL_NAME=ep-xxx
 
 ---
 
-## Docker 部署
+## Docker Deployment
 
-### 服务配置
+### Docker Compose Profiles
 
-`docker-compose.yml` 支持以下 profiles:
+| Profile | Description | Command |
+|---------|-------------|---------|
+| (default) | Backend + Web UI + Redis | `docker-compose up -d` |
+| wework | Include WeWork callback | `docker-compose --profile wework up -d` |
+| production | Include Nginx reverse proxy | `docker-compose --profile production up -d` |
 
-| Profile | 说明 | 命令 |
-|---------|------|------|
-| (默认) | Backend + Admin UI + Redis | `docker-compose up -d` |
-| wework | 包含 WeWork 回调服务 | `docker-compose --profile wework up -d` |
-| employee-ui | 包含 Employee UI | `docker-compose --profile employee-ui up -d` |
-| production | 包含 Nginx 反向代理 | `docker-compose --profile production up -d` |
-
-### 完整部署示例
+### Full Deployment Example
 
 ```bash
-# 启动所有服务 (包含 WeWork 和 Employee UI)
-docker-compose \
-  --profile wework \
-  --profile employee-ui \
-  up -d
+# Start all services with WeWork
+docker-compose --profile wework up -d
 
-# 查看服务状态
+# Check service status
 docker-compose ps
 
-# 查看日志
+# View logs
 docker-compose logs -f backend
 
-# 重启单个服务
+# Restart a service
 docker-compose restart backend
 
-# 更新镜像并重启
+# Update and restart
 docker-compose pull
 docker-compose up -d
 ```
 
-### 构建自定义镜像
+### Build Custom Images
 
 ```bash
-# 构建所有镜像
+# Build all images
 docker-compose build
 
-# 构建单个镜像
+# Build single image
 docker-compose build backend
 
-# 带参数构建
-docker-compose build --build-arg VITE_API_BASE_URL=https://api.example.com admin-ui
+# Build with arguments
+docker-compose build --build-arg VITE_API_BASE_URL=https://api.example.com frontend
 ```
 
-### 数据持久化
+### Data Persistence
 
-| 卷名 | 挂载点 | 说明 |
-|------|--------|------|
-| redis_data | /data | Redis 数据 |
-| ./knowledge_base | /app/knowledge_base | 知识库文件 |
-| ./logs | /app/logs | 日志文件 |
+| Volume | Mount Point | Description |
+|--------|-------------|-------------|
+| redis_data | /data | Redis data |
+| ./knowledge_base | /app/knowledge_base | Knowledge base files |
+| ./logs | /app/logs | Log files |
 
 ---
 
-## Kubernetes 部署
+## Production Setup
 
-### 部署清单示例
+### Nginx Reverse Proxy
 
-```yaml
-# deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ikba-backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: ikba-backend
-  template:
-    metadata:
-      labels:
-        app: ikba-backend
-    spec:
-      containers:
-      - name: backend
-        image: ikba-backend:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: CLAUDE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: ikba-secrets
-              key: claude-api-key
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "2Gi"
-            cpu: "1000m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 40
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 10
+```nginx
+upstream backend {
+    server 127.0.0.1:8000;
+}
+
+upstream frontend {
+    server 127.0.0.1:3000;
+}
+
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key /etc/ssl/private/example.com.key;
+
+    location /api {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+}
 ```
 
-### Helm Chart (推荐)
+### Systemd Services
 
-```bash
-# 安装
-helm install ikba ./charts/ikba \
-  --set claude.apiKey=$CLAUDE_API_KEY \
-  --set wework.enabled=true
+```ini
+# /etc/systemd/system/ikba-backend.service
+[Unit]
+Description=IKBA Backend Service
+After=network.target redis.service
 
-# 升级
-helm upgrade ikba ./charts/ikba -f values.yaml
+[Service]
+User=www-data
+WorkingDirectory=/opt/intelligent-kba
+Environment="PATH=/opt/intelligent-kba/venv/bin"
+EnvironmentFile=/opt/intelligent-kba/.env
+ExecStart=/opt/intelligent-kba/venv/bin/python -m backend.main
+Restart=always
+RestartSec=10
 
-# 卸载
-helm uninstall ikba
+[Install]
+WantedBy=multi-user.target
 ```
 
 ---
 
-## 监控与运维
+## Monitoring
 
-### 健康检查端点
+### Health Check Endpoints
 
-| 端点 | 说明 |
-|------|------|
-| GET /health | 服务健康状态 |
-| GET /info | 服务版本信息 |
-| GET /metrics | Prometheus 指标 (可选) |
+| Endpoint | Description |
+|----------|-------------|
+| GET /health | Service health status |
+| GET /info | Service version info |
 
-### 日志管理
+### Log Management
 
 ```bash
-# 查看实时日志
+# View real-time logs
 tail -f logs/backend.log
 
-# Docker 日志
+# Docker logs
 docker-compose logs -f --tail=100 backend
 
-# 日志轮转配置 (logrotate)
+# Log rotation (logrotate)
 /app/logs/*.log {
     daily
     rotate 7
@@ -365,133 +335,110 @@ docker-compose logs -f --tail=100 backend
 }
 ```
 
-### 性能监控
+### Recommended Tools
 
-建议使用以下工具:
+- **Prometheus**: Metrics collection
+- **Grafana**: Visualization
+- **ELK Stack**: Log analysis
+- **Sentry**: Error tracking
 
-- **Prometheus**: 指标收集
-- **Grafana**: 可视化仪表盘
-- **ELK Stack**: 日志分析
-- **Sentry**: 错误追踪
-
-### 备份策略
+### Backup Strategy
 
 ```bash
-# 知识库备份
+# Knowledge base backup
 tar -czvf kb_backup_$(date +%Y%m%d).tar.gz knowledge_base/
 
-# Redis 数据备份
+# Redis backup
 redis-cli BGSAVE
 cp /var/lib/redis/dump.rdb backup/
 
-# 自动备份脚本
-0 2 * * * /app/scripts/backup.sh >> /var/log/backup.log 2>&1
+# Automated backup (cron)
+0 2 * * * /opt/intelligent-kba/scripts/backup.sh >> /var/log/backup.log 2>&1
 ```
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-#### 1. 服务无法启动
+#### Service Won't Start
 
 ```bash
-# 检查端口占用
+# Check port conflicts
 lsof -i :8000
 lsof -i :3000
 
-# 检查环境变量
+# Check environment variables
 printenv | grep CLAUDE
 
-# 检查日志
+# Check logs
 tail -100 logs/backend.log
 ```
 
-#### 2. Agent 响应超时
+#### Agent Response Timeout
 
 ```bash
-# 检查 Claude API 连接
+# Test Claude API connection
 curl -X POST https://api.anthropic.com/v1/messages \
   -H "x-api-key: $CLAUDE_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
   -d '{"model": "claude-sonnet-4-20250514", "max_tokens": 10, "messages": [{"role": "user", "content": "Hi"}]}'
 
-# 增加超时时间
+# Increase timeout
 export SESSION_TIMEOUT=3600
 ```
 
-#### 3. WeWork 回调失败
+#### WeWork Callback Failed
 
 ```bash
-# 检查回调服务状态
+# Check callback service
 curl http://localhost:8081/health
 
-# 验证签名配置
+# Verify configuration
 python -c "
 from backend.channels.wework import WeWorkAdapter
 adapter = WeWorkAdapter()
 print('Configured:', adapter.is_configured())
 "
 
-# 查看回调日志
+# View logs
 tail -f logs/wework.log
 ```
 
-#### 4. Redis 连接失败
+#### Redis Connection Failed
 
 ```bash
-# 检查 Redis 状态
+# Check Redis status
 redis-cli ping
 
-# 检查连接配置
+# Check connection
 redis-cli -h $REDIS_HOST -p $REDIS_PORT INFO
 
-# Docker 环境检查
+# Docker environment
 docker-compose exec redis redis-cli ping
 ```
 
-### 性能优化
-
-#### 1. 增加并发处理能力
+### Performance Optimization
 
 ```bash
-# uvicorn 多进程
+# Run with multiple workers
 uvicorn backend.main:app --workers 4 --host 0.0.0.0 --port 8000
 ```
 
-#### 2. 启用响应缓存
+### Security Hardening
 
-```python
-# 在 backend/config/settings.py 中配置
-CACHE_ENABLED = True
-CACHE_TTL = 300  # 5 分钟
-```
-
-#### 3. 优化知识库检索
-
-- 建立索引
-- 使用向量数据库 (可选)
-- 定期清理过期会话
-
-### 安全加固
-
-1. **启用 HTTPS**: 配置 SSL 证书
-2. **API 认证**: 添加 API Key 验证
-3. **请求限流**: 配置 Nginx rate limiting
-4. **日志审计**: 记录所有操作日志
-5. **定期更新**: 保持依赖包最新
+1. **Enable HTTPS**: Configure SSL certificates
+2. **API Authentication**: Add API key verification
+3. **Rate Limiting**: Configure Nginx rate limiting
+4. **Audit Logging**: Record all operations
+5. **Regular Updates**: Keep dependencies updated
 
 ---
 
-## 联系支持
+## Support
 
-- **文档**: 查看 `docs/` 目录下的详细文档
-- **问题反馈**: 提交 GitHub Issue
-- **技术支持**: 联系项目维护者
-
----
-
-**文档版本**: v3.0.0
-**最后更新**: 2025-01-25
+- **Documentation**: See `docs/` directory
+- **Issues**: Submit GitHub Issues
+- **Channels Guide**: See [CHANNELS.md](CHANNELS.md) for IM integration
