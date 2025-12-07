@@ -15,6 +15,7 @@ const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
 function App() {
   return (
     <div className="app">
+      <div className="app-background"></div>
       {APP_MODE === 'employee' ? <EmployeeChatView /> : <ChatView />}
     </div>
   );
