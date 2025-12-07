@@ -130,17 +130,26 @@ class RedisSessionStorage(SessionStorage):
                 logger.debug(f"用户 {user_id} 没有活跃会话")
                 return None
 
-            # 反序列化
+            # 反序列化（兼容旧数据格式）
+            # 新格式: internal_session_id + sdk_session_id
+            # 旧格式: claude_session_id
+            internal_id = data.get("internal_session_id") or data.get("claude_session_id")
+            sdk_id = data.get("sdk_session_id")  # 可能为 None 或空字符串
+
             session = SessionRecord(
                 user_id=user_id,
-                claude_session_id=data["claude_session_id"],
+                internal_session_id=internal_id,
+                sdk_session_id=sdk_id if sdk_id else None,
                 created_at=datetime.fromisoformat(data["created_at"]),
                 last_active=datetime.fromisoformat(data["last_active"]),
                 turn_count=int(data.get("turn_count", 0)),
                 metadata=json.loads(data.get("metadata", "{}"))
             )
 
-            logger.debug(f"从 Redis 加载会话: {user_id} -> {session.claude_session_id}")
+            logger.debug(
+                f"从 Redis 加载会话: {user_id} -> internal={session.internal_session_id}, "
+                f"sdk={session.sdk_session_id or 'None'}"
+            )
             return session
 
         except RedisError as e:
@@ -163,9 +172,10 @@ class RedisSessionStorage(SessionStorage):
         try:
             key = self._make_key(session.user_id)
 
-            # 序列化
+            # 序列化（新格式）
             data = {
-                "claude_session_id": session.claude_session_id,
+                "internal_session_id": session.internal_session_id,
+                "sdk_session_id": session.sdk_session_id or "",  # Redis 不支持 None
                 "created_at": session.created_at.isoformat(),
                 "last_active": session.last_active.isoformat(),
                 "turn_count": str(session.turn_count),
@@ -181,8 +191,8 @@ class RedisSessionStorage(SessionStorage):
                 await pipe.execute()
 
             logger.debug(
-                f"保存会话到 Redis: {session.user_id} -> {session.claude_session_id}, "
-                f"TTL={self.ttl_seconds}s"
+                f"保存会话到 Redis: {session.user_id} -> internal={session.internal_session_id}, "
+                f"sdk={session.sdk_session_id or 'None'}, TTL={self.ttl_seconds}s"
             )
 
         except RedisError as e:

@@ -14,14 +14,27 @@ class SessionRecord:
     """
     会话记录数据结构
 
-    表示 user_id → claude_session_id 的映射关系
+    表示 user_id → session 的映射关系
+
+    字段说明:
+    - internal_session_id: 内部追踪 ID（我们生成的 UUID）
+    - sdk_session_id: SDK 返回的真实 session ID（用于 resume）
+      - None: 新会话，还未收到 SDK 响应
+      - str: SDK 返回的真实 ID，可用于 resume
     """
     user_id: str                                      # 用户唯一标识
-    claude_session_id: str                            # Claude SDK 的 session_id
+    internal_session_id: str                          # 内部追踪 ID（我们生成的 UUID）
+    sdk_session_id: Optional[str] = None              # SDK 返回的真实 session ID
     created_at: datetime = field(default_factory=datetime.now)
     last_active: datetime = field(default_factory=datetime.now)
     turn_count: int = 0                               # 对话轮次
     metadata: Dict = field(default_factory=dict)      # 扩展信息
+
+    # 兼容性别名（逐步迁移）
+    @property
+    def claude_session_id(self) -> str:
+        """兼容旧代码，返回 internal_session_id"""
+        return self.internal_session_id
 
     def is_expired(self, ttl_seconds: int = 7 * 86400) -> bool:
         """
@@ -44,7 +57,8 @@ class SessionRecord:
         """
         return {
             "user_id": self.user_id,
-            "claude_session_id": self.claude_session_id,
+            "internal_session_id": self.internal_session_id,
+            "sdk_session_id": self.sdk_session_id,
             "created_at": self.created_at.isoformat(),
             "last_active": self.last_active.isoformat(),
             "turn_count": self.turn_count,
