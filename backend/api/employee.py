@@ -47,9 +47,13 @@ async def employee_query_stream(
 
         # 基于 user_id 的持久化会话
         if user_id:
-            # 获取或创建用户的 Claude session ID
-            claude_session_id = await session_manager.get_or_create_user_session(user_id)
-            logger.info(f"Processing employee query for user {user_id} (claude_session: {claude_session_id})")
+            # 获取 SDK session ID（用于 resume，如果是新会话则为 None）
+            sdk_session_id = await session_manager.get_or_create_user_session(user_id)
+            is_new_session = sdk_session_id is None
+            logger.info(
+                f"Processing employee query for user {user_id} "
+                f"(sdk_session: {sdk_session_id or 'new'}, is_new: {is_new_session})"
+            )
 
             # 确保 Employee Service 已初始化
             if not employee_service.is_initialized:
@@ -57,17 +61,25 @@ async def employee_query_stream(
 
             # 定义 SSE 生成器
             async def event_generator():
-                """SSE 事件生成器（基于 user_id）"""
+                """
+                SSE 事件生成器（基于 user_id）
+
+                并发支持：使用 SDKClientPool 实现真正并发
+                每个请求独占一个 Client，无需用户锁
+
+                重要：从 ResultMessage 中提取真实的 SDK session ID 并保存
+                """
                 try:
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
-                    # 发送 claude_session_id
-                    yield f"data: {json.dumps({'type': 'session', 'session_id': claude_session_id})}\n\n"
+                    # 发送会话状态信息
+                    yield f"data: {json.dumps({'type': 'session', 'session_id': sdk_session_id or 'new', 'is_new': is_new_session})}\n\n"
 
                     turn_count = None
+                    real_sdk_session_id = None
 
-                    # 流式接收 Employee Agent 响应
-                    async for msg in employee_service.query(message, session_id=claude_session_id):
+                    # 流式接收 Employee Agent 响应（连接池已在 service 层处理并发）
+                    async for msg in employee_service.query(message, sdk_session_id=sdk_session_id, user_id=user_id):
                         if isinstance(msg, AssistantMessage):
                             # 提取文本块
                             for block in msg.content:
@@ -79,8 +91,15 @@ async def employee_query_stream(
 
                         elif isinstance(msg, ResultMessage):
                             turn_count = msg.num_turns
+                            real_sdk_session_id = msg.session_id  # 提取真实的 SDK session ID
+                            logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
                             # 发送完成信息
                             yield f"data: {json.dumps({'type': 'done', 'duration_ms': msg.duration_ms})}\n\n"
+
+                    # 保存真实的 SDK session ID（用于下次 resume）
+                    if real_sdk_session_id:
+                        await session_manager.save_sdk_session_id(user_id, real_sdk_session_id)
+                        logger.info(f"Saved SDK session ID for user {user_id}: {real_sdk_session_id}")
 
                     # 更新会话活跃度
                     if turn_count is not None:
@@ -100,7 +119,7 @@ async def employee_query_stream(
                 }
             )
 
-        # 基于 session_id 的会话（向后兼容）
+        # 基于 session_id 的会话（向后兼容，不使用 resume）
         else:
             if session_id:
                 session = session_manager.get_session(session_id)
@@ -110,7 +129,7 @@ async def employee_query_stream(
             else:
                 session = session_manager.create_session(user_id=None)
 
-            logger.info(f"Processing employee query for session {session.session_id}")
+            logger.info(f"Processing employee query for session {session.session_id} (legacy mode, no resume)")
 
             # 确保 Employee Service 已初始化
             if not employee_service.is_initialized:
@@ -118,15 +137,15 @@ async def employee_query_stream(
 
             # 定义 SSE 生成器
             async def event_generator():
-                """SSE 事件生成器（基于 session_id）"""
+                """SSE 事件生成器（基于 session_id，旧模式不使用 resume）"""
                 try:
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
                     # 发送会话 ID
                     yield f"data: {json.dumps({'type': 'session', 'session_id': session.session_id})}\n\n"
 
-                    # 流式接收 Employee Agent 响应
-                    async for msg in employee_service.query(message, session_id=session.session_id):
+                    # 流式接收 Employee Agent 响应（旧模式：不传 sdk_session_id）
+                    async for msg in employee_service.query(message, sdk_session_id=None, user_id=None):
                         if isinstance(msg, AssistantMessage):
                             # 提取文本块
                             for block in msg.content:

@@ -53,9 +53,13 @@ async def query(req: QueryRequest):
 
         # 新逻辑：基于 user_id 的持久化会话
         if req.user_id:
-            # 获取或创建用户的 Claude session ID
-            claude_session_id = await session_manager.get_or_create_user_session(req.user_id)
-            logger.info(f"Processing query for user {req.user_id} (claude_session: {claude_session_id})")
+            # 获取 SDK session ID（用于 resume，如果是新会话则为 None）
+            sdk_session_id = await session_manager.get_or_create_user_session(req.user_id)
+            is_new_session = sdk_session_id is None
+            logger.info(
+                f"Processing query for user {req.user_id} "
+                f"(sdk_session: {sdk_session_id or 'new'}, is_new: {is_new_session})"
+            )
 
             # 确保 Admin Service 已初始化
             if not admin_service.is_initialized:
@@ -64,16 +68,24 @@ async def query(req: QueryRequest):
             # 直接将用户消息发送给 Admin Agent
             response_parts = []
             turn_count = None
+            real_sdk_session_id = None
 
             from claude_agent_sdk import AssistantMessage, TextBlock, ResultMessage
 
-            async for message in admin_service.query(req.message, session_id=claude_session_id):
+            # 流式接收 Admin Agent 响应（连接池已在 service 层处理并发）
+            async for message in admin_service.query(req.message, sdk_session_id=sdk_session_id):
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
                         if isinstance(block, TextBlock):
                             response_parts.append(block.text)
                 elif isinstance(message, ResultMessage):
                     turn_count = message.num_turns
+                    real_sdk_session_id = message.session_id  # 提取真实的 SDK session ID
+
+            # 保存真实的 SDK session ID（用于下次 resume）
+            if real_sdk_session_id:
+                await session_manager.save_sdk_session_id(req.user_id, real_sdk_session_id)
+                logger.info(f"Saved SDK session ID for user {req.user_id}: {real_sdk_session_id}")
 
             # 更新会话活跃度
             if turn_count is not None:
@@ -82,12 +94,12 @@ async def query(req: QueryRequest):
             response_text = "".join(response_parts) if response_parts else "未收到响应"
 
             return QueryResponse(
-                session_id=claude_session_id,
+                session_id=real_sdk_session_id or "new",
                 response=response_text,
                 status="success"
             )
 
-        # 旧逻辑：基于 session_id 的会话（向后兼容）
+        # 旧逻辑：基于 session_id 的会话（向后兼容，不使用 resume）
         else:
             if req.session_id:
                 session = session_manager.get_session(req.session_id)
@@ -97,17 +109,17 @@ async def query(req: QueryRequest):
             else:
                 session = session_manager.create_session(user_id=None)
 
-            logger.info(f"Processing query for session {session.session_id}: {req.message[:50]}...")
+            logger.info(f"Processing query for session {session.session_id}: {req.message[:50]}... (legacy mode)")
 
             # 确保 Admin Service 已初始化
             if not admin_service.is_initialized:
                 await admin_service.initialize()
 
-            # 直接将用户消息发送给 Admin Agent
+            # 直接将用户消息发送给 Admin Agent（旧模式：不使用 resume）
             response_parts = []
             from claude_agent_sdk import AssistantMessage, TextBlock
 
-            async for message in admin_service.query(req.message, session_id=session.session_id):
+            async for message in admin_service.query(req.message, sdk_session_id=None):
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
                         if isinstance(block, TextBlock):
@@ -152,9 +164,13 @@ async def query_stream(
 
         # 新逻辑：基于 user_id 的持久化会话
         if user_id:
-            # 获取或创建用户的 Claude session ID
-            claude_session_id = await session_manager.get_or_create_user_session(user_id)
-            logger.info(f"Processing streaming query for user {user_id} (claude_session: {claude_session_id})")
+            # 获取 SDK session ID（用于 resume，如果是新会话则为 None）
+            sdk_session_id = await session_manager.get_or_create_user_session(user_id)
+            is_new_session = sdk_session_id is None
+            logger.info(
+                f"Processing streaming query for user {user_id} "
+                f"(sdk_session: {sdk_session_id or 'new'}, is_new: {is_new_session})"
+            )
 
             # 确保 Admin Service 已初始化
             if not admin_service.is_initialized:
@@ -162,17 +178,25 @@ async def query_stream(
 
             # 定义 SSE 生成器
             async def event_generator():
-                """SSE 事件生成器（基于 user_id）"""
+                """
+                SSE 事件生成器（基于 user_id）
+
+                并发支持：使用 SDKClientPool 实现真正并发
+                每个请求独占一个 Client，无需用户锁
+
+                重要：从 ResultMessage 中提取真实的 SDK session ID 并保存
+                """
                 try:
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
-                    # 发送 claude_session_id
-                    yield f"data: {json.dumps({'type': 'session', 'session_id': claude_session_id})}\n\n"
+                    # 发送会话状态信息
+                    yield f"data: {json.dumps({'type': 'session', 'session_id': sdk_session_id or 'new', 'is_new': is_new_session})}\n\n"
 
                     turn_count = None
+                    real_sdk_session_id = None
 
-                    # 流式接收 Admin Agent 响应
-                    async for msg in admin_service.query(message, session_id=claude_session_id):
+                    # 流式接收 Admin Agent 响应（连接池已在 service 层处理并发）
+                    async for msg in admin_service.query(message, sdk_session_id=sdk_session_id):
                         if isinstance(msg, AssistantMessage):
                             # 提取文本块
                             for block in msg.content:
@@ -184,8 +208,15 @@ async def query_stream(
 
                         elif isinstance(msg, ResultMessage):
                             turn_count = msg.num_turns
+                            real_sdk_session_id = msg.session_id  # 提取真实的 SDK session ID
+                            logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
                             # 发送完成信息
                             yield f"data: {json.dumps({'type': 'done', 'duration_ms': msg.duration_ms})}\n\n"
+
+                    # 保存真实的 SDK session ID（用于下次 resume）
+                    if real_sdk_session_id:
+                        await session_manager.save_sdk_session_id(user_id, real_sdk_session_id)
+                        logger.info(f"Saved SDK session ID for user {user_id}: {real_sdk_session_id}")
 
                     # 更新会话活跃度
                     if turn_count is not None:
@@ -205,7 +236,7 @@ async def query_stream(
                 }
             )
 
-        # 旧逻辑：基于 session_id 的会话（向后兼容）
+        # 旧逻辑：基于 session_id 的会话（向后兼容，不使用 resume）
         else:
             if session_id:
                 session = session_manager.get_session(session_id)
@@ -215,7 +246,7 @@ async def query_stream(
             else:
                 session = session_manager.create_session(user_id=None)
 
-            logger.info(f"Processing streaming query for session {session.session_id}")
+            logger.info(f"Processing streaming query for session {session.session_id} (legacy mode, no resume)")
 
             # 确保 Admin Service 已初始化
             if not admin_service.is_initialized:
@@ -223,15 +254,15 @@ async def query_stream(
 
             # 定义 SSE 生成器
             async def event_generator():
-                """SSE 事件生成器（基于 session_id）"""
+                """SSE 事件生成器（基于 session_id，旧模式不使用 resume）"""
                 try:
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
                     # 发送会话 ID
                     yield f"data: {json.dumps({'type': 'session', 'session_id': session.session_id})}\n\n"
 
-                    # 流式接收 Admin Agent 响应
-                    async for msg in admin_service.query(message, session_id=session.session_id):
+                    # 流式接收 Admin Agent 响应（旧模式：不传 sdk_session_id，每次都是新会话）
+                    async for msg in admin_service.query(message, sdk_session_id=None):
                         if isinstance(msg, AssistantMessage):
                             # 提取文本块
                             for block in msg.content:
@@ -271,7 +302,7 @@ async def clear_context(request: dict):
     """
     清空用户上下文（新接口）
 
-    归档旧会话，创建新会话
+    归档旧会话，创建新会话（sdk_session_id 将被清空）
     """
     try:
         user_id = request.get("user_id")
@@ -280,13 +311,12 @@ async def clear_context(request: dict):
 
         session_manager = get_session_manager()
 
-        # 清空用户上下文
-        new_claude_session_id = await session_manager.clear_user_context(user_id)
+        # 清空用户上下文（下次查询会创建新的 SDK 会话）
+        await session_manager.clear_user_context(user_id)
 
         return {
             "success": True,
-            "new_session_id": new_claude_session_id,
-            "message": f"用户 {user_id} 的上下文已清空"
+            "message": f"用户 {user_id} 的上下文已清空，下次查询将创建新会话"
         }
 
     except HTTPException:
