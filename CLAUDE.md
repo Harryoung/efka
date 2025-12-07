@@ -115,10 +115,35 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 
 ## Development Commands
 
+### ⚠️ CRITICAL: Virtual Environment Requirement
+
+**ALL Python commands MUST be executed within the project's virtual environment (venv).**
+
+```bash
+# Activate venv BEFORE running any Python commands
+source venv/bin/activate
+
+# Verify you're in venv (should show project's venv path)
+which python3
+# Expected: /Users/youjiangbin/IT_road/intelligent_kba/venv/bin/python3
+
+# Deactivate when done (optional)
+deactivate
+```
+
+**Why is this mandatory?**
+- ✅ Ensures correct Python dependencies (claude-agent-sdk, etc.)
+- ✅ Avoids conflicts with system Python
+- ✅ Guarantees reproducible environment across developers
+- ❌ **Running without venv will cause import errors and unexpected behavior**
+
 ### Running the Application (v3.0)
 
 **Quick Start (Recommended):**
 ```bash
+# IMPORTANT: Activate venv first!
+source venv/bin/activate
+
 # v3.0: Smart startup script with automatic channel detection
 ./scripts/start_v3.sh
 
@@ -138,27 +163,33 @@ This project follows an **Agent Autonomous Decision-Making** architecture:
 
 **Manual Start (v3.0):**
 ```bash
+# ⚠️ FIRST: Activate venv in EVERY terminal!
+source venv/bin/activate
+
 # Terminal 1 - Backend (FastAPI with both Admin and Employee agents)
 python3 -m backend.main
 # Runs on http://localhost:8000
 # Health check: http://localhost:8000/health
 
-# Terminal 2 - Admin UI
+# Terminal 2 - Admin UI (no venv needed for npm)
 cd frontend && npm run dev
 # Runs on http://localhost:3000
 
-# Terminal 3 - Employee UI (optional)
+# Terminal 3 - Employee UI (optional, no venv needed for npm)
 cd frontend-employee && npm run dev
 # Runs on http://localhost:3001
 
 # Terminal 4 - IM Channel Services (optional, if configured)
-# WeWork callback service (if WEWORK env vars configured)
+# ⚠️ Must have venv activated!
 python -m backend.channels.wework.server
 # Runs on port 8081 (or WEWORK_PORT from .env)
 ```
 
 **Legacy Start (v2.0):**
 ```bash
+# ⚠️ Activate venv first!
+source venv/bin/activate
+
 # For backward compatibility only
 ./scripts/start.sh
 
@@ -170,6 +201,9 @@ python -m backend.channels.wework.server
 
 **Backend Tests:**
 ```bash
+# ⚠️ Activate venv first!
+source venv/bin/activate
+
 # Phase verification scripts
 python scripts/verify_phase1.py  # Project structure
 python scripts/verify_phase2.py  # Agent definitions
@@ -193,6 +227,9 @@ npm run lint          # Run ESLint
 
 **Backend:**
 ```bash
+# ⚠️ Activate venv first!
+source venv/bin/activate
+
 pip3 install -r backend/requirements.txt
 
 # Important dependencies for document conversion (smart_convert.py):
@@ -545,12 +582,13 @@ Located at `./knowledge_base/`:
 
 ## Common Pitfalls to Avoid
 
-1. **DON'T** create specialized tools like `semantic_conflict_checker` or `faq_manager` - let the Agent use base tools
-2. **DON'T** import Agent SDK modules before setting environment variables
-3. **DON'T** use direct instantiation of services - use singleton getters
-4. **DON'T** forget to handle async/await in API routes
-5. **DON'T** modify Agent business logic in code - modify prompts instead
-6. **DON'T** try to create sub-agents - this is a single agent architecture
+1. **DON'T** run Python commands without activating venv first (`source venv/bin/activate`)
+2. **DON'T** create specialized tools like `semantic_conflict_checker` or `faq_manager` - let the Agent use base tools
+3. **DON'T** import Agent SDK modules before setting environment variables
+4. **DON'T** use direct instantiation of services - use singleton getters
+5. **DON'T** forget to handle async/await in API routes
+6. **DON'T** modify Agent business logic in code - modify prompts instead
+7. **DON'T** try to create sub-agents - this is a single agent architecture
 
 ## Future Extension Patterns
 
@@ -592,6 +630,9 @@ tail -f logs/frontend.log # Frontend
 
 **Restart Services:**
 ```bash
+# ⚠️ Activate venv first!
+source venv/bin/activate
+
 ./scripts/stop.sh && ./scripts/start.sh
 ```
 
@@ -726,6 +767,9 @@ Uses `fcntl` for cross-process locking, compatible with future microservices dep
 
 **Service Initialization:**
 ```bash
+# ⚠️ Activate venv first!
+source venv/bin/activate
+
 # Test Employee Service
 python3 -c "
 import asyncio
@@ -755,6 +799,9 @@ asyncio.run(test())
 
 **Conversation State Manager:**
 ```bash
+# ⚠️ Activate venv first! (if not already)
+source venv/bin/activate
+
 python3 -c "
 import asyncio
 from pathlib import Path
@@ -965,6 +1012,9 @@ async def employee_query(
 
 **Check Configured Channels**:
 ```bash
+# ⚠️ Activate venv first!
+source venv/bin/activate
+
 python -c "
 from backend.config.channel_config import get_channel_config
 config = get_channel_config()
@@ -975,6 +1025,9 @@ print('Status:', config.get_channel_status())
 
 **Test WeWork Adapter**:
 ```bash
+# ⚠️ Activate venv first! (if not already)
+source venv/bin/activate
+
 python -c "
 from backend.channels.wework import WeWorkAdapter
 adapter = WeWorkAdapter()
@@ -986,9 +1039,10 @@ print('Required env vars:', adapter.get_required_env_vars())
 **Startup Troubleshooting**:
 ```bash
 # If services don't start, check:
-1. Port availability: lsof -i :8000,:3000,:3001,:8081-8084
-2. Configuration: cat .env | grep ENABLE_
-3. Logs: tail -f logs/backend.log logs/wework.log logs/frontend.log
+1. Virtual environment: source venv/bin/activate && which python3
+2. Port availability: lsof -i :8000,:3000,:3001,:8081-8084
+3. Configuration: cat .env | grep ENABLE_
+4. Logs: tail -f logs/backend.log logs/wework.log logs/frontend.log
 ```
 
 ---
