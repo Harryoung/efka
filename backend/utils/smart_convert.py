@@ -11,6 +11,7 @@ import fitz  # PyMuPDF
 import pypandoc
 import pymupdf4llm
 import pathlib
+from pptx2md import convert as pptx2md_convert, ConversionConfig
 
 # ================= 配置区域 =================
 # PaddleOCR API Token (从环境变量读取)
@@ -48,6 +49,17 @@ def is_scanned_pdf(pdf_path):
         print(f"[Warning] PDF 检测失败，默认按非扫描版处理: {e}", file=sys.stderr)
         return False
 
+def get_soffice_cmd():
+    """获取 LibreOffice soffice 命令路径"""
+    soffice_cmd = "soffice"
+    if sys.platform == "darwin" and not shutil.which("soffice"):
+        if os.path.exists(MAC_SOFFICE_PATH):
+            soffice_cmd = MAC_SOFFICE_PATH
+        else:
+            raise FileNotFoundError("未找到 LibreOffice (soffice)。请安装 LibreOffice 或将其加入 PATH。")
+    return soffice_cmd
+
+
 def convert_doc_to_docx(input_path):
     """使用 LibreOffice 将 .doc 转为 .docx"""
     print(f" -> 正在将 .doc 转换为 .docx: {input_path}", file=sys.stderr)
@@ -55,13 +67,7 @@ def convert_doc_to_docx(input_path):
     input_abs_path = os.path.abspath(input_path)
     output_dir = os.path.dirname(input_abs_path)
 
-    # 确定 soffice 命令
-    soffice_cmd = "soffice"
-    if sys.platform == "darwin" and not shutil.which("soffice"):
-        if os.path.exists(MAC_SOFFICE_PATH):
-            soffice_cmd = MAC_SOFFICE_PATH
-        else:
-            raise FileNotFoundError("未找到 LibreOffice (soffice)。请安装 LibreOffice 或将其加入 PATH。")
+    soffice_cmd = get_soffice_cmd()
 
     cmd = [
         soffice_cmd, '--headless', '--convert-to', 'docx',
@@ -84,15 +90,50 @@ def convert_doc_to_docx(input_path):
         # Fallback 检查
         return docx_path if os.path.exists(docx_path) else None
 
-def process_pandoc(input_file, output_file):
+
+def convert_ppt_to_pptx(input_path):
+    """使用 LibreOffice 将 .ppt 转为 .pptx"""
+    print(f" -> 正在将 .ppt 转换为 .pptx: {input_path}", file=sys.stderr)
+
+    input_abs_path = os.path.abspath(input_path)
+    output_dir = os.path.dirname(input_abs_path)
+
+    soffice_cmd = get_soffice_cmd()
+
+    cmd = [
+        soffice_cmd, '--headless', '--convert-to', 'pptx',
+        input_abs_path, '--outdir', output_dir
+    ]
+
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise RuntimeError(f"LibreOffice 转换失败: {result.stderr.decode()}")
+
+    # 推断输出文件路径
+    base_name = os.path.splitext(input_abs_path)[0]
+    pptx_candidate = base_name + ".pptx"
+
+    if os.path.exists(pptx_candidate):
+        return pptx_candidate
+    else:
+        return None
+
+def process_pandoc(input_file, output_file, images_base_name=None):
     """处理 Word (.docx) -> Markdown
+
+    Args:
+        images_base_name: 可选，图片目录的基础名称（不含 _images 后缀）
 
     Returns:
         dict: 包含转换结果信息 (images_dir, image_count)
     """
     output_dir = os.path.dirname(os.path.abspath(output_file))
-    filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
-    media_dir_name = f"{filename_no_ext}_images"
+    # 优先使用指定的 images_base_name，否则基于输出文件名
+    if images_base_name:
+        media_dir_name = f"{images_base_name}_images"
+    else:
+        filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
+        media_dir_name = f"{filename_no_ext}_images"
     media_dir = os.path.join(output_dir, media_dir_name)
 
     print(f" -> 使用 Pandoc 转换 (保留格式与图片)...", file=sys.stderr)
@@ -119,15 +160,22 @@ def process_pandoc(input_file, output_file):
         "image_count": image_count
     }
 
-def process_pymupdf(input_file, output_file):
+def process_pymupdf(input_file, output_file, images_base_name=None):
     """处理电子版 PDF -> Markdown
+
+    Args:
+        images_base_name: 可选，图片目录的基础名称（不含 _images 后缀）
 
     Returns:
         dict: 包含转换结果信息 (images_dir, image_count)
     """
     output_dir = os.path.dirname(os.path.abspath(output_file))
-    filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
-    images_folder_name = f"{filename_no_ext}_images"
+    # 优先使用指定的 images_base_name，否则基于输出文件名
+    if images_base_name:
+        images_folder_name = f"{images_base_name}_images"
+    else:
+        filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
+        images_folder_name = f"{filename_no_ext}_images"
 
     print(f" -> 使用 PyMuPDF4LLM 转换 (本地快速模式)...", file=sys.stderr)
 
@@ -162,8 +210,11 @@ def process_pymupdf(input_file, output_file):
         "image_count": image_count
     }
 
-def process_paddle_ocr(input_file, output_file, token):
+def process_paddle_ocr(input_file, output_file, token, images_base_name=None):
     """处理扫描版 PDF -> Markdown (PaddleOCR API)
+
+    Args:
+        images_base_name: 可选，图片目录的基础名称（不含 _images 后缀）
 
     Returns:
         dict: 包含转换结果信息 (images_dir, image_count)
@@ -175,9 +226,12 @@ def process_paddle_ocr(input_file, output_file, token):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    # 统一图片目录命名
-    filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
-    images_folder_name = f"{filename_no_ext}_images"
+    # 优先使用指定的 images_base_name，否则基于输出文件名
+    if images_base_name:
+        images_folder_name = f"{images_base_name}_images"
+    else:
+        filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
+        images_folder_name = f"{filename_no_ext}_images"
     images_dir = os.path.join(output_dir, images_folder_name)
     os.makedirs(images_dir, exist_ok=True)
 
@@ -261,15 +315,72 @@ def process_paddle_ocr(input_file, output_file, token):
         "image_count": image_count
     }
 
+def process_pptx(input_file, output_file, images_base_name=None):
+    """处理 PPTX -> Markdown（使用 pptx2md）
+
+    Args:
+        images_base_name: 可选，图片目录的基础名称（不含 _images 后缀）
+
+    Returns:
+        dict: 包含转换结果信息 (images_dir, image_count)
+    """
+    output_dir = os.path.dirname(os.path.abspath(output_file))
+    # 优先使用指定的 images_base_name，否则基于输出文件名
+    if images_base_name:
+        images_folder_name = f"{images_base_name}_images"
+    else:
+        filename_no_ext = os.path.splitext(os.path.basename(output_file))[0]
+        images_folder_name = f"{filename_no_ext}_images"
+    images_dir = os.path.join(output_dir, images_folder_name)
+
+    print(f" -> 使用 pptx2md 转换 PPTX...", file=sys.stderr)
+
+    # 确保图片目录存在
+    os.makedirs(images_dir, exist_ok=True)
+
+    pptx2md_convert(ConversionConfig(
+        pptx_path=pathlib.Path(input_file),
+        output_path=pathlib.Path(output_file),
+        image_dir=pathlib.Path(images_dir),
+        disable_notes=False,  # 保留备注
+        enable_slides=True,   # 添加幻灯片分隔符
+    ))
+
+    # 统计图片数量
+    image_count = 0
+    if os.path.exists(images_dir):
+        for root, dirs, files in os.walk(images_dir):
+            image_count += len([f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.emf', '.wmf'))])
+
+    # 如果没有图片，清理空目录
+    if image_count == 0 and os.path.exists(images_dir):
+        try:
+            os.rmdir(images_dir)
+        except OSError:
+            pass  # 目录非空，保留
+
+    return {
+        "images_dir": images_folder_name if image_count > 0 else None,
+        "image_count": image_count
+    }
+
 def main():
-    parser = argparse.ArgumentParser(description="智能文档转 Markdown 工具 (支持 docx/doc/pdf/扫描件)")
+    parser = argparse.ArgumentParser(description="智能文档转 Markdown 工具 (支持 docx/doc/pdf/ppt/pptx/扫描件)")
     parser.add_argument("input", help="输入文件路径")
     parser.add_argument("-o", "--output", help="输出 Markdown 文件路径 (默认同名)")
     parser.add_argument("--token", default=DEFAULT_PADDLE_TOKEN, help="PaddleOCR API Token")
     parser.add_argument("--force-ocr", action="store_true", help="强制使用 OCR 模式处理 PDF")
     parser.add_argument("--json-output", action="store_true", help="输出JSON格式结果（便于程序解析）")
+    parser.add_argument("--original-name", help="原始文件名(用于生成正确的图片目录名，解决临时文件名问题)")
 
     args = parser.parse_args()
+
+    # 计算图片目录的基础名称
+    # 优先使用 --original-name，否则使用输入文件名
+    if args.original_name:
+        images_base_name = os.path.splitext(os.path.basename(args.original_name))[0]
+    else:
+        images_base_name = None  # 使用默认行为（基于输出文件名）
 
     input_file = args.input
     if not os.path.exists(input_file):
@@ -293,6 +404,7 @@ def main():
 
     ext = os.path.splitext(input_file)[1].lower()
     temp_docx = None
+    temp_pptx = None
     conversion_info = {}
 
     try:
@@ -307,11 +419,11 @@ def main():
                 if args.json_output:
                     print(json.dumps({"success": False, "error": error_msg}))
                 sys.exit(1)
-            conversion_info = process_pandoc(temp_docx, output_file)
+            conversion_info = process_pandoc(temp_docx, output_file, images_base_name)
 
         # 2. DOCX 处理
         elif ext == ".docx":
-            conversion_info = process_pandoc(input_file, output_file)
+            conversion_info = process_pandoc(input_file, output_file, images_base_name)
 
         # 3. PDF 处理
         elif ext == ".pdf":
@@ -325,9 +437,24 @@ def main():
                 print(f"    检测结果: {'[扫描版]' if is_scanned else '[电子版]'}", file=sys.stderr)
 
             if is_scanned:
-                conversion_info = process_paddle_ocr(input_file, output_file, args.token)
+                conversion_info = process_paddle_ocr(input_file, output_file, args.token, images_base_name)
             else:
-                conversion_info = process_pymupdf(input_file, output_file)
+                conversion_info = process_pymupdf(input_file, output_file, images_base_name)
+
+        # 4. PPT 处理 (先转 PPTX，再用 pptx2md)
+        elif ext == ".ppt":
+            temp_pptx = convert_ppt_to_pptx(input_file)
+            if not temp_pptx:
+                error_msg = "❌ .ppt 转 .pptx 失败"
+                print(error_msg, file=sys.stderr)
+                if args.json_output:
+                    print(json.dumps({"success": False, "error": error_msg}))
+                sys.exit(1)
+            conversion_info = process_pptx(temp_pptx, output_file, images_base_name)
+
+        # 5. PPTX 处理
+        elif ext == ".pptx":
+            conversion_info = process_pptx(input_file, output_file, images_base_name)
 
         else:
             error_msg = f"❌ 不支持的文件格式: {ext}"
@@ -365,6 +492,9 @@ def main():
         if temp_docx and os.path.exists(temp_docx):
             os.remove(temp_docx)
             print(" -> 已清理临时 .docx 文件", file=sys.stderr)
+        if temp_pptx and os.path.exists(temp_pptx):
+            os.remove(temp_pptx)
+            print(" -> 已清理临时 .pptx 文件", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

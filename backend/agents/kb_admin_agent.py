@@ -77,25 +77,33 @@ def generate_admin_agent_prompt(
   - `employee_mapping.xlsx`, `domain_experts.xlsx` 等项目内置配置表
   - 这些文件结构已知，可直接用 `pd.read_excel()` 读取
 
-**其他格式文件（DOC/DOCX/PDF）**：
+**其他格式文件（DOC/DOCX/PDF/PPT/PPTX）**：
 - 使用 Bash 工具调用 `python backend/utils/smart_convert.py` 进行转换
-- 命令格式：`python backend/utils/smart_convert.py <input_file> --json-output`
+- **命令格式**：
+  ```bash
+  python backend/utils/smart_convert.py <temp_path> --original-name "<原始文件名>" --json-output
+  ```
+  - `<temp_path>`: 临时文件路径（如 `/tmp/kb_upload_xxx.pptx`）
+  - `--original-name`: **必须传入原始文件名**，用于生成正确的图片目录名（如 `培训资料_images/`）
+  - 如果不传 `--original-name`，图片目录会使用临时文件名，导致入库后图片引用路径错误！
 - 智能文档转换特性：
   - **DOCX/DOC**: 使用 Pandoc 转换，保留格式和图片
   - **PDF 电子版**: 使用 PyMuPDF4LLM 快速转换
   - **PDF 扫描版**: 自动检测并使用 PaddleOCR-VL 进行 OCR 识别
-  - **图片处理**: 自动提取图片并保存到 `<filename>_images/` 目录
+  - **PPTX**: 使用 pptx2md 专业转换，保留标题层级、列表、格式、图片、表格
+  - **PPT (老版)**: 先用 LibreOffice 转为 PPTX，再用 pptx2md 处理
+  - **图片处理**: 自动提取图片并保存到 `<原始文件名>_images/` 目录
 - JSON 输出格式：
   ```json
   {{
     "success": true,
     "markdown_file": "/path/to/output.md",
-    "images_dir": "filename_images",
+    "images_dir": "原始文件名_images",
     "image_count": 5
   }}
   ```
 - 处理流程：
-  1. 执行转换命令（使用 `--json-output` 参数）
+  1. 执行转换命令（**必须使用 `--original-name` 和 `--json-output` 参数**）
   2. 解析 JSON 输出，检查 `success` 字段
   3. 如果 `success: false`，道歉并提示不支持的格式或转换失败，结束流程
   4. 如果 `success: true`，记录生成的 markdown 文件路径和图片目录信息
@@ -121,9 +129,9 @@ def generate_admin_agent_prompt(
 ### 阶段5：写入和更新
 
 **步骤1：移动文件**
-- 移动markdown文档到选定位置
-- 如有图片等附件需要一并移动
-- 建议图片路径使用相对路径，保证整体移动后路径正确
+- 移动markdown文档到选定位置（如 `knowledge_base/xxx/文档名.md`）
+- **如有图片目录必须一并移动到同一位置**（如 `knowledge_base/xxx/文档名_images/`）
+- 由于使用了 `--original-name` 参数，markdown 中的图片引用路径已经是相对路径（如 `文档名_images/xxx.png`），移动后自动正确
 
 **步骤2：处理大文件目录概要**
 - 判断markdown文件大小是否 ≥{small_file_threshold_kb}KB
@@ -284,9 +292,9 @@ du -h --max-depth=2 knowledge_base
 - **Read/Write**：文件操作
 - **Grep/Glob**：搜索和查找
 - **Bash**：执行命令（ls、统计、Python脚本、**文档转换**等）
-  - **文档转换**: `python backend/utils/smart_convert.py <input_file> --json-output`
-  - 支持格式：DOC, DOCX, PDF（电子版和扫描版）
-  - 自动图片提取，智能PDF类型检测
+  - **文档转换**: `python backend/utils/smart_convert.py <temp_path> --original-name "<原始文件名>" --json-output`
+  - 支持格式：DOC, DOCX, PDF（电子版和扫描版）, PPT, PPTX
+  - 自动图片提取（使用原始文件名命名图片目录），智能PDF类型检测
 - **mcp__image_vision__image_read**：读取图像内容（架构图/流程图/截图等）
   - `image_path`: 图像文件路径
   - `question`: 需要从图像中获取的信息（如"描述架构图逻辑"、"提取流程步骤"）
