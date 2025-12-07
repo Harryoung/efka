@@ -3,12 +3,17 @@ KB Service Factory - 知识库服务工厂
 
 管理Employee Agent和Admin Agent两个独立的Agent SDK客户端
 支持未来拆分为微服务（仅需修改此文件的实现）
+
+并发支持：使用 SDKClientPool 实现多用户真正并发
+- 每个请求独占一个 Client
+- 通过 resume 参数恢复用户 session
+- 使用后归还到池中
 """
 
 import logging
 import os
 import asyncio
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, Callable
 from pathlib import Path
 
 from claude_agent_sdk import (
@@ -22,6 +27,7 @@ from backend.agents.kb_qa_agent import get_employee_agent_definition
 from backend.agents.kb_admin_agent import get_admin_agent_definition
 from backend.config.settings import get_settings
 from backend.tools.image_read import image_read_handler
+from backend.services.client_pool import SDKClientPool, get_pool_manager
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +45,79 @@ class KBEmployeeService:
     特点:
     - 轻量级(无文档转换功能)
     - 企业微信MCP集成
+
+    并发支持:
+    - 使用 SDKClientPool 实现真正并发
+    - 每个请求独占一个 Client
+    - 通过 resume 参数恢复用户 session
     """
 
     def __init__(self):
         """初始化员工端服务"""
         self.settings = get_settings()
-        self.client: Optional[ClaudeSDKClient] = None
+        self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
+
+        # 缓存 MCP servers 配置（在 initialize 中设置）
+        self._mcp_servers = None
+        self._env_vars = None
+        self._employee_agent_def = None
 
         logger.info("KBEmployeeService instance created")
 
+    def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
+        """
+        创建 ClaudeAgentOptions（Options Factory）
+
+        Args:
+            sdk_session_id: SDK 返回的真实 session ID（可选）
+                           - None: 新会话，不设置 resume
+                           - str: 已有会话，设置 resume 恢复会话
+
+        Returns:
+            配置好的 ClaudeAgentOptions
+        """
+        kb_path = Path(self.settings.KB_ROOT_PATH)
+
+        options = ClaudeAgentOptions(
+            system_prompt={
+                "type": "preset",
+                "preset": "claude_code",
+                "append": f"\n\n{self._employee_agent_def.prompt}"
+            },
+            agents=None,  # 单一Agent架构
+            mcp_servers=self._mcp_servers,
+            allowed_tools=[
+                "Read",
+                "Grep",
+                "Glob",
+                "Write",
+                "Bash",
+                "Skill",  # Enable Claude Code Skills
+                # Image Vision MCP tool
+                "mcp__image_vision__image_read",
+                # WeWork MCP tools
+                "mcp__wework__wework_send_text_message",
+                "mcp__wework__wework_send_markdown_message",
+                "mcp__wework__wework_send_image_message",
+                "mcp__wework__wework_send_file_message",
+                "mcp__wework__wework_upload_media",
+            ],
+            cwd=str(kb_path.parent),  # 项目根目录
+            permission_mode="acceptEdits",
+            env=self._env_vars,
+            setting_sources=None
+        )
+
+        # 如果提供了 SDK session ID，设置 resume 参数恢复会话
+        if sdk_session_id:
+            options.resume = sdk_session_id
+            logger.debug(f"Setting resume to SDK session: {sdk_session_id}")
+
+        return options
+
     async def initialize(self):
-        """初始化Employee Agent SDK客户端"""
+        """初始化Employee Agent连接池"""
         if self.is_initialized:
             logger.warning("Employee service already initialized")
             return
@@ -65,32 +132,30 @@ class KBEmployeeService:
             if not kb_path.exists():
                 kb_path.mkdir(parents=True, exist_ok=True)
 
-            # 准备环境变量
-            env_vars = {
+            # 准备环境变量（缓存供 _create_options 使用）
+            self._env_vars = {
                 "KB_ROOT_PATH": str(kb_path),
             }
 
             if self.settings.CLAUDE_API_KEY:
-                env_vars["ANTHROPIC_API_KEY"] = self.settings.CLAUDE_API_KEY
+                self._env_vars["ANTHROPIC_API_KEY"] = self.settings.CLAUDE_API_KEY
             else:
-                env_vars["ANTHROPIC_AUTH_TOKEN"] = self.settings.ANTHROPIC_AUTH_TOKEN
+                self._env_vars["ANTHROPIC_AUTH_TOKEN"] = self.settings.ANTHROPIC_AUTH_TOKEN
                 if self.settings.ANTHROPIC_BASE_URL:
-                    env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
+                    self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
-            # 获取Employee Agent定义
-            employee_agent_def = get_employee_agent_definition(
+            # 获取Employee Agent定义（缓存供 _create_options 使用）
+            self._employee_agent_def = get_employee_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
                 faq_max_entries=self.settings.FAQ_MAX_ENTRIES
             )
 
-            # 配置MCP servers (仅wework)
-            # 查找 wework-mcp 命令的绝对路径（支持虚拟环境）
+            # 配置MCP servers（缓存供 _create_options 使用）
             import sys
             import shutil
 
             wework_mcp_path = shutil.which("wework-mcp")
             if not wework_mcp_path:
-                # 尝试在虚拟环境中查找
                 venv_path = Path(sys.executable).parent / "wework-mcp"
                 if venv_path.exists():
                     wework_mcp_path = str(venv_path)
@@ -107,7 +172,7 @@ class KBEmployeeService:
                 tools=[image_read_handler]
             )
 
-            mcp_servers = {
+            self._mcp_servers = {
                 "wework": {
                     "type": "stdio",
                     "command": wework_mcp_path,
@@ -121,60 +186,24 @@ class KBEmployeeService:
                 "image_vision": image_vision_server
             }
 
-            # 创建Claude Agent Options
-            options = ClaudeAgentOptions(
-                system_prompt={
-                    "type": "preset",
-                    "preset": "claude_code",
-                    "append": f"\n\n{employee_agent_def.prompt}"
-                },
-                agents=None,  # 单一Agent架构
-                mcp_servers=mcp_servers,
-                allowed_tools=[
-                    "Read",
-                    "Grep",
-                    "Glob",
-                    "Write",
-                    "Bash",
-                    "Skill",  # Enable Claude Code Skills
-                    # Image Vision MCP tool
-                    "mcp__image_vision__image_read",
-                    # WeWork MCP tools
-                    "mcp__wework__wework_send_text_message",
-                    "mcp__wework__wework_send_markdown_message",
-                    "mcp__wework__wework_send_image_message",
-                    "mcp__wework__wework_send_file_message",
-                    "mcp__wework__wework_upload_media",
-                ],
-                cwd=str(kb_path.parent),  # 项目根目录
-                permission_mode="acceptEdits",
-                env=env_vars,
-                setting_sources=None
+            # 创建连接池
+            pool_size = self.settings.EMPLOYEE_CLIENT_POOL_SIZE
+            max_wait = self.settings.CLIENT_POOL_MAX_WAIT
+
+            self.client_pool = SDKClientPool(
+                pool_size=pool_size,
+                options_factory=self._create_options,
+                max_wait_time=float(max_wait)
             )
 
-            # 创建客户端
-            self.client = ClaudeSDKClient(options=options)
-
-            # 连接到Claude API（可能因欠费/无效API key失败）
-            try:
-                logger.info("Connecting to Claude API...")
-                await self.client.connect()
-                logger.info("✅ Claude API connection successful")
-            except Exception as conn_error:
-                logger.error("❌ Failed to connect to Claude API")
-                logger.error(f"   Error type: {type(conn_error).__name__}")
-                logger.error(f"   Error message: {str(conn_error)}")
-                logger.error(f"   This may indicate:")
-                logger.error(f"   - Invalid API key (CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN)")
-                logger.error(f"   - API account insufficent balance (欠费)")
-                logger.error(f"   - Network connectivity issues")
-                logger.error(f"   - API service unavailable")
-                raise
+            # 初始化连接池
+            logger.info(f"Initializing Employee client pool (size={pool_size})...")
+            await self.client_pool.initialize()
 
             self.is_initialized = True
             logger.info("✅ Employee service initialized successfully")
-            logger.info(f"   MCP Servers: {list(mcp_servers.keys())}")
-            logger.info(f"   Tools: {len(options.allowed_tools)}")
+            logger.info(f"   Pool size: {pool_size}")
+            logger.info(f"   MCP Servers: {list(self._mcp_servers.keys())}")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize employee service: {e}")
@@ -183,19 +212,21 @@ class KBEmployeeService:
     async def query(
         self,
         user_message: str,
-        session_id: str = "default",
+        sdk_session_id: Optional[str] = None,
         user_id: Optional[str] = None
     ) -> AsyncIterator[Message]:
         """
-        处理员工查询
+        处理员工查询（使用连接池支持并发）
 
         Args:
             user_message: 用户消息
-            session_id: Claude session ID
+            sdk_session_id: SDK session ID（用于 resume 恢复会话）
+                           - None: 新会话
+                           - str: 已有会话，恢复上下文
             user_id: 用户WeChat Work UserID (可选)
 
         Yields:
-            Message流
+            Message流（包含 ResultMessage，其中有真实的 session_id）
         """
         if not self.is_initialized:
             await self.initialize()
@@ -205,24 +236,30 @@ class KBEmployeeService:
         try:
             message_count = 0
 
-            # 发送查询
-            logger.info(f"📤 Sending query to Claude API (session: {session_id})...")
-            await self.client.query(user_message, session_id=session_id)
-            logger.info(f"✅ Query sent successfully, waiting for response...")
+            # 从连接池获取客户端（支持 session 恢复）
+            is_resume = sdk_session_id is not None
+            logger.info(f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})...")
+            async with self.client_pool.acquire(session_id=sdk_session_id) as client:
+                logger.info(f"✅ Client acquired, sending query...")
 
-            # 接收响应
-            logger.info(f"🔄 Starting to receive response stream...")
-            async for message in self.client.receive_response():
-                message_count += 1
-                logger.debug(f"📨 Received message {message_count}: type={type(message)}, text_len={len(message.text) if hasattr(message, 'text') else 0}")
-                yield message
+                # 发送查询（不再传递 session_id，由 ClaudeAgentOptions.resume 控制）
+                await client.query(user_message)
+                logger.info(f"✅ Query sent successfully, waiting for response...")
+
+                # 接收响应
+                logger.info(f"🔄 Starting to receive response stream...")
+                async for message in client.receive_response():
+                    message_count += 1
+                    logger.debug(f"📨 Received message {message_count}: type={type(message).__name__}")
+                    yield message
 
             logger.info(f"✅ Response stream completed, total messages: {message_count}")
+            logger.info(f"✅ Client released")
 
             # 检查是否收到响应
             if message_count == 0:
                 logger.error("❌ No response from Claude API")
-                logger.error(f"   Session ID: {session_id}")
+                logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
                 logger.error(f"   User ID: {user_id}")
                 logger.error(f"   This may indicate:")
                 logger.error(f"   - API account insufficent balance (欠费)")
@@ -233,17 +270,18 @@ class KBEmployeeService:
 
         except asyncio.TimeoutError:
             logger.error("❌ Claude API call timeout")
-            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
             logger.error(f"   User ID: {user_id}")
             logger.error(f"   This may indicate:")
             logger.error(f"   - Network connectivity issues")
             logger.error(f"   - API service overload")
+            logger.error(f"   - Pool exhausted (all clients busy)")
             raise
         except Exception as e:
             logger.error("❌ Claude API call failed")
             logger.error(f"   Error type: {type(e).__name__}")
             logger.error(f"   Error message: {str(e)}")
-            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
             logger.error(f"   User ID: {user_id}")
             logger.error(f"   This may indicate:")
             logger.error(f"   - Invalid API key or token")
@@ -251,6 +289,12 @@ class KBEmployeeService:
             logger.error(f"   - Exceeded rate limits")
             logger.error(f"   - API service unavailable")
             raise
+
+    def get_pool_stats(self) -> dict:
+        """获取连接池统计信息"""
+        if self.client_pool:
+            return self.client_pool.get_stats()
+        return {"status": "not_initialized"}
 
 
 class KBAdminService:
@@ -265,18 +309,79 @@ class KBAdminService:
     特点:
     - 完整功能(smart_convert.py文档转换 + wework MCP)
     - SSE流式响应支持
+
+    并发支持:
+    - 使用 SDKClientPool 实现真正并发
+    - 每个请求独占一个 Client
+    - 通过 resume 参数恢复用户 session
     """
 
     def __init__(self):
         """初始化管理员端服务"""
         self.settings = get_settings()
-        self.client: Optional[ClaudeSDKClient] = None
+        self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
+
+        # 缓存配置（在 initialize 中设置）
+        self._mcp_servers = None
+        self._env_vars = None
+        self._admin_agent_def = None
 
         logger.info("KBAdminService instance created")
 
+    def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
+        """
+        创建 ClaudeAgentOptions（Options Factory）
+
+        Args:
+            sdk_session_id: SDK 返回的真实 session ID（可选）
+                           - None: 新会话，不设置 resume
+                           - str: 已有会话，设置 resume 恢复会话
+
+        Returns:
+            配置好的 ClaudeAgentOptions
+        """
+        kb_path = Path(self.settings.KB_ROOT_PATH)
+
+        options = ClaudeAgentOptions(
+            system_prompt={
+                "type": "preset",
+                "preset": "claude_code",
+                "append": f"\n\n{self._admin_agent_def.prompt}"
+            },
+            agents=None,  # 单一Agent架构
+            mcp_servers=self._mcp_servers,
+            allowed_tools=[
+                "Read",
+                "Write",
+                "Grep",
+                "Glob",
+                "Bash",  # Document conversion via smart_convert.py
+                "Skill",  # Enable Claude Code Skills
+                # Image Vision MCP tool
+                "mcp__image_vision__image_read",
+                # WeWork MCP tools
+                "mcp__wework__wework_send_text_message",
+                "mcp__wework__wework_send_markdown_message",
+                "mcp__wework__wework_send_image_message",
+                "mcp__wework__wework_send_file_message",
+                "mcp__wework__wework_upload_media",
+            ],
+            cwd=str(kb_path.parent),  # 项目根目录
+            permission_mode="acceptEdits",
+            env=self._env_vars,
+            setting_sources=None
+        )
+
+        # 如果提供了 SDK session ID，设置 resume 参数恢复会话
+        if sdk_session_id:
+            options.resume = sdk_session_id
+            logger.debug(f"Setting resume to SDK session: {sdk_session_id}")
+
+        return options
+
     async def initialize(self):
-        """初始化Admin Agent SDK客户端"""
+        """初始化Admin Agent连接池"""
         if self.is_initialized:
             logger.warning("Admin service already initialized")
             return
@@ -291,26 +396,25 @@ class KBAdminService:
             if not kb_path.exists():
                 kb_path.mkdir(parents=True, exist_ok=True)
 
-            # 准备环境变量
-            env_vars = {
+            # 准备环境变量（缓存供 _create_options 使用）
+            self._env_vars = {
                 "KB_ROOT_PATH": str(kb_path),
             }
 
             if self.settings.CLAUDE_API_KEY:
-                env_vars["ANTHROPIC_API_KEY"] = self.settings.CLAUDE_API_KEY
+                self._env_vars["ANTHROPIC_API_KEY"] = self.settings.CLAUDE_API_KEY
             else:
-                env_vars["ANTHROPIC_AUTH_TOKEN"] = self.settings.ANTHROPIC_AUTH_TOKEN
+                self._env_vars["ANTHROPIC_AUTH_TOKEN"] = self.settings.ANTHROPIC_AUTH_TOKEN
                 if self.settings.ANTHROPIC_BASE_URL:
-                    env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
+                    self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
-            # 获取Admin Agent定义
-            admin_agent_def = get_admin_agent_definition(
+            # 获取Admin Agent定义（缓存供 _create_options 使用）
+            self._admin_agent_def = get_admin_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
                 faq_max_entries=self.settings.FAQ_MAX_ENTRIES
             )
 
-            # 配置MCP servers (wework only for admin, document conversion via smart_convert.py)
-            # 查找 MCP server 命令的绝对路径（支持虚拟环境）
+            # 配置MCP servers（缓存供 _create_options 使用）
             import sys
             import shutil
 
@@ -332,7 +436,7 @@ class KBAdminService:
                 tools=[image_read_handler]
             )
 
-            mcp_servers = {
+            self._mcp_servers = {
                 "wework": {
                     "type": "stdio",
                     "command": wework_mcp_path,
@@ -346,60 +450,24 @@ class KBAdminService:
                 "image_vision": image_vision_server
             }
 
-            # 创建Claude Agent Options
-            options = ClaudeAgentOptions(
-                system_prompt={
-                    "type": "preset",
-                    "preset": "claude_code",
-                    "append": f"\n\n{admin_agent_def.prompt}"
-                },
-                agents=None,  # 单一Agent架构
-                mcp_servers=mcp_servers,
-                allowed_tools=[
-                    "Read",
-                    "Write",
-                    "Grep",
-                    "Glob",
-                    "Bash",  # Document conversion via smart_convert.py
-                    "Skill",  # Enable Claude Code Skills
-                    # Image Vision MCP tool
-                    "mcp__image_vision__image_read",
-                    # WeWork MCP tools
-                    "mcp__wework__wework_send_text_message",
-                    "mcp__wework__wework_send_markdown_message",
-                    "mcp__wework__wework_send_image_message",
-                    "mcp__wework__wework_send_file_message",
-                    "mcp__wework__wework_upload_media",
-                ],
-                cwd=str(kb_path.parent),  # 项目根目录
-                permission_mode="acceptEdits",
-                env=env_vars,
-                setting_sources=None
+            # 创建连接池
+            pool_size = self.settings.ADMIN_CLIENT_POOL_SIZE
+            max_wait = self.settings.CLIENT_POOL_MAX_WAIT
+
+            self.client_pool = SDKClientPool(
+                pool_size=pool_size,
+                options_factory=self._create_options,
+                max_wait_time=float(max_wait)
             )
 
-            # 创建客户端
-            self.client = ClaudeSDKClient(options=options)
-
-            # 连接到Claude API（可能因欠费/无效API key失败）
-            try:
-                logger.info("Connecting to Claude API...")
-                await self.client.connect()
-                logger.info("✅ Claude API connection successful")
-            except Exception as conn_error:
-                logger.error("❌ Failed to connect to Claude API")
-                logger.error(f"   Error type: {type(conn_error).__name__}")
-                logger.error(f"   Error message: {str(conn_error)}")
-                logger.error(f"   This may indicate:")
-                logger.error(f"   - Invalid API key (CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN)")
-                logger.error(f"   - API account insufficent balance (欠费)")
-                logger.error(f"   - Network connectivity issues")
-                logger.error(f"   - API service unavailable")
-                raise
+            # 初始化连接池
+            logger.info(f"Initializing Admin client pool (size={pool_size})...")
+            await self.client_pool.initialize()
 
             self.is_initialized = True
             logger.info("✅ Admin service initialized successfully")
-            logger.info(f"   MCP Servers: {list(mcp_servers.keys())}")
-            logger.info(f"   Tools: {len(options.allowed_tools)}")
+            logger.info(f"   Pool size: {pool_size}")
+            logger.info(f"   MCP Servers: {list(self._mcp_servers.keys())}")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize admin service: {e}")
@@ -408,17 +476,19 @@ class KBAdminService:
     async def query(
         self,
         user_message: str,
-        session_id: str = "default"
+        sdk_session_id: Optional[str] = None
     ) -> AsyncIterator[Message]:
         """
-        处理管理员查询
+        处理管理员查询（使用连接池支持并发）
 
         Args:
             user_message: 用户消息
-            session_id: Claude session ID
+            sdk_session_id: SDK session ID（用于 resume 恢复会话）
+                           - None: 新会话
+                           - str: 已有会话，恢复上下文
 
         Yields:
-            Message流 (支持SSE流式响应)
+            Message流（包含 ResultMessage，其中有真实的 session_id）
         """
         if not self.is_initialized:
             await self.initialize()
@@ -427,16 +497,27 @@ class KBAdminService:
 
         try:
             message_count = 0
-            # 使用正确的 Claude SDK API
-            await self.client.query(user_message, session_id=session_id)
-            async for message in self.client.receive_response():
-                message_count += 1
-                yield message
+
+            # 从连接池获取客户端（支持 session 恢复）
+            is_resume = sdk_session_id is not None
+            logger.info(f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})...")
+            async with self.client_pool.acquire(session_id=sdk_session_id) as client:
+                logger.info(f"✅ Client acquired, sending query...")
+
+                # 发送查询（不再传递 session_id，由 ClaudeAgentOptions.resume 控制）
+                await client.query(user_message)
+
+                # 接收响应
+                async for message in client.receive_response():
+                    message_count += 1
+                    yield message
+
+            logger.info(f"✅ Response completed, client released")
 
             # 检查是否收到响应
             if message_count == 0:
                 logger.error("❌ No response from Claude API")
-                logger.error(f"   Session ID: {session_id}")
+                logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
                 logger.error(f"   This may indicate:")
                 logger.error(f"   - API account insufficent balance (欠费)")
                 logger.error(f"   - API rate limit exceeded")
@@ -446,22 +527,29 @@ class KBAdminService:
 
         except asyncio.TimeoutError:
             logger.error("❌ Claude API call timeout")
-            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
             logger.error(f"   This may indicate:")
             logger.error(f"   - Network connectivity issues")
             logger.error(f"   - API service overload")
+            logger.error(f"   - Pool exhausted (all clients busy)")
             raise
         except Exception as e:
             logger.error("❌ Claude API call failed")
             logger.error(f"   Error type: {type(e).__name__}")
             logger.error(f"   Error message: {str(e)}")
-            logger.error(f"   Session ID: {session_id}")
+            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
             logger.error(f"   This may indicate:")
             logger.error(f"   - Invalid API key or token")
             logger.error(f"   - API account insufficent balance (欠费)")
             logger.error(f"   - Exceeded rate limits")
             logger.error(f"   - API service unavailable")
             raise
+
+    def get_pool_stats(self) -> dict:
+        """获取连接池统计信息"""
+        if self.client_pool:
+            return self.client_pool.get_stats()
+        return {"status": "not_initialized"}
 
 
 class KBServiceFactory:

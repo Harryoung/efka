@@ -90,6 +90,8 @@ class SessionManager:
     4. 用户权限关联（预留接口）
     5. 基于 user_id 的会话持久化（新功能）
     6. Redis 降级逻辑（新功能）
+
+    注意：并发控制已移至 SDKClientPool 层（kb_service_factory.py）
     """
 
     def __init__(self, storage: Optional[SessionStorage] = None):
@@ -347,15 +349,21 @@ class SessionManager:
 
     # ===== 新方法（基于 user_id 的持久化）=====
 
-    async def get_or_create_user_session(self, user_id: str) -> str:
+    async def get_or_create_user_session(self, user_id: str) -> Optional[str]:
         """
-        获取或创建用户的 Claude session ID
+        获取或创建用户的会话，返回 SDK session ID（用于 resume）
+
+        核心逻辑：
+        - 如果是新用户或新会话：返回 None（不 resume，让 SDK 创建新会话）
+        - 如果是已有会话且有 sdk_session_id：返回该 ID（用于 resume）
 
         Args:
             user_id: 用户标识
 
         Returns:
-            claude_session_id: 传递给 Claude SDK 的 session_id
+            sdk_session_id: SDK 返回的真实 session ID，用于 resume
+                           - None: 新会话，不需要 resume
+                           - str: 已有会话，可以 resume
         """
         # 尝试从 Redis/存储后端获取
         if self.storage and not self._using_fallback:
@@ -363,17 +371,27 @@ class SessionManager:
                 session = await self.storage.get_active_session(user_id)
 
                 if session is None:
-                    # 创建新会话
+                    # 创建新会话（sdk_session_id 为 None）
                     session = SessionRecord(
                         user_id=user_id,
-                        claude_session_id=str(uuid.uuid4())
+                        internal_session_id=str(uuid.uuid4()),
+                        sdk_session_id=None  # 等待 SDK 返回
                     )
                     await self.storage.save_active_session(session)
-                    logger.info(f"为用户 {user_id} 创建新会话: {session.claude_session_id}")
+                    logger.info(f"为用户 {user_id} 创建新会话: internal={session.internal_session_id}")
+                    return None  # 新会话不 resume
                 else:
-                    logger.info(f"用户 {user_id} 复用已有会话: {session.claude_session_id}")
-
-                return session.claude_session_id
+                    # 复用已有会话
+                    if session.sdk_session_id:
+                        logger.info(
+                            f"用户 {user_id} 复用已有会话: sdk={session.sdk_session_id}"
+                        )
+                        return session.sdk_session_id  # 返回 SDK session ID 用于 resume
+                    else:
+                        logger.info(
+                            f"用户 {user_id} 会话存在但无 SDK ID: internal={session.internal_session_id}"
+                        )
+                        return None  # 没有 SDK session ID，不能 resume
 
             except (RedisError, RedisConnectionError, RuntimeError) as e:
                 logger.error(f"Redis 操作失败: {e}，降级到内存存储")
@@ -382,16 +400,21 @@ class SessionManager:
         # 降级到内存存储
         if user_id in self._user_sessions_memory:
             session = self._user_sessions_memory[user_id]
-            logger.info(f"[内存] 用户 {user_id} 复用会话: {session.claude_session_id}")
+            if session.sdk_session_id:
+                logger.info(f"[内存] 用户 {user_id} 复用会话: sdk={session.sdk_session_id}")
+                return session.sdk_session_id
+            else:
+                logger.info(f"[内存] 用户 {user_id} 会话无 SDK ID")
+                return None
         else:
             session = SessionRecord(
                 user_id=user_id,
-                claude_session_id=str(uuid.uuid4())
+                internal_session_id=str(uuid.uuid4()),
+                sdk_session_id=None
             )
             self._user_sessions_memory[user_id] = session
-            logger.info(f"[内存] 为用户 {user_id} 创建新会话: {session.claude_session_id}")
-
-        return session.claude_session_id
+            logger.info(f"[内存] 为用户 {user_id} 创建新会话: internal={session.internal_session_id}")
+            return None  # 新会话不 resume
 
     async def update_session_activity(
         self,
@@ -427,15 +450,49 @@ class SessionManager:
                 session.turn_count = turn_count
             logger.debug(f"[内存] 更新用户 {user_id} 会话活跃度")
 
-    async def clear_user_context(self, user_id: str) -> str:
+    async def save_sdk_session_id(self, user_id: str, sdk_session_id: str) -> None:
         """
-        清空用户上下文（归档旧会话，创建新会话）
+        保存 SDK 返回的真实 session ID
+
+        当 SDK 返回 ResultMessage 时，从中提取 session_id 并保存。
+        下次该用户请求时，可以使用这个 ID 来 resume 会话。
 
         Args:
             user_id: 用户标识
+            sdk_session_id: SDK 返回的真实 session ID
+        """
+        if self.storage and not self._using_fallback:
+            try:
+                session = await self.storage.get_active_session(user_id)
+                if session:
+                    session.sdk_session_id = sdk_session_id
+                    session.last_active = datetime.now()
+                    await self.storage.save_active_session(session)
+                    logger.info(f"保存用户 {user_id} 的 SDK session ID: {sdk_session_id}")
+                else:
+                    logger.warning(f"用户 {user_id} 没有活跃会话，无法保存 SDK session ID")
+                return
+            except (RedisError, RedisConnectionError, RuntimeError) as e:
+                logger.error(f"Redis 保存 SDK session ID 失败: {e}，降级到内存存储")
+                self._using_fallback = True
 
-        Returns:
-            新的 claude_session_id
+        # 降级到内存
+        if user_id in self._user_sessions_memory:
+            session = self._user_sessions_memory[user_id]
+            session.sdk_session_id = sdk_session_id
+            session.last_active = datetime.now()
+            logger.info(f"[内存] 保存用户 {user_id} 的 SDK session ID: {sdk_session_id}")
+        else:
+            logger.warning(f"[内存] 用户 {user_id} 没有活跃会话，无法保存 SDK session ID")
+
+    async def clear_user_context(self, user_id: str) -> None:
+        """
+        清空用户上下文（归档旧会话，创建新会话）
+
+        注意：清空后 sdk_session_id 为 None，下次请求会创建新 SDK 会话
+
+        Args:
+            user_id: 用户标识
         """
         if self.storage and not self._using_fallback:
             try:
@@ -443,17 +500,17 @@ class SessionManager:
                 old_session = await self.storage.get_active_session(user_id)
                 if old_session:
                     await self.storage.delete_active_session(user_id)
-                    logger.info(f"用户 {user_id} 归档旧会话: {old_session.claude_session_id}")
+                    logger.info(f"用户 {user_id} 归档旧会话: internal={old_session.internal_session_id}")
 
-                # 创建新会话
+                # 创建新会话（sdk_session_id 为 None）
                 new_session = SessionRecord(
                     user_id=user_id,
-                    claude_session_id=str(uuid.uuid4())
+                    internal_session_id=str(uuid.uuid4()),
+                    sdk_session_id=None
                 )
                 await self.storage.save_active_session(new_session)
-                logger.info(f"用户 {user_id} 创建新会话: {new_session.claude_session_id}")
-
-                return new_session.claude_session_id
+                logger.info(f"用户 {user_id} 创建新会话: internal={new_session.internal_session_id}")
+                return
 
             except (RedisError, RedisConnectionError, RuntimeError) as e:
                 logger.error(f"Redis 操作失败: {e}，降级到内存存储")
@@ -462,16 +519,15 @@ class SessionManager:
         # 降级到内存
         old_session = self._user_sessions_memory.get(user_id)
         if old_session:
-            logger.info(f"[内存] 用户 {user_id} 归档旧会话: {old_session.claude_session_id}")
+            logger.info(f"[内存] 用户 {user_id} 归档旧会话: internal={old_session.internal_session_id}")
 
         new_session = SessionRecord(
             user_id=user_id,
-            claude_session_id=str(uuid.uuid4())
+            internal_session_id=str(uuid.uuid4()),
+            sdk_session_id=None
         )
         self._user_sessions_memory[user_id] = new_session
-        logger.info(f"[内存] 用户 {user_id} 创建新会话: {new_session.claude_session_id}")
-
-        return new_session.claude_session_id
+        logger.info(f"[内存] 用户 {user_id} 创建新会话: internal={new_session.internal_session_id}")
 
     async def __aenter__(self):
         """支持 async with 语法"""
