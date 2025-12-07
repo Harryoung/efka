@@ -1,9 +1,12 @@
 /**
- * User ID 管理模块
+ * User ID 管理模块（统一版本）
  * 负责管理用户标识（基于 localStorage）
+ * 支持 Admin 和 Employee 两种模式
  */
 
-const USER_ID_KEY = 'kb_employee_user_id';
+// 根据 APP_MODE 决定 localStorage key
+const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
+const USER_ID_KEY = APP_MODE === 'employee' ? 'kb_employee_user_id' : 'kb_user_id';
 
 /**
  * 生成 UUID v4
@@ -27,9 +30,9 @@ export function getUserId() {
   if (!userId) {
     userId = generateUUID();
     localStorage.setItem(USER_ID_KEY, userId);
-    console.log('[Employee UserManager] 生成新的 user_id:', userId);
+    console.log(`[UserManager:${APP_MODE}] 生成新的 user_id:`, userId);
   } else {
-    console.log('[Employee UserManager] 加载已有 user_id:', userId);
+    console.log(`[UserManager:${APP_MODE}] 加载已有 user_id:`, userId);
   }
 
   return userId;
@@ -40,16 +43,16 @@ export function getUserId() {
  */
 export function clearUserId() {
   localStorage.removeItem(USER_ID_KEY);
-  console.log('[Employee UserManager] user_id 已清除');
+  console.log(`[UserManager:${APP_MODE}] user_id 已清除`);
 }
 
 /**
- * 设置 user_id
+ * 设置 user_id（用于对接外部系统）
  * @param {string} userId
  */
 export function setUserId(userId) {
   localStorage.setItem(USER_ID_KEY, userId);
-  console.log('[Employee UserManager] user_id 已设置:', userId);
+  console.log(`[UserManager:${APP_MODE}] user_id 已设置:`, userId);
 }
 
 export default {

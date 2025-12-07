@@ -1,16 +1,21 @@
 /**
  * App 主组件
  * 智能资料库管理员前端应用
+ * 支持 Admin 和 Employee 两种模式
  */
 
 import React from 'react';
 import ChatView from './components/ChatView';
+import EmployeeChatView from './components/EmployeeChatView';
 import './App.css';
+
+// 根据环境变量决定加载哪个视图
+const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
 
 function App() {
   return (
     <div className="app">
-      <ChatView />
+      {APP_MODE === 'employee' ? <EmployeeChatView /> : <ChatView />}
     </div>
   );
 }

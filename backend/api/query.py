@@ -5,15 +5,20 @@ Query API routes - 智能问答接口
 双 Agent 架构：此接口使用 Admin Agent (kb_admin_agent.py)
 """
 import logging
-import uuid
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
-import json
 
 from backend.services.kb_service_factory import get_admin_service
 from backend.services.session_manager import get_session_manager
+from backend.api.streaming_utils import (
+    create_sse_response,
+    sse_session_event,
+    sse_message_event,
+    sse_tool_use_event,
+    sse_done_event,
+    sse_error_event
+)
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +195,7 @@ async def query_stream(
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
                     # 发送会话状态信息
-                    yield f"data: {json.dumps({'type': 'session', 'session_id': sdk_session_id or 'new', 'is_new': is_new_session})}\n\n"
+                    yield sse_session_event(sdk_session_id, is_new=is_new_session)
 
                     turn_count = None
                     real_sdk_session_id = None
@@ -198,20 +203,17 @@ async def query_stream(
                     # 流式接收 Admin Agent 响应（连接池已在 service 层处理并发）
                     async for msg in admin_service.query(message, sdk_session_id=sdk_session_id):
                         if isinstance(msg, AssistantMessage):
-                            # 提取文本块
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
-                                    yield f"data: {json.dumps({'type': 'message', 'content': block.text})}\n\n"
+                                    yield sse_message_event(block.text)
                                 elif isinstance(block, ToolUseBlock):
-                                    # 可选：发送工具使用信息
-                                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': block.name})}\n\n"
+                                    yield sse_tool_use_event(block.name)
 
                         elif isinstance(msg, ResultMessage):
                             turn_count = msg.num_turns
-                            real_sdk_session_id = msg.session_id  # 提取真实的 SDK session ID
+                            real_sdk_session_id = msg.session_id
                             logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
-                            # 发送完成信息
-                            yield f"data: {json.dumps({'type': 'done', 'duration_ms': msg.duration_ms})}\n\n"
+                            yield sse_done_event(msg.duration_ms)
 
                     # 保存真实的 SDK session ID（用于下次 resume）
                     if real_sdk_session_id:
@@ -224,17 +226,9 @@ async def query_stream(
 
                 except Exception as e:
                     logger.error(f"Stream error: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                    yield sse_error_event(str(e))
 
-            return StreamingResponse(
-                event_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"  # 禁用 nginx 缓冲
-                }
-            )
+            return create_sse_response(event_generator())
 
         # 旧逻辑：基于 session_id 的会话（向后兼容，不使用 resume）
         else:
@@ -259,36 +253,25 @@ async def query_stream(
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
                     # 发送会话 ID
-                    yield f"data: {json.dumps({'type': 'session', 'session_id': session.session_id})}\n\n"
+                    yield sse_session_event(session.session_id)
 
                     # 流式接收 Admin Agent 响应（旧模式：不传 sdk_session_id，每次都是新会话）
                     async for msg in admin_service.query(message, sdk_session_id=None):
                         if isinstance(msg, AssistantMessage):
-                            # 提取文本块
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
-                                    yield f"data: {json.dumps({'type': 'message', 'content': block.text})}\n\n"
+                                    yield sse_message_event(block.text)
                                 elif isinstance(block, ToolUseBlock):
-                                    # 可选：发送工具使用信息
-                                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': block.name})}\n\n"
+                                    yield sse_tool_use_event(block.name)
 
                         elif isinstance(msg, ResultMessage):
-                            # 发送完成信息
-                            yield f"data: {json.dumps({'type': 'done', 'duration_ms': msg.duration_ms})}\n\n"
+                            yield sse_done_event(msg.duration_ms)
 
                 except Exception as e:
                     logger.error(f"Stream error: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                    yield sse_error_event(str(e))
 
-            return StreamingResponse(
-                event_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"  # 禁用 nginx 缓冲
-                }
-            )
+            return create_sse_response(event_generator())
 
     except HTTPException:
         raise

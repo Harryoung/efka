@@ -1,9 +1,14 @@
+/**
+ * EmployeeChatView - 员工端问答界面
+ * 简化版 ChatView，只有问答功能，无文件上传
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
-import apiService from '../services/api';
+import apiService from '../shared/api';
 import Message from './Message';
 import './ChatView.css';
 
-const ChatView = () => {
+const EmployeeChatView = () => {
   // 状态管理
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -182,7 +187,7 @@ const ChatView = () => {
       {/* 头部 */}
       <div className="chat-header">
         <div className="header-title">
-          <h1>💬 智能知识库助手</h1>
+          <h1>智能知识库助手</h1>
           <p className="header-subtitle">
             {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
           </p>
@@ -192,8 +197,8 @@ const ChatView = () => {
       {/* 错误提示 */}
       {error && (
         <div className="error-banner">
-          <span>⚠️ {error}</span>
-          <button onClick={() => setError(null)}>×</button>
+          <span>{error}</span>
+          <button onClick={() => setError(null)}>x</button>
         </div>
       )}
 
@@ -201,13 +206,13 @@ const ChatView = () => {
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="welcome-message">
-            <div className="welcome-icon">😊</div>
+            <div className="welcome-icon">:)</div>
             <h2>欢迎使用智能知识库助手</h2>
             <p>你可以：</p>
             <ul>
-              <li>📖 询问知识库中的任何问题</li>
-              <li>🔍 智能搜索和多轮对话</li>
-              <li>💡 获取专业的知识解答</li>
+              <li>询问知识库中的任何问题</li>
+              <li>智能搜索和多轮对话</li>
+              <li>获取专业的知识解答</li>
             </ul>
           </div>
         )}
@@ -248,11 +253,11 @@ const ChatView = () => {
           onClick={() => sendMessage()}
           disabled={!sessionId || isLoading || !inputMessage.trim()}
         >
-          {isLoading ? '发送中...' : '发送 ▶'}
+          {isLoading ? '发送中...' : '发送'}
         </button>
       </div>
     </div>
   );
 };
 
-export default ChatView;
+export default EmployeeChatView;

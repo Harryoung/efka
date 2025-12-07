@@ -5,15 +5,21 @@ Employee API routes - 员工知识查询接口
 """
 import logging
 import re
-import uuid
+import json
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
-import json
 
 from backend.services.kb_service_factory import get_employee_service
 from backend.services.session_manager import get_session_manager
+from backend.api.streaming_utils import (
+    create_sse_response,
+    sse_session_event,
+    sse_message_event,
+    sse_tool_use_event,
+    sse_done_event,
+    sse_error_event
+)
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +119,7 @@ async def employee_query_stream(
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
                     # 发送会话状态信息
-                    yield f"data: {json.dumps({'type': 'session', 'session_id': sdk_session_id or 'new', 'is_new': is_new_session})}\n\n"
+                    yield sse_session_event(sdk_session_id, is_new=is_new_session)
 
                     turn_count = None
                     real_sdk_session_id = None
@@ -121,23 +127,20 @@ async def employee_query_stream(
                     # 流式接收 Employee Agent 响应（连接池已在 service 层处理并发）
                     async for msg in employee_service.query(message, sdk_session_id=sdk_session_id, user_id=user_id):
                         if isinstance(msg, AssistantMessage):
-                            # 提取文本块
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
                                     # 过滤元数据，不展示给前端，但记录日志
                                     filtered_content, metadata = filter_metadata_from_content(block.text)
-                                    if filtered_content:  # 只发送非空内容
-                                        yield f"data: {json.dumps({'type': 'message', 'content': filtered_content})}\n\n"
+                                    if filtered_content:
+                                        yield sse_message_event(filtered_content)
                                 elif isinstance(block, ToolUseBlock):
-                                    # 可选：发送工具使用信息
-                                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': block.name})}\n\n"
+                                    yield sse_tool_use_event(block.name)
 
                         elif isinstance(msg, ResultMessage):
                             turn_count = msg.num_turns
-                            real_sdk_session_id = msg.session_id  # 提取真实的 SDK session ID
+                            real_sdk_session_id = msg.session_id
                             logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
-                            # 发送完成信息
-                            yield f"data: {json.dumps({'type': 'done', 'duration_ms': msg.duration_ms})}\n\n"
+                            yield sse_done_event(msg.duration_ms)
 
                     # 保存真实的 SDK session ID（用于下次 resume）
                     if real_sdk_session_id:
@@ -150,17 +153,9 @@ async def employee_query_stream(
 
                 except Exception as e:
                     logger.error(f"Employee stream error: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                    yield sse_error_event(str(e))
 
-            return StreamingResponse(
-                event_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"
-                }
-            )
+            return create_sse_response(event_generator())
 
         # 基于 session_id 的会话（向后兼容，不使用 resume）
         else:
@@ -185,39 +180,28 @@ async def employee_query_stream(
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
                     # 发送会话 ID
-                    yield f"data: {json.dumps({'type': 'session', 'session_id': session.session_id})}\n\n"
+                    yield sse_session_event(session.session_id)
 
                     # 流式接收 Employee Agent 响应（旧模式：不传 sdk_session_id）
                     async for msg in employee_service.query(message, sdk_session_id=None, user_id=None):
                         if isinstance(msg, AssistantMessage):
-                            # 提取文本块
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
                                     # 过滤元数据，不展示给前端，但记录日志
                                     filtered_content, metadata = filter_metadata_from_content(block.text)
-                                    if filtered_content:  # 只发送非空内容
-                                        yield f"data: {json.dumps({'type': 'message', 'content': filtered_content})}\n\n"
+                                    if filtered_content:
+                                        yield sse_message_event(filtered_content)
                                 elif isinstance(block, ToolUseBlock):
-                                    # 可选：发送工具使用信息
-                                    yield f"data: {json.dumps({'type': 'tool_use', 'tool': block.name})}\n\n"
+                                    yield sse_tool_use_event(block.name)
 
                         elif isinstance(msg, ResultMessage):
-                            # 发送完成信息
-                            yield f"data: {json.dumps({'type': 'done', 'duration_ms': msg.duration_ms})}\n\n"
+                            yield sse_done_event(msg.duration_ms)
 
                 except Exception as e:
                     logger.error(f"Employee stream error: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                    yield sse_error_event(str(e))
 
-            return StreamingResponse(
-                event_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"
-                }
-            )
+            return create_sse_response(event_generator())
 
     except HTTPException:
         raise
