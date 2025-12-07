@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# 智能资料库管理员 - 快速启动脚本
-# 用法: ./scripts/start.sh
+# 智能资料库管理员 v3.0 - 统一多渠道启动脚本
+# 支持: WeWork, Feishu, DingTalk, Slack
+# 使用混合配置模式自动检测并启动已配置的渠道
 
 set -e  # 遇到错误立即退出
 
 echo "=========================================="
-echo "🚀 智能资料库管理员 - 启动脚本"
+echo "🚀 智能资料库管理员 v3.0 - 启动脚本"
 echo "=========================================="
 echo ""
 
@@ -18,6 +19,7 @@ cd "$PROJECT_ROOT"
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 检查端口是否被占用
@@ -25,7 +27,6 @@ check_port() {
     local port=$1
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 ; then
         echo -e "${YELLOW}⚠️  端口 $port 已被占用${NC}"
-        echo "请关闭占用端口的进程，或修改配置使用其他端口"
         return 1
     else
         echo -e "${GREEN}✅ 端口 $port 可用${NC}"
@@ -37,28 +38,20 @@ check_port() {
 check_command() {
     if ! command -v $1 &> /dev/null; then
         echo -e "${RED}❌ $1 未安装${NC}"
-        echo "请先安装 $1"
-        exit 1
+        return 1
     else
         echo -e "${GREEN}✅ $1 已安装${NC}"
+        return 0
     fi
 }
 
 # 步骤 1: 环境检查
-echo "📋 步骤 1/4: 环境检查"
+echo "📋 步骤 1/5: 环境检查"
 echo "----------------------------------------"
 
-check_command python3
-check_command node
-check_command npm
-
-# 检查 Python 版本
-PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
-echo "Python 版本: $PYTHON_VERSION"
-
-# 检查 Node 版本
-NODE_VERSION=$(node --version)
-echo "Node.js 版本: $NODE_VERSION"
+check_command python3 || exit 1
+check_command node || exit 1
+check_command npm || exit 1
 
 # 检查环境变量文件
 if [ ! -f ".env" ]; then
@@ -69,113 +62,105 @@ else
     echo -e "${GREEN}✅ .env 文件存在${NC}"
 fi
 
-# 检查并激活虚拟环境（如果存在）
+# 检查并激活虚拟环境
 if [ -d "venv" ]; then
     echo -e "${GREEN}✅ 检测到虚拟环境，正在激活...${NC}"
     source venv/bin/activate
-    echo -e "${GREEN}✅ 虚拟环境已激活${NC}"
     PYTHON_CMD="python"
 else
     echo -e "${YELLOW}⚠️  未检测到虚拟环境，使用全局 Python${NC}"
     PYTHON_CMD="python3"
 fi
 
-# ⚠️ 关键：从 .env 文件加载并导出环境变量
-# 这样可以确保端口配置在检查时可用，且 Python 子进程也能访问认证信息
+# 加载环境变量
 echo ""
 echo "加载环境变量..."
 if [ -f ".env" ]; then
-    # shellcheck disable=SC1091
     set -a
     source .env
     set +a
-
-    # 显示加载的环境变量（隐藏敏感信息）
-    if [ ! -z "$ANTHROPIC_AUTH_TOKEN" ]; then
-        TOKEN_SUFFIX="${ANTHROPIC_AUTH_TOKEN: -4}"
-        echo -e "${GREEN}✅ ANTHROPIC_AUTH_TOKEN 已加载 (...$TOKEN_SUFFIX)${NC}"
-    fi
-
-    if [ ! -z "$ANTHROPIC_BASE_URL" ]; then
-        echo -e "${GREEN}✅ ANTHROPIC_BASE_URL 已加载 ($ANTHROPIC_BASE_URL)${NC}"
-    fi
-
-    if [ ! -z "$CLAUDE_API_KEY" ]; then
-        KEY_SUFFIX="${CLAUDE_API_KEY: -4}"
-        echo -e "${GREEN}✅ CLAUDE_API_KEY 已加载 (...$KEY_SUFFIX)${NC}"
-    fi
-
-    if [ ! -z "$REDIS_URL" ]; then
-        echo -e "${GREEN}✅ REDIS_URL 已加载 ($REDIS_URL)${NC}"
-    fi
-
-    if [ ! -z "$REDIS_USERNAME" ]; then
-        echo -e "${GREEN}✅ REDIS_USERNAME 已加载${NC}"
-    fi
-
-    if [ ! -z "$REDIS_PASSWORD" ]; then
-        echo -e "${GREEN}✅ REDIS_PASSWORD 已加载（已隐藏）${NC}"
-    fi
-
-    # 导出企微环境变量
-    if [ ! -z "$WEWORK_CORP_ID" ]; then
-        export WEWORK_CORP_ID="$WEWORK_CORP_ID"
-        echo -e "${GREEN}✅ WEWORK_CORP_ID 已加载${NC}"
-    fi
-
-    if [ ! -z "$WEWORK_CORP_SECRET" ]; then
-        export WEWORK_CORP_SECRET="$WEWORK_CORP_SECRET"
-        echo -e "${GREEN}✅ WEWORK_CORP_SECRET 已加载（已隐藏）${NC}"
-    fi
-
-    if [ ! -z "$WEWORK_AGENT_ID" ]; then
-        export WEWORK_AGENT_ID="$WEWORK_AGENT_ID"
-        echo -e "${GREEN}✅ WEWORK_AGENT_ID 已加载${NC}"
-    fi
-
-    if [ ! -z "$WEWORK_TOKEN" ]; then
-        export WEWORK_TOKEN="$WEWORK_TOKEN"
-        echo -e "${GREEN}✅ WEWORK_TOKEN 已加载${NC}"
-    fi
-
-    if [ ! -z "$WEWORK_ENCODING_AES_KEY" ]; then
-        export WEWORK_ENCODING_AES_KEY="$WEWORK_ENCODING_AES_KEY"
-        echo -e "${GREEN}✅ WEWORK_ENCODING_AES_KEY 已加载${NC}"
-    fi
-
-    if [ ! -z "$WEWORK_PORT" ]; then
-        echo -e "${GREEN}✅ WEWORK_PORT 已加载 ($WEWORK_PORT)${NC}"
-    fi
+    echo -e "${GREEN}✅ 环境变量已加载${NC}"
 fi
 
 echo ""
 
-# 步骤 2: 检查端口
-echo "🔍 步骤 2/4: 检查端口"
+# 步骤 2: 检测已启用的渠道
+echo "🔍 步骤 2/5: 检测已启用的渠道"
 echo "----------------------------------------"
 
-# 从.env文件读取WeWork端口配置（如果未设置则使用默认值8081）
-WEWORK_PORT=${WEWORK_PORT:-8081}
+# 使用Python脚本检测已启用的渠道
+echo "正在检测渠道配置..."
+ENABLED_CHANNELS=$($PYTHON_CMD -c "
+import os
+import sys
+sys.path.insert(0, '$PROJECT_ROOT')
+from backend.config.channel_config import get_channel_config
 
-if ! check_port 8000; then
-    echo "提示: 可以使用 'lsof -i :8000' 查看占用进程"
-    exit 1
+config = get_channel_config()
+channels = config.get_enabled_channels()
+print(' '.join(channels))
+" 2>/dev/null)
+
+if [ -z "$ENABLED_CHANNELS" ]; then
+    echo -e "${YELLOW}⚠️  未检测到已启用的IM渠道${NC}"
+    echo "   系统将以Web-only模式运行"
+    IM_ENABLED=false
+else
+    echo -e "${GREEN}✅ 已启用的渠道: $ENABLED_CHANNELS${NC}"
+    IM_ENABLED=true
 fi
 
-if ! check_port $WEWORK_PORT; then
-    echo "提示: 可以使用 'lsof -i :$WEWORK_PORT' 查看占用进程"
-    exit 1
-fi
+# 检测Employee Web UI配置
+EMPLOYEE_UI_ENABLED=${EMPLOYEE_UI_ENABLED:-true}
+EMPLOYEE_UI_PORT=${EMPLOYEE_UI_PORT:-3001}
 
-if ! check_port 3000; then
-    echo "提示: 可以使用 'lsof -i :3000' 查看占用进程"
-    exit 1
+if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
+    echo -e "${GREEN}✅ Employee Web UI 已启用 (端口: $EMPLOYEE_UI_PORT)${NC}"
+else
+    echo -e "${YELLOW}⏭️  Employee Web UI 未启用${NC}"
 fi
 
 echo ""
 
-# 步骤 3: 启动后端
-echo "🔧 步骤 3/4: 启动后端服务"
+# 步骤 3: 检查端口
+echo "🔌 步骤 3/5: 检查端口"
+echo "----------------------------------------"
+
+# 检查主服务端口
+check_port 8000 || exit 1
+
+# 检查Admin UI端口
+check_port 3000 || exit 1
+
+# 检查Employee UI端口(如果启用)
+if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
+    check_port $EMPLOYEE_UI_PORT || exit 1
+fi
+
+# 检查各渠道端口
+for channel in $ENABLED_CHANNELS; do
+    channel_upper=$(echo "$channel" | tr '[:lower:]' '[:upper:]')
+    port_var="${channel_upper}_PORT"
+    port=${!port_var}
+
+    if [ -z "$port" ]; then
+        # 使用默认端口
+        case $channel in
+            wework) port=8081 ;;
+            feishu) port=8082 ;;
+            dingtalk) port=8083 ;;
+            slack) port=8084 ;;
+            *) port=8080 ;;
+        esac
+    fi
+
+    check_port $port || exit 1
+done
+
+echo ""
+
+# 步骤 4: 启动后端服务
+echo "🔧 步骤 4/5: 启动后端服务"
 echo "----------------------------------------"
 
 # 检查后端依赖
@@ -185,27 +170,27 @@ if [ ! -f "backend/.venv_installed" ]; then
     touch backend/.venv_installed
 fi
 
-echo ""
-echo "=========================================="
-echo "启动后端服务（双进程模式）"
-echo "=========================================="
-
 mkdir -p logs
 
-# 启动 FastAPI 主服务（管理端API，端口8000）
-echo "🚀 启动 FastAPI 主服务（管理端API）..."
+echo ""
+echo "=========================================="
+echo "启动后端服务"
+echo "=========================================="
+
+# 启动 FastAPI 主服务（Admin API，端口8000）
+echo "🚀 启动 FastAPI 主服务（Admin API + Employee API）..."
 $PYTHON_CMD -m backend.main > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > logs/backend.pid
-echo "   PID: $BACKEND_PID"
+echo -e "${GREEN}   PID: $BACKEND_PID${NC}"
 echo "   运行在: http://localhost:8000"
 echo "   健康检查: http://localhost:8000/health"
 
-# 等待主服务启动（MCP servers 初始化需要约 5-6 秒）
-echo "   等待服务初始化（MCP servers 加载需要约 6 秒）..."
+# 等待主服务启动
+echo "   等待服务初始化..."
 sleep 8
 
-# 健康检查（带重试）
+# 健康检查
 MAX_RETRIES=5
 RETRY_COUNT=0
 SERVICE_STARTED=false
@@ -225,90 +210,144 @@ if [ "$SERVICE_STARTED" = true ]; then
 else
     echo -e "${RED}❌ FastAPI 主服务启动失败${NC}"
     echo "请查看日志: cat logs/backend.log"
-    kill $BACKEND_PID 2>/dev/null || true
     exit 1
 fi
 
 echo ""
 
-# 启动 Flask 企微回调服务（员工端API，使用配置的端口）
-echo "🚀 启动 Flask 企微回调服务（员工端API）..."
-$PYTHON_CMD -m backend.wework_server > logs/wework.log 2>&1 &
-WEWORK_PID=$!
-echo $WEWORK_PID > logs/wework.pid
-echo "   PID: $WEWORK_PID"
-echo "   运行在: http://localhost:$WEWORK_PORT"
-echo "   回调地址: http://localhost:$WEWORK_PORT/api/wework/callback"
+# 启动IM渠道服务(如果已启用)
+if [ "$IM_ENABLED" = true ]; then
+    echo "=========================================="
+    echo "启动IM渠道服务"
+    echo "=========================================="
 
-# 等待Flask服务启动（Employee service 初始化需要约 4 秒）
-echo "   等待 Flask 服务初始化（Employee service 加载需要约 4 秒）..."
-sleep 6
+    for channel in $ENABLED_CHANNELS; do
+        channel_upper=$(echo "$channel" | tr '[:lower:]' '[:upper:]')
+        port_var="${channel_upper}_PORT"
+        port=${!port_var}
 
-# 检查端口是否监听（带重试）
-MAX_RETRIES=3
-RETRY_COUNT=0
-WEWORK_STARTED=false
+        # 使用默认端口
+        if [ -z "$port" ]; then
+            case $channel in
+                wework) port=8081 ;;
+                feishu) port=8082 ;;
+                dingtalk) port=8083 ;;
+                slack) port=8084 ;;
+                *) port=8080 ;;
+            esac
+        fi
 
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if lsof -i:$WEWORK_PORT > /dev/null 2>&1; then
-        WEWORK_STARTED=true
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo "   Flask 服务检查失败，重试 $RETRY_COUNT/$MAX_RETRIES..."
-    sleep 2
-done
+        echo ""
+        echo "🚀 启动 $channel 渠道服务..."
+        echo "   端口: $port"
 
-if [ "$WEWORK_STARTED" = true ]; then
-    echo -e "${GREEN}✅ Flask 企微回调服务启动成功${NC}"
+        # 根据渠道类型启动相应服务
+        case $channel in
+            wework)
+                $PYTHON_CMD -m backend.channels.wework.server > logs/wework.log 2>&1 &
+                CHANNEL_PID=$!
+                echo $CHANNEL_PID > logs/wework.pid
+                ;;
+            feishu)
+                $PYTHON_CMD -m backend.channels.feishu.server > logs/feishu.log 2>&1 &
+                CHANNEL_PID=$!
+                echo $CHANNEL_PID > logs/feishu.pid
+                ;;
+            dingtalk)
+                $PYTHON_CMD -m backend.channels.dingtalk.server > logs/dingtalk.log 2>&1 &
+                CHANNEL_PID=$!
+                echo $CHANNEL_PID > logs/dingtalk.pid
+                ;;
+            slack)
+                $PYTHON_CMD -m backend.channels.slack.server > logs/slack.log 2>&1 &
+                CHANNEL_PID=$!
+                echo $CHANNEL_PID > logs/slack.pid
+                ;;
+            *)
+                echo -e "${RED}   ❌ 未知渠道: $channel${NC}"
+                continue
+                ;;
+        esac
+
+        echo -e "${GREEN}   PID: $CHANNEL_PID${NC}"
+        echo "   运行在: http://localhost:$port"
+
+        # 等待服务启动
+        sleep 6
+
+        # 检查端口是否监听
+        if lsof -i:$port > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ $channel 渠道服务启动成功${NC}"
+        else
+            echo -e "${YELLOW}⚠️  $channel 渠道服务可能未启动${NC}"
+            echo "请查看日志: cat logs/${channel}.log"
+        fi
+    done
 else
-    echo -e "${YELLOW}⚠️  Flask 企微回调服务可能未启动（端口$WEWORK_PORT未监听）${NC}"
-    echo "请查看日志: cat logs/wework.log"
+    echo -e "${BLUE}ℹ️  跳过IM渠道服务（未配置）${NC}"
 fi
 
 echo ""
 
-# 步骤 4: 启动前端
-echo "🎨 步骤 4/4: 启动前端服务"
+# 步骤 5: 启动前端服务
+echo "🎨 步骤 5/5: 启动前端服务"
 echo "----------------------------------------"
 
+# 启动 Admin UI (端口3000)
+echo "🚀 启动 Admin UI (端口3000)..."
 cd frontend
 
-# 检查前端依赖
 if [ ! -d "node_modules" ]; then
     echo "⚠️  前端依赖未安装，正在安装..."
     npm install
 fi
 
-echo "启动前端服务..."
-echo "前端运行在: http://localhost:3000"
-echo ""
-
-# 在后台启动前端
 npm run dev > ../logs/frontend.log 2>&1 &
-FRONTEND_PID=$!
-echo "前端进程 PID: $FRONTEND_PID"
-
-# 等待前端启动
-echo "等待前端启动..."
-sleep 5
-
-# 检查前端是否成功启动
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ 前端启动成功${NC}"
-else
-    echo -e "${RED}❌ 前端启动失败${NC}"
-    echo "请查看日志: cat logs/frontend.log"
-    kill $BACKEND_PID 2>/dev/null || true
-    kill $FRONTEND_PID 2>/dev/null || true
-    exit 1
-fi
+ADMIN_UI_PID=$!
+echo $ADMIN_UI_PID > ../logs/frontend.pid
+echo -e "${GREEN}   PID: $ADMIN_UI_PID${NC}"
+echo "   运行在: http://localhost:3000"
 
 cd ..
+
+# 等待Admin UI启动
+sleep 5
+
+if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Admin UI 启动成功${NC}"
+else
+    echo -e "${RED}❌ Admin UI 启动失败${NC}"
+    echo "请查看日志: cat logs/frontend.log"
+fi
+
 echo ""
 
-# 保存进程 ID（已在启动时保存）
-echo $FRONTEND_PID > logs/frontend.pid
+# 启动 Employee UI (如果启用) - 使用同一前端项目的 employee 模式
+if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
+    echo "🚀 启动 Employee UI (端口$EMPLOYEE_UI_PORT)..."
+    cd frontend
+
+    # 使用 VITE_APP_MODE=employee 启动第二个实例
+    VITE_APP_MODE=employee npm run dev -- --port $EMPLOYEE_UI_PORT > ../logs/frontend-employee.log 2>&1 &
+    EMPLOYEE_UI_PID=$!
+    echo $EMPLOYEE_UI_PID > ../logs/frontend-employee.pid
+    echo -e "${GREEN}   PID: $EMPLOYEE_UI_PID${NC}"
+    echo "   运行在: http://localhost:$EMPLOYEE_UI_PORT"
+
+    cd ..
+
+    # 等待Employee UI启动
+    sleep 5
+
+    if curl -s http://localhost:$EMPLOYEE_UI_PORT > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Employee UI 启动成功${NC}"
+    else
+        echo -e "${RED}❌ Employee UI 启动失败${NC}"
+        echo "请查看日志: cat logs/frontend-employee.log"
+    fi
+fi
+
+echo ""
 
 # 完成
 echo "=========================================="
@@ -316,32 +355,39 @@ echo -e "${GREEN}🎉 所有服务启动完成！${NC}"
 echo "=========================================="
 echo ""
 echo "📱 访问地址:"
-echo "   前端界面（管理端）: http://localhost:3000"
-echo "   FastAPI 主服务（管理端）: http://localhost:8000"
-echo "   Flask 企微回调服务（员工端）: http://localhost:$WEWORK_PORT"
+echo "   Admin UI: http://localhost:3000"
+if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
+    echo "   Employee UI: http://localhost:$EMPLOYEE_UI_PORT"
+fi
+echo "   FastAPI 主服务: http://localhost:8000"
+if [ "$IM_ENABLED" = true ]; then
+    for channel in $ENABLED_CHANNELS; do
+        channel_upper=$(echo "$channel" | tr '[:lower:]' '[:upper:]')
+        port_var="${channel_upper}_PORT"
+        port=${!port_var:-8081}
+        echo "   $channel 渠道服务: http://localhost:$port"
+    done
+fi
 echo "   API 文档: http://localhost:8000/docs"
-echo ""
-echo "📊 进程信息:"
-echo "   FastAPI 主服务 PID: $BACKEND_PID"
-echo "   Flask 企微回调服务 PID: $WEWORK_PID"
-echo "   前端服务 PID: $FRONTEND_PID"
-echo ""
-echo "📝 日志文件:"
-echo "   FastAPI 主服务: logs/backend.log"
-echo "   Flask 企微回调服务: logs/wework.log"
-echo "   前端服务: logs/frontend.log"
 echo ""
 echo "🛑 停止服务:"
 echo "   ./scripts/stop.sh"
 echo ""
-echo "💡 提示:"
-echo "   - 打开浏览器访问 http://localhost:3000"
-echo "   - 查看实时日志: tail -f logs/backend.log"
-echo "   - 查看企微回调日志: tail -f logs/wework.log"
+echo "📝 日志文件:"
+echo "   FastAPI 主服务: logs/backend.log"
+if [ "$IM_ENABLED" = true ]; then
+    for channel in $ENABLED_CHANNELS; do
+        echo "   $channel 渠道服务: logs/${channel}.log"
+    done
+fi
+echo "   Admin UI: logs/frontend.log"
+if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
+    echo "   Employee UI: logs/frontend-employee.log"
+fi
 echo ""
 echo "=========================================="
 
-# 自动打开浏览器（可选）
+# 自动打开浏览器
 if command -v open &> /dev/null; then
     echo "3 秒后自动打开浏览器..."
     sleep 3
