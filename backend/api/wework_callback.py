@@ -25,8 +25,10 @@ from backend.services.user_identity_service import get_user_identity_service
 from backend.services.session_router_service import get_session_router_service
 from backend.services.routing_session_manager import get_routing_session_manager
 from backend.services.audit_logger import get_audit_logger
+from backend.services.session_manager import get_session_manager
 from backend.config.settings import get_settings
 from backend.models.session import SessionRole, SessionStatus, MessageSnapshot
+from claude_agent_sdk import AssistantMessage, TextBlock, ResultMessage
 from datetime import datetime
 import re
 import json
@@ -243,6 +245,14 @@ async def process_wework_message(message_data: dict):
             await employee_service.initialize()
             logger.info("Employee service initialized")
 
+        # 获取 SDK session ID（用于 resume，注意：这与 routing session_id 是不同的概念！）
+        # - routing session_id（sess_xxx 格式）：用于业务层会话路由
+        # - sdk_session_id（UUID 格式）：用于 Claude SDK 的 --resume 参数恢复上下文
+        session_mgr = get_session_manager()
+        sdk_session_id = await session_mgr.get_or_create_user_session(sender_userid)
+        is_new_sdk_session = sdk_session_id is None
+        logger.info(f"SDK session: {sdk_session_id or 'new'} (is_new={is_new_sdk_session}), routing_session: {session_id}")
+
         # 构造包含用户信息的消息
         user_name = user_info.get('name', '')
         name_display = f"{user_name}" if user_name else sender_userid
@@ -258,32 +268,54 @@ name: {name_display}
         agent_response_text = ""
         metadata = None
         message_count = 0
+        real_sdk_session_id = None  # 从 ResultMessage 中提取的真实 SDK session ID
 
-        logger.info(f"Calling Employee Agent with session {session_id}")
+        logger.info(f"Calling Employee Agent (routing_session={session_id}, sdk_session={sdk_session_id or 'new'})")
         logger.info(f"📞 About to call employee_service.query()...")
 
         try:
             logger.info(f"🔄 Entering async for loop to receive messages...")
             async for message in employee_service.query(
                 user_message=formatted_message,
-                session_id=session_id,
+                sdk_session_id=sdk_session_id,  # 传入 SDK session ID（或 None 表示新会话）
                 user_id=sender_userid
             ):
                 message_count += 1
-                logger.info(f"📨 Received message {message_count} from Employee Agent (text_len={len(message.text)})")
-                agent_response_text += message.text
+                msg_type = type(message).__name__
 
-                # 检查是否包含元数据块
-                if "```metadata" in message.text:
-                    metadata = extract_metadata(message.text)
-                    logger.info(f"✅ Metadata extracted from message {message_count}")
+                # 处理 AssistantMessage - 包含实际响应内容
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            logger.info(f"📨 Received TextBlock from AssistantMessage (text_len={len(block.text)})")
+                            agent_response_text += block.text
+
+                            # 检查是否包含元数据块
+                            if "```metadata" in block.text:
+                                metadata = extract_metadata(block.text)
+                                logger.info(f"✅ Metadata extracted from TextBlock")
+
+                # 处理 ResultMessage - 包含会话元数据和真实 SDK session ID
+                elif isinstance(message, ResultMessage):
+                    real_sdk_session_id = getattr(message, 'session_id', None)
+                    logger.info(f"📨 Received ResultMessage: sdk_session_id={real_sdk_session_id}, cost={getattr(message, 'total_cost_usd', None)}")
+
+                # 其他消息类型（如 SystemMessage）- 仅记录日志
+                else:
+                    logger.debug(f"📨 Received message {message_count}: type={msg_type} (ignored)")
 
             logger.info(f"✅ Async for loop completed, total messages: {message_count}")
+
+            # 保存真实的 SDK session ID（用于下次 resume）
+            if real_sdk_session_id:
+                await session_mgr.save_sdk_session_id(sender_userid, real_sdk_session_id)
+                logger.info(f"Saved SDK session ID for user {sender_userid}: {real_sdk_session_id}")
 
             # 检查是否收到响应
             if message_count == 0:
                 logger.error(f"❌ No response from Employee Agent for user {sender_userid}")
-                logger.error(f"   Session ID: {session_id}")
+                logger.error(f"   Routing Session ID: {session_id}")
+                logger.error(f"   SDK Session ID: {sdk_session_id or 'new'}")
                 logger.error(f"   This may indicate:")
                 logger.error(f"   - API account insufficent balance (欠费)")
                 logger.error(f"   - API rate limit exceeded")

@@ -26,6 +26,7 @@ load_dotenv()
 from backend.api.wework_callback import app, init_services
 from backend.services.kb_service_factory import KBServiceFactory, get_employee_service
 from backend.services.conversation_state_manager import get_conversation_state_manager
+from backend.services.session_manager import get_session_manager
 from backend.storage.redis_storage import RedisSessionStorage
 from backend.config.settings import get_settings
 
@@ -79,6 +80,12 @@ async def initialize_services():
         await state_manager.initialize_storage()
         logger.info("✅ Conversation state manager initialized with Redis")
 
+        # 初始化 Session Manager（用于 SDK session ID 管理）
+        session_manager = get_session_manager()
+        session_manager.storage = redis_storage
+        await session_manager.initialize_storage()
+        logger.info("✅ Session manager initialized with Redis")
+
     except Exception as e:
         logger.warning(f"Redis initialization failed: {e}, using memory fallback")
         state_manager = get_conversation_state_manager(
@@ -86,6 +93,11 @@ async def initialize_services():
             storage=None
         )
         logger.info("✅ Conversation state manager initialized with memory storage")
+
+        # 初始化 Session Manager（内存降级模式）
+        session_manager = get_session_manager()
+        await session_manager.initialize_storage()
+        logger.info("✅ Session manager initialized with memory storage")
 
     # 初始化wework_callback中的服务
     init_services()
