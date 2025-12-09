@@ -13,7 +13,9 @@ from pathlib import Path
 
 from claude_agent_sdk import (
     ClaudeSDKClient,
-    ClaudeAgentOptions
+    ClaudeAgentOptions,
+    AssistantMessage,
+    TextBlock
 )
 
 from backend.agents.session_router_agent import get_session_router_agent_definition
@@ -259,7 +261,11 @@ class SessionRouterService:
                 message=prompt,
                 session_id=f"router_{user_id}"  # Router自己的session
             ):
-                response_text += message.text
+                # 处理 AssistantMessage - 包含实际响应内容
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            response_text += block.text
 
             # 解析结果
             try:
