@@ -74,8 +74,13 @@ async def initialize_services():
     await adapter.initialize()
     logger.info("✅ WeWork adapter initialized")
 
-    # 导入并初始化Employee Service和Conversation State Manager
-    # (这些服务由wework_server.py初始化,这里仅作为示例)
+    # 初始化 wework_callback.py 中的全局服务
+    # 这会设置 employee_service 和 state_manager 全局变量
+    from backend.api.wework_callback import init_services as init_callback_services
+    init_callback_services()
+    logger.info("✅ Callback services initialized (employee_service, state_manager)")
+
+    # 确保 Employee Service 已初始化
     from backend.services.kb_service_factory import get_employee_service
     from backend.services.conversation_state_manager import get_conversation_state_manager
     from backend.storage.redis_storage import RedisSessionStorage
