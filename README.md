@@ -15,6 +15,61 @@ Traditional RAG systems rely on vector embeddings and similarity search, which c
 - **Transparent**: You can read the same files the agent reads
 - **Reliable**: No semantic drift or embedding quality issues
 
+## EFKA vs. Traditional Embedding-based RAG
+
+![EFKA vs Traditional Embedding-based RAG](assets/EFKA_VS_embeding_based_RAG.png)
+
+EFKA represents a paradigm shift from traditional embedding-based RAG systems. Instead of fragmenting documents into chunks and relying on similarity search, EFKA adopts a human-like, tree-search approach that directly interacts with your knowledge base files.
+
+### The Limitations of Traditional Embedding-based RAG
+
+Traditional RAG systems face several fundamental challenges:
+
+1. **Information Fragmentation**: Documents must be split into chunks, which disrupts logical flow and context. Important information often spans multiple chunks, making it difficult to reconstruct complete answers.
+
+2. **Chunking Strategy Dependency**: Quality heavily depends on chunking strategies (size, overlap, semantic boundaries). Poor chunking leads to information loss or irrelevant retrieval.
+
+3. **Incomplete Context**: Even with similarity search, there's no guarantee that retrieved chunks contain all information needed to answer a query. Critical context may be missing.
+
+4. **Similarity Threshold Problems**: Setting appropriate similarity thresholds is challenging – too high misses relevant information, too low retrieves noise.
+
+5. **Embedding Model Complexity**: Requires deploying and maintaining embedding models (and often rerankers), adding infrastructure complexity and maintenance overhead.
+
+6. **Domain Adaptation Issues**: General-purpose embeddings may not capture domain-specific semantics, leading to poor retrieval quality in specialized fields.
+
+7. **High Update Cost**: Adding or modifying documents requires re-embedding and re-indexing the entire dataset, which is resource-intensive.
+
+8. **Cost Considerations**: Commercial embedding APIs incur ongoing costs, while local models require significant GPU resources.
+
+### EFKA's Human-Like Search Strategy
+
+EFKA mimics how humans actually search for information:
+
+1. **Tree-Structured Exploration**: Starts with the knowledge base directory structure, identifies relevant files, then drills down as needed – just like a person browsing files.
+
+2. **On-Demand Deep Dives**: For large documents, first examines the table of contents or structure, then focuses on relevant sections. Small documents are read entirely.
+
+3. **Transparent and Explainable**: You can see exactly which files the agent reads, providing full traceability and trust.
+
+4. **No Embedding Models Needed**: Leverages the LLM's reasoning capabilities directly, eliminating embedding model dependencies and associated complexities.
+
+5. **Multi-Modal Support**: Naturally handles images, tables, and formatted content within documents without special processing pipelines.
+
+6. **Incremental Updates**: Simply add new files to the knowledge base – no re-embedding or re-indexing required.
+
+7. **Context Preservation**: Maintains document structure and logical flow by reading complete sections rather than fragmented chunks.
+
+### Performance and Speed Considerations
+
+While traditional RAG systems can be faster for simple lookups, EFKA achieves near-real-time performance (typically under 10 seconds) through:
+
+- **FAQ System**: Caches frequent questions and answers, bypassing full searches for common queries
+- **Directory Summaries**: Maintains summaries of document structures for quick navigation
+- **Intelligent Caching**: Remembers previous searches and their results
+- **Expert Routing**: Directs queries to the most relevant knowledge areas first
+
+This optimized approach makes EFKA suitable for interactive applications while maintaining the accuracy and completeness advantages of human-like search.
+
 ## Features
 
 - **Intelligent Q&A**: 7-stage retrieval strategy with expert routing - accurate answers with source attribution
