@@ -1,12 +1,19 @@
-# Intelligent Knowledge Base Administrator
+# EFKA - Embed-Free Knowledge Agent
 
-> AI-powered knowledge base management without embedding-based search. Maybe slower, but results are much more reliable!
+> AI-powered knowledge management without vector embeddings. File system based, Agent driven. Maybe slower, but results are much more reliable!
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Claude](https://img.shields.io/badge/Claude-Agent%20SDK-orange.svg)](https://github.com/anthropics/claude-code)
 
-An intelligent knowledge base management system built with Claude Agent SDK. Features a dual-agent architecture for document management (Admin) and knowledge Q&A (Employee), with multi-channel support including Web UI and enterprise IM platforms.
+## Why EFKA?
+
+Traditional RAG systems rely on vector embeddings and similarity search, which can miss context and produce hallucinations. EFKA takes a different approach:
+
+- **No Embeddings**: Direct file system access, no vector database needed
+- **Agent-First**: Let the AI agent intelligently search and combine information
+- **Transparent**: You can read the same files the agent reads
+- **Reliable**: No semantic drift or embedding quality issues
 
 ## Features
 
@@ -56,8 +63,8 @@ An intelligent knowledge base management system built with Claude Agent SDK. Fea
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/intelligent-kba.git
-cd intelligent-kba
+git clone https://github.com/anthropics/efka.git
+cd efka
 
 # Configure environment
 cp .env.example .env
@@ -118,7 +125,7 @@ See [Channel Development Guide](docs/CHANNELS.md) for adding new platforms.
 ## Project Structure
 
 ```
-intelligent-kba/
+efka/
 ├── backend/
 │   ├── agents/          # Agent definitions (Admin + Employee)
 │   ├── api/             # FastAPI routes

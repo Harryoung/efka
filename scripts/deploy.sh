@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 智能资料库管理员 - 生产环境部署脚本
+# 知了 EFKA - 生产环境部署脚本
 # 版本: 2.0.0
 # 用法: ./scripts/deploy.sh [选项]
 #
@@ -46,7 +46,7 @@ SYSTEMD_MODE=false
 
 show_help() {
     cat << EOF
-智能资料库管理员 - 生产环境部署脚本
+知了 EFKA - 生产环境部署脚本
 
 用法: $0 [选项]
 
@@ -161,7 +161,7 @@ done
 
 # ==================== 主程序开始 ====================
 
-print_header "🚀 智能资料库管理员 - 生产环境部署"
+print_header "🚀 知了 EFKA - 生产环境部署"
 
 echo "部署配置："
 echo "  项目目录: $PROJECT_ROOT"
@@ -548,9 +548,9 @@ if [ "$SYSTEMD_MODE" = true ]; then
     WEWORK_PORT=${WEWORK_PORT:-8081}
 
     # FastAPI 主服务
-    cat > "$PROJECT_ROOT/intelligent-kba-admin.service" << EOF
+    cat > "$PROJECT_ROOT/efka-admin.service" << EOF
 [Unit]
-Description=Intelligent KBA - Admin Service (FastAPI)
+Description=EFKA - Admin Service (FastAPI)
 After=network.target
 # 如果使用 systemd 管理的 Redis，取消下面的注释
 # After=network.target redis.service
@@ -569,15 +569,15 @@ StandardError=append:$LOG_DIR/backend.log
 [Install]
 WantedBy=multi-user.target
 EOF
-    print_success "Admin 服务文件: intelligent-kba-admin.service"
+    print_success "Admin 服务文件: efka-admin.service"
 
     # Flask 企微回调服务
-    cat > "$PROJECT_ROOT/intelligent-kba-wework.service" << EOF
+    cat > "$PROJECT_ROOT/efka-wework.service" << EOF
 [Unit]
-Description=Intelligent KBA - WeWork Callback Service (Flask)
-After=network.target intelligent-kba-admin.service
+Description=EFKA - WeWork Callback Service (Flask)
+After=network.target efka-admin.service
 # 如果使用 systemd 管理的 Redis，取消下面的注释
-# After=network.target redis.service intelligent-kba-admin.service
+# After=network.target redis.service efka-admin.service
 
 [Service]
 Type=simple
@@ -593,31 +593,31 @@ StandardError=append:$LOG_DIR/wework.log
 [Install]
 WantedBy=multi-user.target
 EOF
-    print_success "WeWork 服务文件: intelligent-kba-wework.service"
+    print_success "WeWork 服务文件: efka-wework.service"
 
     echo ""
     echo "Systemd 服务文件已生成！"
     echo ""
     echo "部署步骤："
     echo "  1. 复制服务文件到 systemd 目录:"
-    echo "     sudo cp intelligent-kba-*.service /etc/systemd/system/"
+    echo "     sudo cp efka-*.service /etc/systemd/system/"
     echo ""
     echo "  2. 重载 systemd:"
     echo "     sudo systemctl daemon-reload"
     echo ""
     echo "  3. 启用并启动服务:"
-    echo "     sudo systemctl enable intelligent-kba-admin.service"
-    echo "     sudo systemctl enable intelligent-kba-wework.service"
-    echo "     sudo systemctl start intelligent-kba-admin.service"
-    echo "     sudo systemctl start intelligent-kba-wework.service"
+    echo "     sudo systemctl enable efka-admin.service"
+    echo "     sudo systemctl enable efka-wework.service"
+    echo "     sudo systemctl start efka-admin.service"
+    echo "     sudo systemctl start efka-wework.service"
     echo ""
     echo "  4. 查看服务状态:"
-    echo "     sudo systemctl status intelligent-kba-admin.service"
-    echo "     sudo systemctl status intelligent-kba-wework.service"
+    echo "     sudo systemctl status efka-admin.service"
+    echo "     sudo systemctl status efka-wework.service"
     echo ""
     echo "  5. 查看日志:"
-    echo "     sudo journalctl -u intelligent-kba-admin.service -f"
-    echo "     sudo journalctl -u intelligent-kba-wework.service -f"
+    echo "     sudo journalctl -u efka-admin.service -f"
+    echo "     sudo journalctl -u efka-wework.service -f"
     echo ""
 
 else
@@ -627,7 +627,7 @@ else
     cat > "$PROJECT_ROOT/scripts/start_production.sh" << 'EOF'
 #!/bin/bash
 
-# 智能资料库管理员 - 生产环境启动脚本（使用虚拟环境）
+# 知了 EFKA - 生产环境启动脚本（使用虚拟环境）
 # 用法: ./scripts/start_production.sh
 
 set -e
@@ -643,7 +643,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo "=========================================="
-echo "🚀 智能资料库管理员 - 生产环境启动"
+echo "🚀 知了 EFKA - 生产环境启动"
 echo "=========================================="
 echo ""
 

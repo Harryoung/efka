@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This document provides deployment instructions for the Intelligent Knowledge Base Administrator.
+This document provides deployment instructions for EFKA - Embed-Free Knowledge Agent.
 
 ## Table of Contents
 
@@ -89,7 +89,7 @@ This document provides deployment instructions for the Intelligent Knowledge Bas
 ```bash
 # 1. Clone the repository
 git clone <repository-url>
-cd intelligent-kba
+cd efka
 
 # 2. Configure environment
 cp .env.example .env
@@ -287,17 +287,17 @@ server {
 ### Systemd Services
 
 ```ini
-# /etc/systemd/system/ikba-backend.service
+# /etc/systemd/system/efka-backend.service
 [Unit]
-Description=IKBA Backend Service
+Description=EFKA Backend Service
 After=network.target redis.service
 
 [Service]
 User=www-data
-WorkingDirectory=/opt/intelligent-kba
-Environment="PATH=/opt/intelligent-kba/venv/bin"
-EnvironmentFile=/opt/intelligent-kba/.env
-ExecStart=/opt/intelligent-kba/venv/bin/python -m backend.main
+WorkingDirectory=/opt/efka
+Environment="PATH=/opt/efka/venv/bin"
+EnvironmentFile=/opt/efka/.env
+ExecStart=/opt/efka/venv/bin/python -m backend.main
 Restart=always
 RestartSec=10
 
@@ -353,7 +353,7 @@ redis-cli BGSAVE
 cp /var/lib/redis/dump.rdb backup/
 
 # Automated backup (cron)
-0 2 * * * /opt/intelligent-kba/scripts/backup.sh >> /var/log/backup.log 2>&1
+0 2 * * * /opt/efka/scripts/backup.sh >> /var/log/backup.log 2>&1
 ```
 
 ---

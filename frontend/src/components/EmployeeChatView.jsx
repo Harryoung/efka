@@ -51,7 +51,7 @@ const EmployeeChatView = () => {
       setSessionId(result.session_id);
 
       // 添加欢迎消息
-      addSystemMessage('你好！我是智能知识库助手，有什么可以帮你的吗？');
+      addSystemMessage('你好！我是知了，有什么可以帮你的吗？');
     } catch (error) {
       console.error('Failed to create session:', error);
       setError('无法创建会话，请刷新页面重试');
@@ -187,7 +187,7 @@ const EmployeeChatView = () => {
       {/* 头部 */}
       <div className="chat-header">
         <div className="header-title">
-          <h1>智能知识库助手</h1>
+          <h1>知了 · 员工助手</h1>
           <p className="header-subtitle">
             {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
           </p>
@@ -207,7 +207,7 @@ const EmployeeChatView = () => {
         {messages.length === 0 && (
           <div className="welcome-message">
             <div className="welcome-icon">:)</div>
-            <h2>欢迎使用智能知识库助手</h2>
+            <h2>欢迎使用知了</h2>
             <p>你可以：</p>
             <ul>
               <li>询问知识库中的任何问题</li>

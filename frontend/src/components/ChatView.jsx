@@ -1,6 +1,6 @@
 /**
- * ChatView 主界面组件
- * 集成消息列表、输入框、文件上传、SSE 流式响应
+ * ChatView Main Component
+ * EFKA Admin Interface with message list, input, file upload, SSE streaming
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -66,7 +66,7 @@ const ChatView = () => {
       setSessionId(result.session_id);
 
       // 添加欢迎消息
-      addSystemMessage('会话已创建，我是你的智能资料库管理员，有什么可以帮你的吗？');
+      addSystemMessage('会话已创建，我是知了，有什么可以帮你的吗？');
     } catch (error) {
       console.error('Failed to create session:', error);
       setError('无法创建会话，请刷新页面重试');
@@ -339,7 +339,7 @@ const ChatView = () => {
       {/* 头部 */}
       <div className="chat-header">
         <div className="header-title">
-          <h1><RobotOutlined /> 智能资料库管理员</h1>
+          <h1><RobotOutlined /> 知了 · 管理端</h1>
           <p className="header-subtitle">
             {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
           </p>
@@ -385,7 +385,7 @@ const ChatView = () => {
         {messages.length === 0 && (
           <div className="welcome-message">
             <div className="welcome-icon"><SmileOutlined /></div>
-            <h2>欢迎使用智能资料库管理员</h2>
+            <h2>欢迎使用知了</h2>
             <p>你可以：</p>
             <ul>
               <li><BookOutlined /> 询问知识库中的任何问题</li>

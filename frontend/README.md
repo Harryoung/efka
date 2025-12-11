@@ -1,6 +1,6 @@
-# 智能资料库管理员 - 前端
+# 知了 EFKA - 前端
 
-基于 React 18 + Vite 构建的智能资料库管理员前端应用。
+基于 React 18 + Vite 构建的知了 (EFKA) 前端应用。
 
 ## 技术栈
 
@@ -219,7 +219,7 @@ npm run build
 
 ## 相关文档
 
-- [技术方案](../智能资料库管理员-技术方案-Agent自主版.md)
+- [技术方案](../docs/DEPLOYMENT.md)
 - [Phase 3 验收报告](../docs/Phase3-验收报告.md)
 - [后端 API 文档](../backend/README.md)
 

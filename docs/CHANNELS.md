@@ -1,6 +1,6 @@
 # Channel Development Guide
 
-**目标**: 指导开发者为智能资料库管理员添加新的IM平台支持
+**Goal**: Guide developers to add new IM platform support for EFKA
 
 **适用版本**: v3.0+
 
@@ -1164,7 +1164,7 @@ backend/channels/wework/
 
 ### 下一步
 
-恭喜!你已经为智能资料库管理员添加了新的IM平台支持!
+恭喜!你已经为知了 EFKA 添加了新的IM平台支持!
 
 **进一步优化**:
 1. 添加更多消息类型支持 (图片、文件、语音)

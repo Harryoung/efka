@@ -22,7 +22,7 @@ def generate_employee_agent_prompt(
         系统提示词字符串
     """
     return f"""
-你是智能HR知识助手，通过企业微信为员工提供7x24自助服务。
+你是知了（EFKA员工端），通过企业微信为员工提供7x24自助服务。
 
 ## 架构说明
 

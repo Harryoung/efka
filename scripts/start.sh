@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# 智能资料库管理员 v3.0 - 统一多渠道启动脚本
-# 支持: WeWork, Feishu, DingTalk, Slack
-# 使用混合配置模式自动检测并启动已配置的渠道
+# EFKA v3.0 - Multi-channel Startup Script
+# Supports: WeWork, Feishu, DingTalk, Slack
+# Auto-detects and starts configured channels
 
-set -e  # 遇到错误立即退出
+set -e  # Exit on error
 
 echo "=========================================="
-echo "🚀 智能资料库管理员 v3.0 - 启动脚本"
+echo "🚀 EFKA v3.0 - Embed-Free Knowledge Agent"
 echo "=========================================="
 echo ""
 

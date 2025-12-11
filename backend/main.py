@@ -1,5 +1,5 @@
 """
-Main application entry point for the Intelligent Knowledge Base Administrator.
+Main application entry point for EFKA - Embed-Free Knowledge Agent.
 """
 # ⚠️ 必须在导入任何模块之前先设置环境变量
 # 这样可以确保子 Agent 也能获得认证信息
@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时初始化
-    logger.info("Starting Intelligent Knowledge Base Administrator...")
+    logger.info("Starting EFKA (知了) - Embed-Free Knowledge Agent...")
 
     # 初始化 Redis 存储（如果配置了 REDIS_URL）
     redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
@@ -104,9 +104,9 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="Intelligent Knowledge Base Administrator",
+    title="EFKA 知了",
     version="2.0.0",
-    description="基于Claude Agent SDK的智能资料库管理系统 - 双Agent架构（Admin Agent）",
+    description="Embed-Free Knowledge Agent - 无需向量数据库，让 Agent 直接阅读你的文件",
     lifespan=lifespan
 )
 
@@ -145,8 +145,8 @@ async def health_check():
     """系统健康检查端点"""
     return {
         "status": "healthy",
-        "version": "1.0.0",
-        "service": "Intelligent KB Admin"
+        "version": "2.0.0",
+        "service": "EFKA 知了"
     }
 
 
@@ -168,8 +168,8 @@ async def system_info():
 async def root():
     """根路径"""
     return {
-        "message": "Welcome to Intelligent Knowledge Base Administrator",
-        "version": "1.0.0",
+        "message": "Welcome to EFKA 知了 - Embed-Free Knowledge Agent",
+        "version": "2.0.0",
         "docs": "/docs"
     }
 

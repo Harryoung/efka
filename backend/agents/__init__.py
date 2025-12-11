@@ -1,1 +1,1 @@
-"""Agent definitions for the intelligent knowledge base system."""
+"""Agent definitions for EFKA (知了) - Embed-Free Knowledge Agent."""

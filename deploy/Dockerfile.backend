@@ -1,4 +1,4 @@
-# Intelligent KBA v3.0 - Backend Dockerfile
+# EFKA 知了 v3.0 - Backend Dockerfile
 # FastAPI 后端服务镜像
 
 FROM python:3.12-slim

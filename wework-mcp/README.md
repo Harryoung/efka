@@ -55,7 +55,7 @@ poetry run wework-mcp
 poetry run python -m wework_mcp.server
 ```
 
-## 集成到 intelligent_kba
+## 集成到 EFKA 知了
 
 在 `backend/services/kb_service.py` 中添加 MCP 服务配置：
 

@@ -1,7 +1,7 @@
 {
-  "name": "intelligent-kb-admin-frontend",
+  "name": "efka-frontend",
   "version": "1.0.0",
-  "description": "Frontend for Intelligent Knowledge Base Administrator",
+  "description": "Frontend for EFKA - Embed-Free Knowledge Agent",
   "type": "module",
   "scripts": {
     "dev": "vite",

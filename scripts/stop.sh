@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# 智能资料库管理员 - 停止脚本
-# 用法: ./scripts/stop.sh
+# EFKA - Stop Script
+# Usage: ./scripts/stop.sh
 
 echo "=========================================="
-echo "🛑 智能资料库管理员 - 停止脚本"
+echo "🛑 EFKA - Stopping Services"
 echo "=========================================="
 echo ""
 

@@ -2,7 +2,7 @@
 name = "wework-mcp"
 version = "1.0.0"
 description = "MCP server for WeWork (Enterprise WeChat) messaging integration"
-authors = ["Intelligent KBA Team <team@example.com>"]
+authors = ["EFKA Team <team@example.com>"]
 readme = "README.md"
 packages = [{include = "wework_mcp", from = "src"}]
 

@@ -1,7 +1,7 @@
 /**
- * App 主组件
- * 智能资料库管理员前端应用
- * 支持 Admin 和 Employee 两种模式
+ * App Main Component
+ * EFKA - Embed-Free Knowledge Agent Frontend
+ * Supports Admin and Employee modes
  */
 
 import React from 'react';
