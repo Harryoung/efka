@@ -72,12 +72,96 @@ This optimized approach makes EFKA suitable for interactive applications while m
 
 ## Features
 
-- **Intelligent Q&A**: 7-stage retrieval strategy with expert routing - accurate answers with source attribution
+- **Intelligent Q&A**: 6-stage retrieval strategy with expert routing - accurate answers with source attribution
 - **Smart Document Ingestion**: Automatic format conversion, semantic conflict detection, intelligent file placement
 - **FAQ System**: Automatic learning from interactions, usage tracking, and optimization
 - **Multi-Channel Support**: Web UI + Enterprise IM platforms (WeChat Work, Feishu, DingTalk, Slack)
 - **Dual-Agent Architecture**: Separate agents optimized for admin tasks and employee queries
 - **Streaming Responses**: Real-time SSE streaming with Markdown rendering
+
+## Agent Workflow
+
+![EFKA Admin & Employee Agents](assets/EFKA_Admin_Employee_Agents.png)
+
+### Admin Agent Flow
+
+```mermaid
+flowchart TD
+    subgraph Intent["🎯 Intent Recognition"]
+        A[User Request] --> B{Intent Type?}
+    end
+
+    subgraph DocIngest["📥 Document Ingestion"]
+        B -->|Upload/Add/Import| C1[1. Validate Format]
+        C1 -->|MD/TXT| C3
+        C1 -->|Excel| C2a[Keep Original + Generate Metadata]
+        C1 -->|DOC/PDF/PPT| C2b[smart_convert.py]
+        C2a --> C3[3. Semantic Conflict Detection]
+        C2b --> C3
+        C3 -->|Conflict| C3x[Report & Suggest Adjustment]
+        C3 -->|No Conflict| C4[4. Determine Target Location]
+        C4 --> C5[5. Write & Update README.md]
+        C5 -->|Large File| C5a[Generate TOC Overview]
+    end
+
+    subgraph KBMgmt["📚 KB Management"]
+        B -->|View/List/Stats| D1[Read README/FAQ/Stats]
+        B -->|Delete| D2[Show Details & Request Confirm]
+        D2 -->|User Confirms| D3[Delete & Update README]
+        D2 -->|User Cancels| D4[Abort]
+    end
+
+    subgraph BatchNotify["📢 Batch Notification"]
+        B -->|Notify/Send| E1[Read Employee Mapping]
+        E1 --> E2[Filter Target Employees]
+        E2 --> E3[Build Message & Preview]
+        E3 -->|User Confirms| E4[Batch Send via WeWork]
+    end
+
+    style Intent fill:#e1f5fe
+    style DocIngest fill:#f3e5f5
+    style KBMgmt fill:#e8f5e9
+    style BatchNotify fill:#fff3e0
+```
+
+### Employee Agent Flow
+
+```mermaid
+flowchart TD
+    subgraph Query["🔍 6-Stage Knowledge Retrieval"]
+        A[User Query] --> B[1. FAQ Quick Match]
+        B -->|Found| B1[Return FAQ Answer]
+        B -->|Not Found| C[2. Navigate via README.md]
+        C --> D{Target Files?}
+        D -->|Identified| E[3. Smart File Read]
+        D -->|Unclear| F[4. Keyword Search]
+        E -->|Small File| E1[Read Full Content]
+        E -->|Large File| E2[Read TOC → Target Section]
+        E1 & E2 --> G{Answer Found?}
+        F -->|Max 3 Attempts| G
+        G -->|Yes| H[5. Generate Answer + Source]
+        G -->|No| I[6. Expert Routing]
+    end
+
+    subgraph Expert["👨‍💼 Expert Routing"]
+        I --> I1[Identify Domain]
+        I1 --> I2[Query domain_experts.xlsx]
+        I2 --> I3[Notify Expert via WeWork]
+        I3 --> I4[Inform User to Wait]
+    end
+
+    subgraph Feedback["💬 Satisfaction Feedback"]
+        H --> J[User Feedback]
+        J -->|Satisfied + From FAQ| K1[Update FAQ Usage Count]
+        J -->|Satisfied + From KB| K2[Add to FAQ]
+        J -->|Unsatisfied + Has Reason| K3[Update FAQ Content]
+        J -->|Unsatisfied + No Reason| K4[Remove FAQ + Log BADCASE]
+    end
+
+    style Query fill:#e3f2fd
+    style Expert fill:#fce4ec
+    style Feedback fill:#f1f8e9
+```
 
 ## Architecture
 
@@ -162,6 +246,8 @@ Key environment variables (see `.env.example` for full list):
 | `KB_ROOT_PATH` | Knowledge base directory | No (default: ./knowledge_base) |
 | `REDIS_HOST` | Redis host | No (default: localhost) |
 | `WEWORK_CORP_ID` | WeChat Work Corp ID | For WeWork integration |
+
+> **💡 Alternative Models**: If you don't have an Anthropic API key, you can use compatible models such as DeepSeek V3.2, GLM 4.6, Minimax M2, Kimi K2, Doubao-Seed-Code, etc. Simply configure `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` in your `.env` file. Please search online for specific setup tutorials for your chosen provider.
 
 ### IM Platform Integration
 
