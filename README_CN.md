@@ -12,11 +12,19 @@
   <em>无需向量数据库的 AI 知识管理系统。基于文件系统，由 Agent 驱动。也许慢一点，但结果更可靠！</em>
 </p>
 
+<p align="center">
+  <strong>EFKA</strong> (Embed-Free Knowledge Agent) - 英文缩写，意为"无向量知识库 Agent"
+</p>
+
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Claude](https://img.shields.io/badge/Claude-Agent%20SDK-orange.svg)](https://github.com/anthropics/claude-code)
 
 [English](README.md) | 中文
+
+## 视频演示
+
+[![在 Bilibili 观看演示](assets/efka.png)](https://www.bilibili.com/video/BV1mnmBBuEVe/)
 
 ## 为什么选择知了？
 

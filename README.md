@@ -6,10 +6,14 @@
   </picture>
 </p>
 
-<h1 align="center">EFKA - Embed-Free Knowledge Agent</h1>
+<h1 align="center">EFKA 知了 - Embed-Free Knowledge Agent</h1>
 
 <p align="center">
   <em>AI-powered knowledge management without vector embeddings. File system based, Agent driven. Maybe slower, but results are much more reliable!</em>
+</p>
+
+<p align="center">
+  <strong>知了</strong> (Zhīliǎo, Chinese for "Cicada") - The name symbolizes clear, resonant communication of knowledge.
 </p>
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -17,6 +21,10 @@
 [![Claude](https://img.shields.io/badge/Claude-Agent%20SDK-orange.svg)](https://github.com/anthropics/claude-code)
 
 English | [中文](README_CN.md)
+
+## Video Demo
+
+[![Watch Demo on Bilibili](assets/efka.png)](https://www.bilibili.com/video/BV1mnmBBuEVe/)
 
 ## Why EFKA?
 
