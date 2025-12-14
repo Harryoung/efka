@@ -1,6 +1,16 @@
-# EFKA - Embed-Free Knowledge Agent
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
+    <img src="assets/logo-light.svg" width="120" height="120" alt="EFKA Logo">
+  </picture>
+</p>
 
-> AI-powered knowledge management without vector embeddings. File system based, Agent driven. Maybe slower, but results are much more reliable!
+<h1 align="center">EFKA - Embed-Free Knowledge Agent</h1>
+
+<p align="center">
+  <em>AI-powered knowledge management without vector embeddings. File system based, Agent driven. Maybe slower, but results are much more reliable!</em>
+</p>
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)

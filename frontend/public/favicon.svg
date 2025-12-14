@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Wings -->
+  <path d="M22 25 L12 29 C8 31 6 57 18 63 C24 65 26 43 26 43" />
+  <path d="M42 25 L52 29 C56 31 58 57 46 63 C40 65 38 43 38 43" />
+  <!-- Collar -->
+  <path d="M24 22 L32 28 L40 22" stroke-linecap="butt" />
+  <!-- Body -->
+  <path d="M27 28 L37 28 L32 54 Z" fill="#10b981" stroke="none" />
+  <path d="M27 28 L37 28 L32 54 Z" fill="none" />
+  <!-- Head -->
+  <rect x="22" y="8" width="20" height="14" rx="7" fill="white" stroke="#10b981" />
+  <!-- Eyes -->
+  <circle cx="27" cy="15" r="4.5" fill="white" stroke="#10b981" />
+  <circle cx="37" cy="15" r="4.5" fill="white" stroke="#10b981" />
+  <!-- Pupils -->
+  <circle cx="27" cy="15" r="2" fill="#10b981" stroke="none" />
+  <circle cx="37" cy="15" r="2" fill="#10b981" stroke="none" />
+</svg>

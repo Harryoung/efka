@@ -5,11 +5,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  RobotOutlined,
   FolderOutlined,
   DeleteOutlined,
   WarningOutlined,
-  SmileOutlined,
   BookOutlined,
   FileTextOutlined,
   BulbOutlined,
@@ -18,6 +16,7 @@ import {
 import apiService from '../services/api';
 import Message from './Message';
 import FileUpload from './FileUpload';
+import CicadaLogo from './CicadaLogo';
 import './ChatView.css';
 
 const ChatView = () => {
@@ -339,7 +338,7 @@ const ChatView = () => {
       {/* 头部 */}
       <div className="chat-header">
         <div className="header-title">
-          <h1><RobotOutlined /> 知了 · 管理端</h1>
+          <h1><CicadaLogo size={24} color="#10b981" /> 知了 · 管理端</h1>
           <p className="header-subtitle">
             {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
           </p>
@@ -384,7 +383,7 @@ const ChatView = () => {
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="welcome-message">
-            <div className="welcome-icon"><SmileOutlined /></div>
+            <div className="welcome-icon"><CicadaLogo size={48} color="#10b981" /></div>
             <h2>欢迎使用知了</h2>
             <p>你可以：</p>
             <ul>

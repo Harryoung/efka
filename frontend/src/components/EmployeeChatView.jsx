@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiService from '../shared/api';
 import Message from './Message';
+import CicadaLogo from './CicadaLogo';
 import './ChatView.css';
 
 const EmployeeChatView = () => {
@@ -187,7 +188,7 @@ const EmployeeChatView = () => {
       {/* 头部 */}
       <div className="chat-header">
         <div className="header-title">
-          <h1>知了 · 员工助手</h1>
+          <h1><CicadaLogo size={24} color="#10b981" /> 知了 · 用户端</h1>
           <p className="header-subtitle">
             {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
           </p>
@@ -206,7 +207,7 @@ const EmployeeChatView = () => {
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="welcome-message">
-            <div className="welcome-icon">:)</div>
+            <div className="welcome-icon"><CicadaLogo size={48} color="#10b981" /></div>
             <h2>欢迎使用知了</h2>
             <p>你可以：</p>
             <ul>

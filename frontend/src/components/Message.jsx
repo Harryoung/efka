@@ -5,7 +5,8 @@
 
 import React, { useMemo } from 'react';
 import { marked } from 'marked';
-import { UserOutlined, RobotOutlined, BulbOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
+import { UserOutlined, BulbOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
+import CicadaLogo from './CicadaLogo';
 import './Message.css';
 
 // 配置 marked
@@ -59,7 +60,7 @@ const Message = ({ message, onAddToFAQ, onFeedback }) => {
           {role === 'user' ? (
             <><UserOutlined /> 你</>
           ) : (
-            <><RobotOutlined /> 知了</>
+            <><CicadaLogo size={16} color="#10b981" /> 知了</>
           )}
         </span>
         {formattedTime && (
