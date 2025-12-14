@@ -214,6 +214,15 @@ fi
 print_step "创建必要目录..."
 mkdir -p "$LOG_DIR"
 mkdir -p "$PROJECT_ROOT/knowledge_base"
+
+# 复制 skills 目录到知识库（Agent 安全边界要求）
+if [ -d "$PROJECT_ROOT/skills" ]; then
+    print_step "复制 skills 目录到知识库..."
+    mkdir -p "$PROJECT_ROOT/knowledge_base/skills"
+    cp -r "$PROJECT_ROOT/skills/"* "$PROJECT_ROOT/knowledge_base/skills/" 2>/dev/null || true
+    print_success "skills 目录已复制到 knowledge_base/skills/"
+fi
+
 print_success "目录创建完成"
 
 # ==================== 步骤 2: Python 虚拟环境 ====================

@@ -283,13 +283,27 @@ efka/
 │   ├── channels/        # IM platform adapters
 │   ├── services/        # Business logic
 │   ├── tools/           # Custom tools (image_read, etc.)
-│   └── utils/           # Utilities (smart_convert.py)
+│   └── utils/           # Utilities
 ├── frontend/            # React Web UI
 ├── knowledge_base/      # Document storage
+│   └── skills/          # Agent skills (auto-copied on startup)
+├── skills/              # Skills source (smart_convert.py, prompts)
 ├── scripts/             # Deployment scripts
 ├── docs/                # Documentation
 └── wework-mcp/          # WeChat Work MCP server (submodule)
 ```
+
+### Skills Directory
+
+The `skills/` directory contains tools and prompts that agents need to access:
+- `smart_convert.py` - Document format converter (DOC/PDF/PPT → Markdown)
+- `batch_notification.md` - Batch notification workflow guide
+
+**Important**: These files must be copied to `knowledge_base/skills/` before use:
+- **Automatic**: The `scripts/deploy.sh` script will auto-copy during deployment
+- **Manual**: Run `cp -r skills/ knowledge_base/skills/`
+
+This design ensures agents only access files within the knowledge base directory boundary.
 
 ## Documentation
 
