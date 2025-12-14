@@ -59,7 +59,7 @@ const Message = ({ message, onAddToFAQ, onFeedback }) => {
           {role === 'user' ? (
             <><UserOutlined /> 你</>
           ) : (
-            <><RobotOutlined /> 助手</>
+            <><RobotOutlined /> 知了</>
           )}
         </span>
         {formattedTime && (
