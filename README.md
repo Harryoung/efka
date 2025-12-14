@@ -258,6 +258,8 @@ Key environment variables (see `.env.example` for full list):
 | `WEWORK_CORP_ID` | WeChat Work Corp ID | For WeWork integration |
 
 > **💡 Alternative Models**: If you don't have an Anthropic API key, you can use compatible models such as DeepSeek V3.2, GLM 4.6, Minimax M2, Kimi K2, Doubao-Seed-Code, etc. Simply configure `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` in your `.env` file. Please search online for specific setup tutorials for your chosen provider.
+>
+> **⚠️ Thinking Mode**: Extended thinking is disabled by default because third-party API providers (DeepSeek, GLM, Minimax, etc.) may not yet support the Claude Agent SDK's thinking mode response format. If you're using the official Anthropic API and want to enable thinking, modify `max_thinking_tokens` in `backend/services/kb_service_factory.py`.
 
 ### IM Platform Integration
 

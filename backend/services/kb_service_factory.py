@@ -106,7 +106,9 @@ class KBEmployeeService:
             cwd=str(kb_path.parent),  # 项目根目录
             permission_mode="acceptEdits",
             env=self._env_vars,
-            setting_sources=None
+            setting_sources=None,
+            # 禁用 extended thinking（第三方 API 代理不兼容 thinking mode）
+            max_thinking_tokens=0
         )
 
         # 如果提供了 SDK session ID，设置 resume 参数恢复会话
@@ -370,7 +372,9 @@ class KBAdminService:
             cwd=str(kb_path.parent),  # 项目根目录
             permission_mode="acceptEdits",
             env=self._env_vars,
-            setting_sources=None
+            setting_sources=None,
+            # 禁用 extended thinking（第三方 API 代理不兼容 thinking mode）
+            max_thinking_tokens=0
         )
 
         # 如果提供了 SDK session ID，设置 resume 参数恢复会话
