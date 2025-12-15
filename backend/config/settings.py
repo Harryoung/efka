@@ -68,6 +68,35 @@ class Settings(BaseSettings):
     ADMIN_CLIENT_POOL_SIZE: int = 2     # 管理员服务池大小（低频操作）
     CLIENT_POOL_MAX_WAIT: int = 30      # 获取客户端最大等待时间（秒）
 
+    # 渠道启用配置
+    ENABLE_WEWORK: str = "auto"
+    ENABLE_FEISHU: str = "auto"
+    ENABLE_DINGTALK: str = "auto"
+    ENABLE_SLACK: str = "auto"
+
+    # 飞书配置
+    FEISHU_APP_ID: Optional[str] = None
+    FEISHU_APP_SECRET: Optional[str] = None
+    FEISHU_VERIFICATION_TOKEN: Optional[str] = None
+    FEISHU_ENCRYPT_KEY: Optional[str] = None
+    FEISHU_PORT: int = 8082
+
+    # 钉钉配置
+    DINGTALK_CORP_ID: Optional[str] = None
+    DINGTALK_APP_KEY: Optional[str] = None
+    DINGTALK_APP_SECRET: Optional[str] = None
+    DINGTALK_PORT: int = 8083
+
+    # Slack 配置
+    SLACK_BOT_TOKEN: Optional[str] = None
+    SLACK_SIGNING_SECRET: Optional[str] = None
+    SLACK_APP_TOKEN: Optional[str] = None
+    SLACK_PORT: int = 8084
+
+    # Employee UI 配置
+    EMPLOYEE_UI_ENABLED: bool = True
+    EMPLOYEE_UI_PORT: int = 3001
+
     @model_validator(mode='after')
     def validate_api_key(self):
         """验证至少配置了一种认证方式"""

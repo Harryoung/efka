@@ -164,9 +164,10 @@ services:
 
   employee-ui:
     build:
-      context: ./frontend-employee
+      context: ./frontend
       dockerfile: ../deploy/Dockerfile.frontend
       args:
+        - VITE_APP_MODE=employee
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
     container_name: ikba-employee-ui
     ports:
