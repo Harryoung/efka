@@ -220,8 +220,7 @@ npm run build
 ## 相关文档
 
 - [技术方案](../docs/DEPLOYMENT.md)
-- [Phase 3 验收报告](../docs/Phase3-验收报告.md)
-- [后端 API 文档](../backend/README.md)
+- [渠道集成文档](../docs/CHANNELS.md)
 
 ## License
 

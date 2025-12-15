@@ -72,6 +72,7 @@ This document provides deployment instructions for EFKA - Embed-Free Knowledge A
 - **OS**: Ubuntu 20.04+ / CentOS 7+ / macOS 12+
 - **Python**: 3.10+
 - **Node.js**: 18+
+- **Redis**: 7+ (optional, uses memory storage if not installed)
 - **Docker**: 20.10+ (for Docker deployment)
 - **Docker Compose**: 2.0+ (for Docker deployment)
 
@@ -88,7 +89,7 @@ This document provides deployment instructions for EFKA - Embed-Free Knowledge A
 
 ```bash
 # 1. Clone the repository
-git clone <repository-url>
+git clone https://github.com/Harryoung/efka.git
 cd efka
 
 # 2. Configure environment

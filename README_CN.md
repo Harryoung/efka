@@ -223,7 +223,7 @@ flowchart TD
 
 ```bash
 # 克隆仓库
-git clone https://github.com/anthropics/efka.git
+git clone https://github.com/Harryoung/efka.git
 cd efka
 
 # 配置环境
@@ -314,7 +314,11 @@ efka/
 
 **重要**：这些文件必须在使用前复制到 `knowledge_base/skills/`：
 - **自动**：`scripts/deploy.sh` 脚本会在部署时自动复制
-- **手动**：运行 `cp -r skills/ knowledge_base/skills/`
+- **手动**：
+  ```bash
+  mkdir -p knowledge_base
+  cp -r skills/ knowledge_base/skills/
+  ```
 
 此设计确保 Agent 只能访问知识库目录边界内的文件。
 

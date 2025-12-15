@@ -212,7 +212,7 @@ flowchart TD
 
 - Python 3.10+
 - Node.js 18+
-- Redis 7+
+- Redis 7+ (optional, uses memory storage if not installed)
 - Claude API Key
 - Pandoc (for document conversion)
   - macOS: `brew install pandoc`
@@ -222,7 +222,7 @@ flowchart TD
 
 ```bash
 # Clone the repository
-git clone https://github.com/anthropics/efka.git
+git clone https://github.com/Harryoung/efka.git
 cd efka
 
 # Configure environment
@@ -262,7 +262,8 @@ Key environment variables (see `.env.example` for full list):
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `CLAUDE_API_KEY` | Claude API key | Yes |
+| `CLAUDE_API_KEY` or `ANTHROPIC_AUTH_TOKEN` | Claude API authentication (choose one) | Yes |
+| `ANTHROPIC_BASE_URL` | API Base URL (required when using AUTH_TOKEN) | Conditional |
 | `KB_ROOT_PATH` | Knowledge base directory | No (default: ./knowledge_base) |
 | `REDIS_HOST` | Redis host | No (default: localhost) |
 | `WEWORK_CORP_ID` | WeChat Work Corp ID | For WeWork integration |
@@ -313,7 +314,11 @@ The `skills/` directory contains tools and prompts that agents need to access:
 
 **Important**: These files must be copied to `knowledge_base/skills/` before use:
 - **Automatic**: The `scripts/deploy.sh` script will auto-copy during deployment
-- **Manual**: Run `cp -r skills/ knowledge_base/skills/`
+- **Manual**:
+  ```bash
+  mkdir -p knowledge_base
+  cp -r skills/ knowledge_base/skills/
+  ```
 
 This design ensures agents only access files within the knowledge base directory boundary.
 
