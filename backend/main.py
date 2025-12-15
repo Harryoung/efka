@@ -40,7 +40,7 @@ logging.basicConfig(
     level=settings.LOG_LEVEL,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('backend/logs/app.log'),
+        logging.FileHandler('logs/app.log'),
         logging.StreamHandler()
     ]
 )
