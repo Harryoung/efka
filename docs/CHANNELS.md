@@ -965,7 +965,7 @@ PLATFORM_APP_SECRET=your_app_secret
 PLATFORM_VERIFICATION_TOKEN=your_token
 
 # 2. 启动完整服务
-./scripts/start_v3.sh
+./scripts/start.sh
 
 # 3. 检查Platform服务是否启动
 lsof -i :8083
