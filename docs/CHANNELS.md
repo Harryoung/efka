@@ -1,6 +1,6 @@
-# Channel Development Guide
+# Channel 开发指南
 
-**Goal**: Guide developers to add new IM platform support for EFKA
+**目标**: 指导开发者如何为 EFKA 添加新的 IM 平台支持
 
 **适用版本**: v3.0+
 
@@ -12,19 +12,19 @@
 
 ## 目录
 
-1. [Channel Adapter架构概述](#channel-adapter架构概述)
+1. [Channel Adapter 架构概述](#channel-adapter-架构概述)
 2. [开发前准备](#开发前准备)
-3. [步骤1: 创建Channel Client](#步骤1-创建channel-client)
-4. [步骤2: 实现Channel Adapter](#步骤2-实现channel-adapter)
-5. [步骤3: 创建Callback Server](#步骤3-创建callback-server)
+3. [步骤1: 创建 Channel Client](#步骤1-创建-channel-client)
+4. [步骤2: 实现 Channel Adapter](#步骤2-实现-channel-adapter)
+5. [步骤3: 创建 Callback Server](#步骤3-创建-callback-server)
 6. [步骤4: 注册配置](#步骤4-注册配置)
 7. [步骤5: 测试与调试](#步骤5-测试与调试)
 8. [最佳实践](#最佳实践)
-9. [参考: WeWork适配器](#参考-wework适配器)
+9. [参考: WeWork 适配器](#参考-wework-适配器)
 
 ---
 
-## Channel Adapter架构概述
+## Channel Adapter 架构概述
 
 ### 核心组件
 
@@ -131,7 +131,7 @@ touch server.py
 
 ---
 
-## 步骤1: 创建Channel Client
+## 步骤1: 创建 Channel Client
 
 ### 目标
 封装IM平台的API调用，提供统一的接口给Adapter使用。
@@ -348,7 +348,7 @@ class PlatformClient:
 
 ---
 
-## 步骤2: 实现Channel Adapter
+## 步骤2: 实现 Channel Adapter
 
 ### 目标
 实现`BaseChannelAdapter`,提供统一的消息处理接口。
@@ -654,7 +654,7 @@ class PlatformAdapter(BaseChannelAdapter):
 
 ---
 
-## 步骤3: 创建Callback Server
+## 步骤3: 创建 Callback Server
 
 ### 目标
 创建Flask/FastAPI服务器接收IM平台回调消息。
@@ -965,6 +965,7 @@ PLATFORM_APP_SECRET=your_app_secret
 PLATFORM_VERIFICATION_TOKEN=your_token
 
 # 2. 启动完整服务
+cd efka  # 如果不在项目根目录，请先切换到项目目录
 ./scripts/start.sh
 
 # 3. 检查Platform服务是否启动
@@ -1086,7 +1087,7 @@ logger.error(f"Failed to send to {user_id}: {error}", exc_info=True)
 
 ---
 
-## 参考: WeWork适配器
+## 参考: WeWork 适配器
 
 WeWork适配器是一个完整的参考实现,展示了所有最佳实践。
 

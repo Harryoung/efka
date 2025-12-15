@@ -105,6 +105,7 @@ pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 
 # 5. Start services
+cd efka  # Change to project directory if not already there
 ./scripts/start.sh
 
 # 6. Access the application

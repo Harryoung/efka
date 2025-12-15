@@ -213,6 +213,8 @@ flowchart TD
 - Python 3.10+
 - Node.js 18+
 - Redis 7+ (optional, uses memory storage if not installed)
+  - macOS: `brew install redis && brew services start redis`
+  - Ubuntu: `sudo apt-get install redis-server && sudo systemctl start redis`
 - Claude API Key
 - Pandoc (for document conversion)
   - macOS: `brew install pandoc`
@@ -238,6 +240,7 @@ pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 
 # Start services
+cd efka  # Change to project directory if not already there
 ./scripts/start.sh
 ```
 

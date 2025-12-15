@@ -36,6 +36,7 @@ source venv/bin/activate  # Must run before any Python commands
 
 ### Start/Stop
 ```bash
+cd efka  # Change to project directory if not already there
 ./scripts/start.sh   # Auto-detect and start all configured services
 ./scripts/stop.sh    # Stop all services
 ```

@@ -239,6 +239,7 @@ pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 
 # 启动服务
+cd efka  # 如果不在项目根目录，请先切换到项目目录
 ./scripts/start.sh
 ```
 
