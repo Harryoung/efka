@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI):
         logger.info(f"✅ Redis 存储初始化成功: {redis_url}")
     except Exception as e:
         logger.warning(f"⚠️  Redis 存储初始化失败: {e}, 将使用内存存储")
+        logger.info("✅ 内存存储初始化成功")
 
     # 初始化 Admin Service（双 Agent 架构）
     admin_service = get_admin_service()

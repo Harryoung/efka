@@ -164,10 +164,15 @@ echo "🔧 步骤 4/5: 启动后端服务"
 echo "----------------------------------------"
 
 # 检查后端依赖
+# 使用 .venv_installed 文件标记依赖安装状态
+# 注意：如果 requirements.txt 更新了，需要手动删除此文件重新安装
 if [ ! -f "backend/.venv_installed" ]; then
     echo "⚠️  后端依赖未安装，正在安装..."
     pip3 install -r backend/requirements.txt
     touch backend/.venv_installed
+    echo "✅  后端依赖安装完成"
+else
+    echo "✅  后端依赖已安装（如需更新依赖，请删除 backend/.venv_installed 文件）"
 fi
 
 mkdir -p logs
