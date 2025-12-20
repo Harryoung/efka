@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from backend.api.wework_callback import app, init_services
-from backend.services.kb_service_factory import KBServiceFactory, get_employee_service
+from backend.services.kb_service_factory import KBServiceFactory, get_user_service
 from backend.services.conversation_state_manager import get_conversation_state_manager
 from backend.services.session_manager import get_session_manager
 from backend.storage.redis_storage import RedisSessionStorage
@@ -54,10 +54,10 @@ async def initialize_services():
 
     logger.info("Initializing WeWork server services...")
 
-    # 初始化Employee Service
-    employee_service = get_employee_service()
-    await employee_service.initialize()
-    logger.info("✅ Employee service initialized")
+    # 初始化User Service
+    user_service = get_user_service()
+    await user_service.initialize()
+    logger.info("✅ User service initialized")
 
     # 初始化Conversation State Manager（Redis存储）
     try:

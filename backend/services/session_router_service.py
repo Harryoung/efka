@@ -154,7 +154,7 @@ class SessionRouterService:
             # 转换为dict（Session对象需要序列化）
             return {
                 "user_id": result.user_id,
-                "as_employee": [s.dict() for s in result.as_employee],
+                "as_user": [s.dict() for s in result.as_user],
                 "as_expert": [s.dict() for s in result.as_expert],
                 "total_count": result.total_count
             }
@@ -239,13 +239,13 @@ class SessionRouterService:
             "current_time": datetime.now().isoformat(),  # 当前时间戳，用于时间窗口判断
             "user_info": user_info,
             "candidate_sessions": {
-                "as_employee": [s.dict() for s in sessions.as_employee],
+                "as_user": [s.dict() for s in sessions.as_user],
                 "as_expert": [s.dict() for s in sessions.as_expert]
             }
         }
 
         logger.info(f"Routing message for user {user_id}: {new_message[:50]}...")
-        logger.info(f"  Candidate sessions: {sessions.total_count} ({len(sessions.as_employee)} employee, {len(sessions.as_expert)} expert)")
+        logger.info(f"  Candidate sessions: {sessions.total_count} ({len(sessions.as_user)} user, {len(sessions.as_expert)} expert)")
 
         try:
             # 调用Router Agent

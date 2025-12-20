@@ -202,7 +202,7 @@ class TestRouterMessageRouting:
     @pytest.mark.asyncio
     async def test_route_message_success(self, router_with_mock_adapter, sample_message):
         """测试成功路由消息"""
-        # Mock Employee Service
+        # Mock User Service
         mock_service = AsyncMock()
         mock_service.is_initialized = True
 
@@ -217,7 +217,7 @@ class TestRouterMessageRouting:
         response = await router_with_mock_adapter.route_message(
             channel="web",
             message=sample_message,
-            employee_service=mock_service
+            user_service=mock_service
         )
 
         assert response == "这是 Agent 的响应"

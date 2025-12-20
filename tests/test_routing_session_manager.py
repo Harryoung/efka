@@ -19,12 +19,12 @@ async def test_create_session():
 
     session = await mgr.create_session(
         user_id="emp001",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="测试问题"
     )
 
     assert session.user_id == "emp001"
-    assert session.role == SessionRole.EMPLOYEE
+    assert session.role == SessionRole.USER
     assert session.status == SessionStatus.ACTIVE
     assert session.summary.original_question == "测试问题"
     assert session.summary.version == 0
@@ -39,7 +39,7 @@ async def test_get_session():
     # 创建Session
     created_session = await mgr.create_session(
         user_id="emp002",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="测试获取"
     )
 
@@ -60,21 +60,21 @@ async def test_query_user_sessions_time_order():
     # 创建3个Session（间隔时间确保时间戳不同）
     s1 = await mgr.create_session(
         user_id="emp001",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="Q1"
     )
     await asyncio.sleep(0.01)
 
     s2 = await mgr.create_session(
         user_id="emp001",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="Q2"
     )
     await asyncio.sleep(0.01)
 
     s3 = await mgr.create_session(
         user_id="emp001",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="Q3"
     )
 
@@ -82,10 +82,10 @@ async def test_query_user_sessions_time_order():
     result = await mgr.query_user_sessions("emp001")
 
     # 验证倒序（最新的在前）
-    assert len(result.as_employee) == 3
-    assert result.as_employee[0].session_id == s3.session_id
-    assert result.as_employee[1].session_id == s2.session_id
-    assert result.as_employee[2].session_id == s1.session_id
+    assert len(result.as_user) == 3
+    assert result.as_user[0].session_id == s3.session_id
+    assert result.as_user[1].session_id == s2.session_id
+    assert result.as_user[2].session_id == s1.session_id
 
 
 @pytest.mark.asyncio
@@ -97,7 +97,7 @@ async def test_query_sessions_role_separation():
     # 创建员工Session
     s1 = await mgr.create_session(
         user_id="expert001",
-        role=SessionRole.EXPERT_AS_EMPLOYEE,
+        role=SessionRole.EXPERT_AS_USER,
         original_question="专家作为员工咨询"
     )
 
@@ -106,16 +106,16 @@ async def test_query_sessions_role_separation():
         user_id="expert001",
         role=SessionRole.EXPERT,
         original_question="专家被咨询",
-        related_employee_id="emp001"
+        related_user_id="emp001"
     )
 
     # 查询
     result = await mgr.query_user_sessions("expert001")
 
     # 验证分离
-    assert len(result.as_employee) == 1
+    assert len(result.as_user) == 1
     assert len(result.as_expert) == 1
-    assert result.as_employee[0].session_id == s1.session_id
+    assert result.as_user[0].session_id == s1.session_id
     assert result.as_expert[0].session_id == s2.session_id
 
 
@@ -127,7 +127,7 @@ async def test_update_session_summary():
 
     session = await mgr.create_session(
         user_id="emp003",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="测试更新"
     )
 
@@ -164,7 +164,7 @@ async def test_update_session_status():
 
     session = await mgr.create_session(
         user_id="emp004",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="测试状态更新"
     )
 
@@ -196,7 +196,7 @@ async def test_query_sessions_with_limit():
     for i in range(5):
         await mgr.create_session(
             user_id="emp005",
-            role=SessionRole.EMPLOYEE,
+            role=SessionRole.USER,
             original_question=f"Q{i+1}"
         )
         await asyncio.sleep(0.01)
@@ -205,7 +205,7 @@ async def test_query_sessions_with_limit():
     result = await mgr.query_user_sessions("emp005", max_per_role=3)
 
     # 验证返回数量
-    assert len(result.as_employee) == 3
+    assert len(result.as_user) == 3
 
 
 @pytest.mark.asyncio

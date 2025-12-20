@@ -16,9 +16,9 @@ from pydantic import BaseModel, Field
 
 class SessionRole(str, Enum):
     """用户在Session中的角色"""
-    EMPLOYEE = "employee"  # 作为员工咨询
+    USER = "user"  # 作为用户咨询
     EXPERT = "expert"  # 作为专家被咨询
-    EXPERT_AS_EMPLOYEE = "expert_as_employee"  # 专家自己咨询
+    EXPERT_AS_USER = "expert_as_user"  # 专家自己咨询
 
 
 class SessionStatus(str, Enum):
@@ -78,7 +78,7 @@ class Session(BaseModel):
     full_context_key: str = Field(..., description="Redis key指向完整历史")
 
     # 专家相关（仅role=EXPERT时有效）
-    related_employee_id: Optional[str] = Field(None, description="关联的员工user ID")
+    related_user_id: Optional[str] = Field(None, description="关联的用户ID")
     domain: Optional[str] = Field(None, description="专业领域")
 
     # 时间戳
@@ -96,13 +96,13 @@ class SessionQueryResult(BaseModel):
     MCP工具返回结构
 
     区分用户的两种身份：
-    - as_employee: 用户作为员工的sessions
+    - as_user: 用户作为咨询者的sessions
     - as_expert: 用户作为专家的sessions（被咨询）
 
     重要：列表按 last_active_at 倒序排列
     """
     user_id: str = Field(..., description="Platform user ID")
-    as_employee: List[Session] = Field(default_factory=list, description="作为员工的sessions")
+    as_user: List[Session] = Field(default_factory=list, description="作为咨询者的sessions")
     as_expert: List[Session] = Field(default_factory=list, description="作为专家的sessions")
     total_count: int = Field(..., description="总Session数量")
 

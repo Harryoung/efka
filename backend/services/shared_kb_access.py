@@ -26,7 +26,7 @@ class SharedKBAccess:
 
     Provides file-level mutex locks to prevent concurrent write conflicts,
     especially for FAQ.md and BADCASE.md which can be updated by both:
-    - Employee Agent (satisfaction feedback)
+    - User Agent (satisfaction feedback)
     - Admin Agent (manual edits)
 
     Uses fcntl for cross-process locking, which will work even when

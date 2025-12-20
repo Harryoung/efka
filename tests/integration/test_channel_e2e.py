@@ -2,7 +2,7 @@
 渠道系统端到端集成测试
 
 测试场景:
-1. Web UI → Employee API → Agent → 响应
+1. Web UI → User API → Agent → 响应
 2. 渠道配置 → 路由器初始化 → 适配器注册
 3. 多渠道消息路由流程
 """
@@ -227,7 +227,7 @@ class TestMessageFlowIntegration:
             session_id="session_001"
         )
 
-        # Mock Employee Service
+        # Mock User Service
         mock_service = AsyncMock()
         mock_service.is_initialized = True
 
@@ -242,7 +242,7 @@ class TestMessageFlowIntegration:
         response = await router.route_message(
             channel="web",
             message=message,
-            employee_service=mock_service
+            user_service=mock_service
         )
 
         # 验证响应
@@ -307,7 +307,7 @@ class TestErrorHandlingIntegration:
         router.adapters["web"] = adapter
         router._initialized = True
 
-        # Mock 失败的 Employee Service
+        # Mock 失败的 User Service
         mock_service = AsyncMock()
         mock_service.is_initialized = True
 
@@ -325,7 +325,7 @@ class TestErrorHandlingIntegration:
         response = await router.route_message(
             channel="web",
             message=message,
-            employee_service=mock_service
+            user_service=mock_service
         )
 
         # 验证错误响应

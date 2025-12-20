@@ -4,7 +4,7 @@ Session Router Agent - 智能会话归属判断
 核心职责：
 - 纯语义理解判断新消息归属哪个Session
 - 强制返回明确结论（session_id或NEW_SESSION）
-- 支持专家双重身份（作为员工+作为专家）
+- 支持专家双重身份（作为用户+作为专家）
 - 优先按时间倒序匹配（模糊回复场景）
 """
 
@@ -37,12 +37,12 @@ def generate_session_router_prompt() -> str:
 ### 2. 专家双重身份识别
 
 用户可能同时拥有两种身份的Session：
-- **作为员工(as_employee)**：用户自己咨询问题
-- **作为专家(as_expert)**：其他员工咨询用户（用户是领域专家）
+- **作为用户(as_user)**：用户自己咨询问题
+- **作为专家(as_expert)**：其他用户前来咨询
 
 **判断策略**：
 - 如果新消息是**回答式的、响应式的**（如"已处理"、"可以这样做"）→ 优先匹配`as_expert`的Session
-- 如果新消息是**提问式的、请求式的**（如"怎么办"、"如何申请"）→ 优先匹配`as_employee`的Session
+- 如果新消息是**提问式的、请求式的**（如"怎么办"、"如何申请"）→ 优先匹配`as_user`的Session
 - 当两者都可能时，**优先匹配最近活跃的Session**
 
 ### 3. 纯语义理解方法
@@ -118,7 +118,7 @@ def generate_session_router_prompt() -> str:
     "expert_domains": ["人力资源", "薪酬福利"]
   },
   "candidate_sessions": {
-    "as_employee": [
+    "as_user": [
       {
         "session_id": "sess-1234",
         "status": "active",
@@ -148,7 +148,7 @@ def generate_session_router_prompt() -> str:
           },
           "key_points": ["入职材料", "新员工流程"]
         },
-        "related_employee_id": "emp002",
+        "related_user_id": "emp002",
         "domain": "人力资源",
         "last_active_at": "2025-01-10T09:50:00"
       }
@@ -170,7 +170,7 @@ def generate_session_router_prompt() -> str:
   "decision": "sess-1234",  // 或 "NEW_SESSION"
   "confidence": 0.95,       // 0-1之间，低于0.7会触发日志记录
   "reasoning": "新消息'需要提前几天申请？'是对sess-1234中'如何申请年假'话题的自然延续，用户在追问申请的时间要求细节。时间间隔仅5分钟，话题高度相关。",
-  "matched_role": "employee"  // "employee" | "expert" | null
+  "matched_role": "user"  // "user" | "expert" | null
 }
 ```
 
@@ -194,7 +194,7 @@ def generate_session_router_prompt() -> str:
 
 分析新消息的语气和内容：
 - **回答式特征**：包含答案、建议、处理结果 → 检查`as_expert`列表
-- **提问式特征**：包含疑问词、请求帮助 → 检查`as_employee`列表
+- **提问式特征**：包含疑问词、请求帮助 → 检查`as_user`列表
 - **模糊回复**：长度<10字、情绪词、确认词 → 应用时间优先原则
 - **模糊情况**：两个列表都检查，优先最近活跃的
 
@@ -231,7 +231,7 @@ def generate_session_router_prompt() -> str:
   "new_message": "满意",
   "current_time": "2025-01-10T10:30:00",
   "candidate_sessions": {
-    "as_employee": [
+    "as_user": [
       {"session_id": "sess-C", "last_active_at": "2025-01-10T10:25:00", "summary": {"original_question": "考勤异常"}},
       {"session_id": "sess-B", "last_active_at": "2025-01-10T10:15:00", "summary": {"original_question": "报销流程"}},
       {"session_id": "sess-A", "last_active_at": "2025-01-10T10:05:00", "summary": {"original_question": "年假申请"}}
@@ -252,7 +252,7 @@ def generate_session_router_prompt() -> str:
   "decision": "sess-C",
   "confidence": 0.85,
   "reasoning": "用户回复'满意'是模糊反馈，按时间倒序匹配到列表首位的sess-C（考勤异常话题）。计算时间差：current_time(10:30) - last_active_at(10:25) = 5分钟，时间连续性强，应为对该话题的满意度反馈。",
-  "matched_role": "employee"
+  "matched_role": "user"
 }
 ```
 
@@ -264,7 +264,7 @@ def generate_session_router_prompt() -> str:
   "new_message": "年假需要提前几天申请？",
   "current_time": "2025-01-10T10:15:00",
   "candidate_sessions": {
-    "as_employee": [
+    "as_user": [
       {"session_id": "sess-B", "last_active_at": "2025-01-10T10:10:00", "summary": {"original_question": "报销流程"}},
       {"session_id": "sess-A", "last_active_at": "2025-01-10T09:30:00", "summary": {"original_question": "年假申请流程"}}
     ]
@@ -285,7 +285,7 @@ def generate_session_router_prompt() -> str:
   "decision": "sess-A",
   "confidence": 0.95,
   "reasoning": "用户追问'年假需要提前几天申请'，明确对应sess-A的'年假申请流程'话题。虽然时间间隔45分钟（非最新Session），但主题高度相关，判断为延续对话。",
-  "matched_role": "employee"
+  "matched_role": "user"
 }
 ```
 
@@ -334,7 +334,7 @@ def generate_session_router_prompt() -> str:
   "current_time": "2025-01-10T10:30:00",
   "user_info": {"is_expert": true, "expert_domains": ["人力资源"]},
   "candidate_sessions": {
-    "as_employee": [
+    "as_user": [
       {"session_id": "sess-A", "last_active_at": "2025-01-10T10:15:00", "summary": {"original_question": "如何调整薪资？"}}
     ],
     "as_expert": []
@@ -344,7 +344,7 @@ def generate_session_router_prompt() -> str:
 
 **决策过程**：
 1. 识别：提问式消息，包含明确主题（财务报销）
-2. 检查as_employee列表：sess-A主题是"薪资调整"，与"财务报销"无直接关联
+2. 检查as_user列表：sess-A主题是"薪资调整"，与"财务报销"无直接关联
 3. 用户的专业领域是"人力资源"，不包括"财务报销"
 4. 判断为全新话题 → ✅ 返回 NEW_SESSION
 
@@ -370,7 +370,7 @@ def generate_session_router_prompt() -> str:
   "new_message": "对了，顺便问一下，陪产假怎么申请？",
   "current_time": "2025-01-10T10:28:00",
   "candidate_sessions": {
-    "as_employee": [
+    "as_user": [
       {"session_id": "sess-A", "last_active_at": "2025-01-10T10:25:00", "summary": {"original_question": "如何申请年假？"}}
     ]
   }

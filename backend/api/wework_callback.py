@@ -5,7 +5,7 @@ WeChat Work Callback API - 企业微信消息接收
 1. URL验证（GET请求）
 2. 消息接收与解密（POST请求）
 3. 会话状态检查（区分员工提问和专家回复）
-4. 调用Employee Agent处理
+4. 调用User Agent处理
 """
 
 from flask import Flask, request, make_response
@@ -19,7 +19,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.utils.wework_crypto import verify_url, decrypt_message, parse_message
-from backend.services.kb_service_factory import get_employee_service
+from backend.services.kb_service_factory import get_user_service
 from backend.services.conversation_state_manager import get_conversation_state_manager
 from backend.services.user_identity_service import get_user_identity_service
 from backend.services.session_router_service import get_session_router_service
@@ -44,7 +44,7 @@ WEWORK_ENCODING_AES_KEY = settings.WEWORK_ENCODING_AES_KEY
 WEWORK_CORP_ID = settings.WEWORK_CORP_ID
 
 # 初始化服务（将在wework_server.py中完成）
-employee_service = None
+user_service = None
 state_manager = None
 
 # 线程池执行器（用于运行异步任务）
@@ -53,8 +53,8 @@ executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="wework_async")
 
 def init_services():
     """初始化服务（由wework_server.py调用）"""
-    global employee_service, state_manager
-    employee_service = get_employee_service()
+    global user_service, state_manager
+    user_service = get_user_service()
     state_manager = get_conversation_state_manager(
         kb_root=Path(settings.KB_ROOT_PATH)
     )
@@ -164,7 +164,7 @@ async def process_wework_message(message_data: dict):
     2. Session Router决定session_id（新增）
     3. 低置信度日志记录（新增）
     4. 获取或创建Session（改造）
-    5. 调用Employee Agent（改造）
+    5. 调用User Agent（改造）
     6. 异步更新Session摘要（新增）
     """
 
@@ -224,9 +224,9 @@ async def process_wework_message(message_data: dict):
             if user_info['is_expert'] and routing_result.get('matched_role') == 'expert':
                 role = SessionRole.EXPERT
             elif user_info['is_expert']:
-                role = SessionRole.EXPERT_AS_EMPLOYEE
+                role = SessionRole.EXPERT_AS_USER
             else:
-                role = SessionRole.EMPLOYEE
+                role = SessionRole.USER
 
             session = await routing_mgr.create_session(
                 user_id=sender_userid,
@@ -239,11 +239,11 @@ async def process_wework_message(message_data: dict):
             session_id = routing_result['decision']
             logger.info(f"Matched existing session {session_id} for {sender_userid}")
 
-        # Step 5: 调用Employee Agent（改造）
-        # 确保employee_service已初始化
-        if not employee_service.is_initialized:
-            await employee_service.initialize()
-            logger.info("Employee service initialized")
+        # Step 5: 调用User Agent（改造）
+        # 确保user_service已初始化
+        if not user_service.is_initialized:
+            await user_service.initialize()
+            logger.info("User service initialized")
 
         # 获取 SDK session ID（用于 resume，注意：这与 routing session_id 是不同的概念！）
         # - routing session_id（sess_xxx 格式）：用于业务层会话路由
@@ -270,12 +270,12 @@ name: {name_display}
         message_count = 0
         real_sdk_session_id = None  # 从 ResultMessage 中提取的真实 SDK session ID
 
-        logger.info(f"Calling Employee Agent (routing_session={session_id}, sdk_session={sdk_session_id or 'new'})")
-        logger.info(f"📞 About to call employee_service.query()...")
+        logger.info(f"Calling User Agent (routing_session={session_id}, sdk_session={sdk_session_id or 'new'})")
+        logger.info(f"📞 About to call user_service.query()...")
 
         try:
             logger.info(f"🔄 Entering async for loop to receive messages...")
-            async for message in employee_service.query(
+            async for message in user_service.query(
                 user_message=formatted_message,
                 sdk_session_id=sdk_session_id,  # 传入 SDK session ID（或 None 表示新会话）
                 user_id=sender_userid
@@ -313,7 +313,7 @@ name: {name_display}
 
             # 检查是否收到响应
             if message_count == 0:
-                logger.error(f"❌ No response from Employee Agent for user {sender_userid}")
+                logger.error(f"❌ No response from User Agent for user {sender_userid}")
                 logger.error(f"   Routing Session ID: {session_id}")
                 logger.error(f"   SDK Session ID: {sdk_session_id or 'new'}")
                 logger.error(f"   This may indicate:")
@@ -323,10 +323,10 @@ name: {name_display}
                 logger.error(f"   - API service unavailable")
                 return
             else:
-                logger.info(f"✅ Received {message_count} messages from Employee Agent")
+                logger.info(f"✅ Received {message_count} messages from User Agent")
 
         except asyncio.TimeoutError:
-            logger.error(f"❌ Employee Agent call timeout for user {sender_userid}")
+            logger.error(f"❌ User Agent call timeout for user {sender_userid}")
             logger.error(f"   Session ID: {session_id}")
             logger.error(f"   Message: {content[:100]}...")
             logger.error(f"   This may indicate:")
@@ -334,7 +334,7 @@ name: {name_display}
             logger.error(f"   - API service overload")
             return
         except Exception as agent_error:
-            logger.error(f"❌ Employee Agent call failed for user {sender_userid}")
+            logger.error(f"❌ User Agent call failed for user {sender_userid}")
             logger.error(f"   Error type: {type(agent_error).__name__}")
             logger.error(f"   Error message: {str(agent_error)}")
             logger.error(f"   Session ID: {session_id}")

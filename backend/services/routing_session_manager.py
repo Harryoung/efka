@@ -90,7 +90,7 @@ class RoutingSessionManager:
         role: SessionRole,
         original_question: str,
         session_id: Optional[str] = None,
-        related_employee_id: Optional[str] = None,
+        related_user_id: Optional[str] = None,
         domain: Optional[str] = None
     ) -> Session:
         """
@@ -101,7 +101,7 @@ class RoutingSessionManager:
             role: 用户角色
             original_question: 原始问题
             session_id: Session ID（可选，默认生成UUID）
-            related_employee_id: 关联员工ID（仅role=EXPERT时）
+            related_user_id: 关联用户ID（仅role=EXPERT时）
             domain: 专业领域（仅role=EXPERT时）
 
         Returns:
@@ -126,7 +126,7 @@ class RoutingSessionManager:
                 version=0
             ),
             full_context_key=f"session_history:{session_id}",
-            related_employee_id=related_employee_id,
+            related_user_id=related_user_id,
             domain=domain,
             created_at=datetime.now(),
             last_active_at=datetime.now(),
@@ -181,7 +181,7 @@ class RoutingSessionManager:
             max_per_role: 每种角色最多返回数量
 
         Returns:
-            SessionQueryResult（as_employee和as_expert都按时间倒序）
+            SessionQueryResult（as_user和as_expert都按时间倒序）
         """
         # 获取用户所有session_ids
         session_ids = await self._get_user_session_ids(user_id)
@@ -189,7 +189,7 @@ class RoutingSessionManager:
         if not session_ids:
             return SessionQueryResult(
                 user_id=user_id,
-                as_employee=[],
+                as_user=[],
                 as_expert=[],
                 total_count=0
             )
@@ -205,22 +205,22 @@ class RoutingSessionManager:
                 sessions.append(session)
 
         # 按角色分类
-        as_employee = [s for s in sessions if s.role in [SessionRole.EMPLOYEE, SessionRole.EXPERT_AS_EMPLOYEE]]
+        as_user = [s for s in sessions if s.role in [SessionRole.USER, SessionRole.EXPERT_AS_USER]]
         as_expert = [s for s in sessions if s.role == SessionRole.EXPERT]
 
         # 关键：按 last_active_at 倒序排序（最新的在前）
-        as_employee.sort(key=lambda s: s.last_active_at, reverse=True)
+        as_user.sort(key=lambda s: s.last_active_at, reverse=True)
         as_expert.sort(key=lambda s: s.last_active_at, reverse=True)
 
         # 限制数量
-        as_employee = as_employee[:max_per_role]
+        as_user = as_user[:max_per_role]
         as_expert = as_expert[:max_per_role]
 
         return SessionQueryResult(
             user_id=user_id,
-            as_employee=as_employee,
+            as_user=as_user,
             as_expert=as_expert,
-            total_count=len(as_employee) + len(as_expert)
+            total_count=len(as_user) + len(as_expert)
         )
 
     async def update_session_summary(

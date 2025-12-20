@@ -1,5 +1,5 @@
 /**
- * EmployeeChatView - 员工端问答界面
+ * UserChatView - 用户端问答界面
  * 简化版 ChatView，只有问答功能，无文件上传
  */
 
@@ -9,7 +9,7 @@ import Message from './Message';
 import CicadaLogo from './CicadaLogo';
 import './ChatView.css';
 
-const EmployeeChatView = () => {
+const UserChatView = () => {
   // 状态管理
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -261,4 +261,4 @@ const EmployeeChatView = () => {
   );
 };
 
-export default EmployeeChatView;
+export default UserChatView;

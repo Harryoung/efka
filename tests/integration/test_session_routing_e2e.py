@@ -2,7 +2,7 @@
 端到端集成测试 - Session Router
 
 测试完整的Session路由流程，验证：
-1. 员工连续咨询多个问题，模糊回复按时间倒序匹配
+1. 用户连续咨询多个问题，模糊回复按时间倒序匹配
 2. 专家同时收到多个问题，语义匹配到具体Session
 3. 专家双重身份管理
 
@@ -18,15 +18,15 @@ from backend.models.session import SessionRole, SessionStatus, MessageSnapshot
 
 
 @pytest.mark.asyncio
-async def test_e2e_employee_consecutive_queries_fuzzy_reply():
+async def test_e2e_user_consecutive_queries_fuzzy_reply():
     """
-    E2E场景1: 员工连续咨询3个问题，只回复最后一个"满意"
+    E2E场景1: 用户连续咨询3个问题，只回复最后一个"满意"
 
     场景描述：
-    1. 员工提问："如何申请年假？"
-    2. 员工提问："报销流程是什么？"
-    3. 员工提问："考勤异常怎么处理？"
-    4. 员工回复："满意"（模糊回复）
+    1. 用户提问："如何申请年假？"
+    2. 用户提问："报销流程是什么？"
+    3. 用户提问："考勤异常怎么处理？"
+    4. 用户回复："满意"（模糊回复）
 
     预期：
     - 创建3个Session
@@ -38,10 +38,10 @@ async def test_e2e_employee_consecutive_queries_fuzzy_reply():
 
     user_id = "emp001"
 
-    # Step 1: 员工提问1
+    # Step 1: 用户提问1
     s1 = await mgr.create_session(
         user_id=user_id,
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="如何申请年假？"
     )
     await asyncio.sleep(0.01)
@@ -57,10 +57,10 @@ async def test_e2e_employee_consecutive_queries_fuzzy_reply():
         key_points=["年假申请", "OA系统"]
     )
 
-    # Step 2: 员工提问2
+    # Step 2: 用户提问2
     s2 = await mgr.create_session(
         user_id=user_id,
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="报销流程是什么？"
     )
     await asyncio.sleep(0.01)
@@ -76,10 +76,10 @@ async def test_e2e_employee_consecutive_queries_fuzzy_reply():
         key_points=["报销流程", "发票"]
     )
 
-    # Step 3: 员工提问3
+    # Step 3: 用户提问3
     s3 = await mgr.create_session(
         user_id=user_id,
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="考勤异常怎么处理？"
     )
     await asyncio.sleep(0.01)
@@ -99,14 +99,14 @@ async def test_e2e_employee_consecutive_queries_fuzzy_reply():
     result = await mgr.query_user_sessions(user_id)
 
     # 验证时间倒序
-    assert len(result.as_employee) == 3
-    assert result.as_employee[0].session_id == s3.session_id  # 最新
-    assert result.as_employee[1].session_id == s2.session_id
-    assert result.as_employee[2].session_id == s1.session_id
+    assert len(result.as_user) == 3
+    assert result.as_user[0].session_id == s3.session_id  # 最新
+    assert result.as_user[1].session_id == s2.session_id
+    assert result.as_user[2].session_id == s1.session_id
 
     # Step 5: 模拟Session Router决策（时间优先）
-    # 员工回复"满意" -> 应该匹配最新的Session (s3)
-    matched_session_id = result.as_employee[0].session_id
+    # 用户回复"满意" -> 应该匹配最新的Session (s3)
+    matched_session_id = result.as_user[0].session_id
 
     # Step 6: 更新Session状态为RESOLVED
     await mgr.update_session_summary(
@@ -133,9 +133,9 @@ async def test_e2e_expert_multiple_pending_questions():
     E2E场景2: 专家同时收到3个待回复问题，根据回复内容语义匹配
 
     场景描述：
-    1. 员工A问："新员工入职需要准备什么材料？"
-    2. 员工B问："试用期考核标准是什么？"
-    3. 员工C问："年假申请流程？"
+    1. 用户A问："新用户入职需要准备什么材料？"
+    2. 用户B问："试用期考核标准是什么？"
+    3. 用户C问："年假申请流程？"
     4. 专家回复："入职材料需要身份证原件和学历证书复印件"
 
     预期：
@@ -151,8 +151,8 @@ async def test_e2e_expert_multiple_pending_questions():
     s1 = await mgr.create_session(
         user_id=expert_userid,
         role=SessionRole.EXPERT,
-        original_question="新员工入职需要准备什么材料？",
-        related_employee_id="emp_a"
+        original_question="新用户入职需要准备什么材料？",
+        related_user_id="emp_a"
     )
     s1.status = SessionStatus.WAITING_EXPERT
     await asyncio.sleep(0.01)
@@ -161,7 +161,7 @@ async def test_e2e_expert_multiple_pending_questions():
         user_id=expert_userid,
         role=SessionRole.EXPERT,
         original_question="试用期考核标准是什么？",
-        related_employee_id="emp_b"
+        related_user_id="emp_b"
     )
     s2.status = SessionStatus.WAITING_EXPERT
     await asyncio.sleep(0.01)
@@ -170,7 +170,7 @@ async def test_e2e_expert_multiple_pending_questions():
         user_id=expert_userid,
         role=SessionRole.EXPERT,
         original_question="年假申请流程？",
-        related_employee_id="emp_c"
+        related_user_id="emp_c"
     )
     s3.status = SessionStatus.WAITING_EXPERT
 
@@ -214,22 +214,22 @@ async def test_e2e_expert_dual_identity():
     E2E场景3: 专家双重身份管理
 
     场景描述：
-    1. 专家作为员工咨询："我的薪资调整流程是什么？"
-    2. 同时有员工问专家："入职材料有哪些？"
+    1. 专家作为用户咨询："我的薪资调整流程是什么？"
+    2. 同时有用户问专家："入职材料有哪些？"
 
     预期：
-    - 创建2个Session：EXPERT_AS_EMPLOYEE + EXPERT
-    - 查询时正确区分as_employee和as_expert
+    - 创建2个Session：EXPERT_AS_USER + EXPERT
+    - 查询时正确区分as_user和as_expert
     """
     mgr = RoutingSessionManager(kb_root=Path("."), redis_client=None)
     await mgr.initialize()
 
     expert_userid = "expert002"
 
-    # 专家作为员工咨询
+    # 专家作为用户咨询
     s1 = await mgr.create_session(
         user_id=expert_userid,
-        role=SessionRole.EXPERT_AS_EMPLOYEE,
+        role=SessionRole.EXPERT_AS_USER,
         original_question="我的薪资调整流程是什么？"
     )
 
@@ -238,20 +238,20 @@ async def test_e2e_expert_dual_identity():
         user_id=expert_userid,
         role=SessionRole.EXPERT,
         original_question="入职材料有哪些？",
-        related_employee_id="emp_d"
+        related_user_id="emp_d"
     )
 
     # 查询Sessions
     result = await mgr.query_user_sessions(expert_userid)
 
     # 验证双重身份分离
-    assert len(result.as_employee) == 1
+    assert len(result.as_user) == 1
     assert len(result.as_expert) == 1
-    assert result.as_employee[0].session_id == s1.session_id
+    assert result.as_user[0].session_id == s1.session_id
     assert result.as_expert[0].session_id == s2.session_id
 
     # 验证角色
-    assert result.as_employee[0].role == SessionRole.EXPERT_AS_EMPLOYEE
+    assert result.as_user[0].role == SessionRole.EXPERT_AS_USER
     assert result.as_expert[0].role == SessionRole.EXPERT
 
     print(f"✅ E2E场景3通过：专家双重身份正确分离管理")
@@ -277,7 +277,7 @@ async def test_e2e_session_lifecycle():
     # Step 1: 创建Session
     session = await mgr.create_session(
         user_id=user_id,
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="如何申请病假？"
     )
     assert session.status == SessionStatus.ACTIVE
@@ -348,23 +348,23 @@ async def test_e2e_multiple_users_concurrent():
     """
     E2E场景5: 多用户并发场景
 
-    模拟真实场景：3个员工同时咨询不同问题
+    模拟真实场景：3个用户同时咨询不同问题
     """
     mgr = RoutingSessionManager(kb_root=Path("."), redis_client=None)
     await mgr.initialize()
 
-    # 3个员工同时创建Session
+    # 3个用户同时创建Session
     tasks_create = [
         mgr.create_session(
             user_id=f"emp{i:03d}",
-            role=SessionRole.EMPLOYEE,
+            role=SessionRole.USER,
             original_question=f"问题{i}"
         )
         for i in range(3)
     ]
     sessions = await asyncio.gather(*tasks_create)
 
-    # 3个员工的Session同时收到回复
+    # 3个用户的Session同时收到回复
     tasks_update = [
         mgr.update_session_summary(
             sessions[i].session_id,

@@ -455,7 +455,7 @@ try:
     # 测试后端服务（需要环境变量）
     if os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN"):
         # 只做基本导入测试，不初始化 SDK 客户端
-        from backend.services.kb_service_factory import get_admin_service, get_employee_service
+        from backend.services.kb_service_factory import get_admin_service, get_user_service
         print("✅ KB Service Factory 导入成功")
 
         from backend.api.query import router as query_router

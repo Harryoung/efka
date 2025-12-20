@@ -124,12 +124,12 @@
 - **智能文档入库**：自动格式转换、语义冲突检测、智能文件放置
 - **FAQ 系统**：从交互中自动学习，使用量追踪和优化
 - **多渠道支持**：Web UI + 企业 IM 平台（企业微信、飞书、钉钉、Slack）
-- **双 Agent 架构**：分别优化管理任务和员工查询的 Agent
+- **双 Agent 架构**：分别优化管理任务和用户查询的 Agent
 - **流式响应**：实时 SSE 流式传输，支持 Markdown 渲染
 
 ## Agent 工作流程
 
-![知了管理员与员工 Agent](assets/EFKA_Admin_Employee_Agents.png)
+![知了管理员与用户 Agent](assets/EFKA_Admin_User_Agents.png)
 
 ### 管理员 Agent 流程
 
@@ -160,8 +160,8 @@ flowchart TD
     end
 
     subgraph BatchNotify["批量通知"]
-        B -->|通知/发送| E1[读取员工映射]
-        E1 --> E2[筛选目标员工]
+        B -->|通知/发送| E1[读取用户映射]
+        E1 --> E2[筛选目标用户]
         E2 --> E3[构建消息并预览]
         E3 -->|用户确认| E4[通过企业微信批量发送]
     end
@@ -172,7 +172,7 @@ flowchart TD
     style BatchNotify fill:#fff3e0
 ```
 
-### 员工 Agent 流程
+### 用户 Agent 流程
 
 ```mermaid
 flowchart TD
@@ -224,7 +224,7 @@ flowchart TD
 ├──────────────────────┼───────────────────────────────┤
 │  后端 (FastAPI)      │                               │
 │  ┌─────────────┐  ┌──┴──────────┐                   │
-│  │ 管理员      │  │ 员工        │                   │
+│  │ 管理员      │  │ 用户        │                   │
 │  │ Agent       │  │ Agent       │                   │
 │  │ - 文档管理  │  │ - 问答      │                   │
 │  │ - 知识库    │  │ - 专家      │                   │
@@ -320,7 +320,7 @@ WEWORK_AGENT_ID=your_agent_id
 ```
 efka/
 ├── backend/
-│   ├── agents/          # Agent 定义（管理员 + 员工）
+│   ├── agents/          # Agent 定义（管理员 + 用户）
 │   ├── api/             # FastAPI 路由
 │   ├── channels/        # IM 平台适配器
 │   ├── services/        # 业务逻辑

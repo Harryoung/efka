@@ -1,12 +1,12 @@
 /**
  * User ID 管理模块（统一版本）
  * 负责管理用户标识（基于 localStorage）
- * 支持 Admin 和 Employee 两种模式
+ * 支持 Admin 和 User 两种模式
  */
 
-// 根据 APP_MODE 决定 localStorage key
+// 使用统一的 localStorage key
 const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
-const USER_ID_KEY = APP_MODE === 'employee' ? 'kb_employee_user_id' : 'kb_user_id';
+const USER_ID_KEY = 'kb_user_id';
 
 /**
  * 生成 UUID v4

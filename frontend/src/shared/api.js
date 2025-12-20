@@ -1,7 +1,7 @@
 /**
  * API 客户端封装（统一版本）
  * 负责所有与后端的通信
- * 支持 Admin 和 Employee 两种模式
+ * 支持 Admin 和 User 两种模式
  */
 
 import axios from 'axios';
@@ -11,8 +11,8 @@ import { getUserId } from './userManager';
 const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// SSE 端点：Admin 使用 /api/query/stream，Employee 使用 /api/employee/query
-const SSE_ENDPOINT = APP_MODE === 'employee' ? '/api/employee/query' : '/api/query/stream';
+// SSE 端点：Admin 使用 /api/query/stream，User 使用 /api/user/query
+const SSE_ENDPOINT = APP_MODE === 'user' ? '/api/user/query' : '/api/query/stream';
 
 // 创建 axios 实例
 const apiClient = axios.create({

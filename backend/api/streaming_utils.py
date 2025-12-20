@@ -1,6 +1,6 @@
 """
 SSE 流式响应工具函数
-提取 query.py 和 employee.py 的公共 SSE 处理逻辑
+提取 query.py 和 user.py 的公共 SSE 处理逻辑
 """
 import json
 import logging

@@ -3,7 +3,7 @@
 
 统一管理所有IM渠道适配器,负责:
 1. 自动发现并注册已配置的渠道
-2. 路由IM消息到Employee Agent
+2. 路由IM消息到User Agent
 3. 将Agent响应发送回用户(通过适配器)
 4. 提供渠道状态查询
 """
@@ -121,21 +121,21 @@ class ChannelMessageRouter:
         self,
         channel: str,
         message: ChannelMessage,
-        employee_service = None
+        user_service = None
     ) -> str:
         """
-        路由IM消息到Employee Agent并返回响应
+        路由IM消息到User Agent并返回响应
 
         流程:
         1. 验证渠道是否存在
-        2. 调用Employee Service处理消息
+        2. 调用User Service处理消息
         3. 收集Agent响应
         4. 通过适配器发送回用户
 
         Args:
             channel: 渠道名称
             message: ChannelMessage对象
-            employee_service: Employee Service实例(可选,用于依赖注入)
+            user_service: User Service实例(可选,用于依赖注入)
 
         Returns:
             str: Agent响应文本
@@ -148,17 +148,17 @@ class ChannelMessageRouter:
         if not adapter:
             raise ValueError(f"Channel not configured: {channel}")
 
-        logger.info(f"Routing message from {channel}:{message.user.user_id} → Employee Agent")
+        logger.info(f"Routing message from {channel}:{message.user.user_id} → User Agent")
 
-        # 获取Employee Service
-        if employee_service is None:
-            from backend.services.kb_service_factory import get_employee_service
-            employee_service = get_employee_service()
+        # 获取User Service
+        if user_service is None:
+            from backend.services.kb_service_factory import get_user_service
+            user_service = get_user_service()
 
         # 确保service已初始化
-        if not employee_service.is_initialized:
-            await employee_service.initialize()
-            logger.info("Employee service initialized")
+        if not user_service.is_initialized:
+            await user_service.initialize()
+            logger.info("User service initialized")
 
         # 构造消息(包含用户信息)
         formatted_message = f"""[用户信息]
@@ -168,30 +168,30 @@ channel: {channel}
 [用户消息]
 {message.content}"""
 
-        # 调用Employee Agent
+        # 调用User Agent
         agent_response_text = ""
         message_count = 0
 
         try:
-            logger.info(f"Calling Employee Agent with session {message.session_id or 'new'}")
+            logger.info(f"Calling User Agent with session {message.session_id or 'new'}")
 
-            async for msg in employee_service.query(
+            async for msg in user_service.query(
                 user_message=formatted_message,
                 session_id=message.session_id,
                 user_id=message.user.user_id
             ):
                 message_count += 1
                 agent_response_text += msg.text
-                logger.debug(f"Received message {message_count} from Employee Agent (len={len(msg.text)})")
+                logger.debug(f"Received message {message_count} from User Agent (len={len(msg.text)})")
 
-            logger.info(f"✅ Received {message_count} messages from Employee Agent (total length={len(agent_response_text)})")
+            logger.info(f"✅ Received {message_count} messages from User Agent (total length={len(agent_response_text)})")
 
             if message_count == 0:
-                logger.error(f"No response from Employee Agent for {message.user.user_id}")
+                logger.error(f"No response from User Agent for {message.user.user_id}")
                 agent_response_text = "抱歉,服务暂时不可用,请稍后重试。"
 
         except Exception as e:
-            logger.error(f"Employee Agent call failed: {type(e).__name__}: {str(e)}", exc_info=True)
+            logger.error(f"User Agent call failed: {type(e).__name__}: {str(e)}", exc_info=True)
             agent_response_text = f"抱歉,处理消息时出现错误: {str(e)}"
 
         # 发送响应(通过适配器)

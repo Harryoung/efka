@@ -1,22 +1,22 @@
-# 批量员工通知操作指南
+# 批量用户通知操作指南
 
 ## 核心能力说明
 
-支持管理员批量向员工发送企业微信通知消息。
+支持管理员批量向用户发送企业微信通知消息。
 
 ## 典型使用场景
 
 1. **上传表格 + 说明筛选条件**
    - 管理员上传业务数据表格（如福利积分表）
-   - 说明筛选条件："通知所有福利积分大于0的员工，提醒尽快使用"
+   - 说明筛选条件："通知所有福利积分大于0的用户，提醒尽快使用"
 
-2. **直接上传目标员工清单**
+2. **直接上传目标用户清单**
    - 管理员上传包含姓名/工号的XLSX文件
-   - 说明："通知这些员工参加培训"
+   - 说明："通知这些用户参加培训"
 
 3. **直接指定通知对象**
    - 全员通知："通知所有人，知识库新增了XXX文档"
-   - 特定条件："通知技术部所有员工"
+   - 特定条件："通知技术部所有用户"
 
 ## 5阶段处理流程
 
@@ -36,16 +36,16 @@
    - 确认是否需要包含链接、时间等元素
 
 3. 如有歧义，主动询问确认：
-   - "您是希望通知所有员工，还是满足特定条件的员工？"
+   - "您是希望通知所有用户，还是满足特定条件的用户？"
    - "筛选条件是积分大于0，还是积分未清零（即积分>0）？"
 
 ---
 
-### 阶段2：员工映射表读取与解析
+### 阶段2：用户映射表读取与解析
 
 **核心原则**：使用Python脚本处理表格，不使用markitdown
 
-**步骤2.1：读取员工映射表**
+**步骤2.1：读取用户映射表**
 
 使用Bash工具执行Python代码：
 
@@ -55,15 +55,15 @@ import pandas as pd
 import json
 
 try:
-    # 读取员工映射表
-    df = pd.read_excel('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')
+    # 读取用户映射表
+    df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
 
     # 输出JSON格式，便于后续处理
     result = df.to_dict('records')
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 except FileNotFoundError:
-    print('ERROR: employee_mapping.xlsx 文件不存在')
+    print('ERROR: user_mapping.xlsx 文件不存在')
 except Exception as e:
     print(f'ERROR: {str(e)}')
 "
@@ -100,20 +100,20 @@ print(json.dumps(df.to_dict('records'), ensure_ascii=False, indent=2))
 
 ---
 
-### 阶段3：目标员工清单提取
+### 阶段3：目标用户清单提取
 
 **核心原则**：使用pandas执行类似SQL的查询
 
 **场景A：有筛选条件（需要JOIN和WHERE）**
 
-示例：通知所有福利积分大于0的员工
+示例：通知所有福利积分大于0的用户
 
 ```python
 python3 -c "
 import pandas as pd
 
-# 读取员工映射表
-mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')
+# 读取用户映射表
+mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
 
 # 读取业务数据表
 business_df = pd.read_excel('/tmp/welfare_points.xlsx')
@@ -121,7 +121,7 @@ business_df = pd.read_excel('/tmp/welfare_points.xlsx')
 # 执行筛选（WHERE子句）
 filtered_df = business_df[business_df['福利积分'] > 0]
 
-# 与员工映射表关联（JOIN）
+# 与用户映射表关联（JOIN）
 result = pd.merge(
     filtered_df,
     mapping_df,
@@ -160,13 +160,13 @@ print('|'.join(userids))
 python3 -c "
 import pandas as pd
 
-# 读取员工映射表
-mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')
+# 读取用户映射表
+mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
 
 # 从用户输入或清单文件中提取的目标姓名列表
 target_names = ['张三', '李四', '王五']
 
-# 筛选目标员工
+# 筛选目标用户
 filtered = mapping_df[mapping_df['姓名'].isin(target_names)]
 
 # 提取用户ID
@@ -274,7 +274,7 @@ touser = "@all"
 **当前方案**：所有接收者将收到相同的通用消息。
 
 **替代方案**：
-1. 发送通用提醒（如"您还有福利积分，请及时查看"），并引导员工自行登录系统查看个人数据
+1. 发送通用提醒（如"您还有福利积分，请及时查看"），并引导用户自行登录系统查看个人数据
 2. 在消息中提供查询链接或系统入口
 
 是否采用通用消息方案？
@@ -375,7 +375,7 @@ for i in range(0, len(userids_list), batch_size):
 消息ID：msg123456789
 发送时间：2025-01-06 14:30:25
 
-建议：请检查employee_mapping.xlsx中user999的用户ID是否正确。
+建议：请检查user_mapping.xlsx中user999的用户ID是否正确。
 ```
 
 错误情况：
@@ -453,7 +453,7 @@ result = pd.merge(
 result = pd.merge(
     business_df,
     mapping_df,
-    left_on='员工姓名',    # 左表字段名
+    left_on='用户姓名',    # 左表字段名
     right_on='姓名',       # 右表字段名
     how='left'
 )
@@ -482,11 +482,11 @@ from datetime import datetime, timedelta
 # 解析日期列
 df['入职日期'] = pd.to_datetime(df['入职日期'])
 
-# 筛选入职超过1年的员工
+# 筛选入职超过1年的用户
 one_year_ago = datetime.now() - timedelta(days=365)
 df[df['入职日期'] < one_year_ago]
 
-# 筛选本月入职的员工
+# 筛选本月入职的用户
 current_month_start = datetime.now().replace(day=1)
 df[df['入职日期'] >= current_month_start]
 ```
@@ -502,7 +502,7 @@ import json
 import sys
 
 try:
-    df = pd.read_excel('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')
+    df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
     result = df.to_dict('records')
     print(json.dumps(result, ensure_ascii=False, indent=2))
 except FileNotFoundError:
@@ -521,7 +521,7 @@ import sys
 
 try:
     # 读取映射表
-    mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')
+    mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
 
     # 读取业务表
     business_df = pd.read_excel('/tmp/welfare_points.xlsx')
@@ -586,13 +586,13 @@ except Exception as e:
 
 ### 错误处理策略
 
-**错误类型1：employee_mapping.xlsx不存在**
-- 提示：`employee_mapping.xlsx文件不存在，请先创建员工映射表。`
+**错误类型1：user_mapping.xlsx不存在**
+- 提示：`user_mapping.xlsx文件不存在，请先创建用户映射表。`
 - 引导：说明映射表的字段要求（姓名、工号、企业微信用户ID）
-- 位置：`knowledge_base/企业管理/人力资源/employee_mapping.xlsx`
+- 位置：`knowledge_base/企业管理/人力资源/user_mapping.xlsx`
 
 **错误类型2：筛选条件无匹配结果**
-- 提示：`根据筛选条件"福利积分>0"，未找到符合条件的员工。`
+- 提示：`根据筛选条件"福利积分>0"，未找到符合条件的用户。`
 - 建议：请检查筛选条件是否正确，或业务数据表是否包含相关数据。
 
 **错误类型3：Python脚本执行失败**
@@ -611,7 +611,7 @@ except Exception as e:
 **错误类型5：部分用户发送失败**
 - 解析invaliduser字段
 - 列出失败的用户ID
-- 建议检查employee_mapping.xlsx中这些用户的ID是否正确
+- 建议检查user_mapping.xlsx中这些用户的ID是否正确
 - 建议检查这些用户是否在应用可见范围内
 
 ---
@@ -620,7 +620,7 @@ except Exception as e:
 
 ### Read工具
 - 用途：读取文件内容（如查看映射表路径）
-- 示例：`Read('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')`（查看是否存在）
+- 示例：`Read('knowledge_base/企业管理/人力资源/user_mapping.xlsx')`（查看是否存在）
 
 ### Bash工具
 - 用途：执行临时Python脚本
@@ -665,25 +665,25 @@ except Exception as e:
 ### 示例1：筛选条件通知
 
 **用户输入**：
-> 我上传了福利积分表，请通知所有积分大于0的员工，提醒他们在月底前使用积分。
+> 我上传了福利积分表，请通知所有积分大于0的用户，提醒他们在月底前使用积分。
 
 **Agent执行**：
 
 1. **意图确认**：
-   - 通知对象：积分>0的员工（需要筛选）
+   - 通知对象：积分>0的用户（需要筛选）
    - 通知内容：提醒在月底前使用积分
 
 2. **读取映射表**：
    ```bash
    python3 -c "import pandas as pd; ..."
    ```
-   获取员工姓名、工号、企业微信用户ID映射
+   获取用户姓名、工号、企业微信用户ID映射
 
-3. **筛选目标员工**：
+3. **筛选目标用户**：
    ```bash
    python3 -c "
    import pandas as pd
-   mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/employee_mapping.xlsx')
+   mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
    business_df = pd.read_excel('/tmp/welfare_points.xlsx')
    filtered = business_df[business_df['福利积分'] > 0]
    result = pd.merge(filtered, mapping_df, on='工号', how='inner')

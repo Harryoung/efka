@@ -1,7 +1,7 @@
 """
 Domain Expert Router
 
-Routes employee questions to appropriate domain experts based on
+Routes user questions to appropriate domain experts based on
 semantic domain classification. Uses the domain_experts.xlsx mapping table.
 """
 

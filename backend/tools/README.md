@@ -65,7 +65,7 @@ VISION_MODEL_NAME=
 已在 `backend/services/kb_service_factory.py` 中为两个 Agent 配置：
 
 ```python
-# Employee Agent
+# User Agent
 mcp_servers = {
     "wework": {...},
     "image_vision": image_vision_server

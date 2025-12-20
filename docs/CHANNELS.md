@@ -47,7 +47,7 @@
 │  └──────────────┘  └──────────────┘           │
 │                                                │
 │  ChannelRouter (Message Routing)               │
-│  └─ route_message() → Employee Agent          │
+│  └─ route_message() → User Agent              │
 │                                                │
 └────────────────────────────────────────────────┘
 ```
@@ -63,7 +63,7 @@ Adapter.parse_message() → ChannelMessage (统一格式)
     ↓
 ChannelRouter.route_message()
     ↓
-Employee Agent (知识问答处理)
+User Agent (知识问答处理)
     ↓
 Adapter.send_message() → ChannelResponse
     ↓
@@ -746,7 +746,7 @@ async def process_message(message):
     """
     异步处理消息
 
-    调用ChannelRouter路由到Employee Agent
+    调用ChannelRouter路由到User Agent
     """
     try:
         from backend.services.channel_router import get_channel_router

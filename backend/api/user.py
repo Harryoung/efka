@@ -1,6 +1,6 @@
 """
-Employee API routes - 员工知识查询接口
-使用 Employee Agent (kb_qa_agent.py)
+User API routes - 用户知识查询接口
+使用 User Agent (kb_qa_agent.py)
 支持基于 user_id 的持久化会话
 """
 import logging
@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from backend.services.kb_service_factory import get_employee_service
+from backend.services.kb_service_factory import get_user_service
 from backend.services.session_manager import get_session_manager
 from backend.api.streaming_utils import (
     create_sse_response,
@@ -62,33 +62,33 @@ def filter_metadata_from_content(content: str) -> tuple[str, dict | None]:
 
     return content, metadata
 
-router = APIRouter(prefix="/api/employee", tags=["employee"])
+router = APIRouter(prefix="/api/user", tags=["user"])
 
 
-class EmployeeQueryRequest(BaseModel):
-    """员工查询请求"""
+class UserQueryRequest(BaseModel):
+    """用户查询请求"""
     session_id: Optional[str] = None
     message: str
     user_id: Optional[str] = None
 
 
 @router.get("/query")
-async def employee_query_stream(
+async def user_query_stream(
     session_id: Optional[str] = None,
     message: str = "",
     user_id: Optional[str] = None
 ):
     """
-    员工知识查询接口（SSE 流式）
+    用户知识查询接口（SSE 流式）
 
     核心逻辑：
-    1. 使用 Employee Agent (kb_qa_agent.py) 处理查询
+    1. 使用 User Agent (kb_qa_agent.py) 处理查询
     2. 仅支持知识查询功能，不支持文档上传和管理
     3. 使用 Server-Sent Events (SSE) 流式返回响应
     4. 支持基于 user_id 的持久化会话
     """
     try:
-        employee_service = get_employee_service()
+        user_service = get_user_service()
         session_manager = get_session_manager()
 
         # 基于 user_id 的持久化会话
@@ -97,13 +97,13 @@ async def employee_query_stream(
             sdk_session_id = await session_manager.get_or_create_user_session(user_id)
             is_new_session = sdk_session_id is None
             logger.info(
-                f"Processing employee query for user {user_id} "
+                f"Processing user query for user {user_id} "
                 f"(sdk_session: {sdk_session_id or 'new'}, is_new: {is_new_session})"
             )
 
-            # 确保 Employee Service 已初始化
-            if not employee_service.is_initialized:
-                await employee_service.initialize()
+            # 确保 User Service 已初始化
+            if not user_service.is_initialized:
+                await user_service.initialize()
 
             # 定义 SSE 生成器
             async def event_generator():
@@ -124,8 +124,8 @@ async def employee_query_stream(
                     turn_count = None
                     real_sdk_session_id = None
 
-                    # 流式接收 Employee Agent 响应（连接池已在 service 层处理并发）
-                    async for msg in employee_service.query(message, sdk_session_id=sdk_session_id, user_id=user_id):
+                    # 流式接收 User Agent 响应（连接池已在 service 层处理并发）
+                    async for msg in user_service.query(message, sdk_session_id=sdk_session_id, user_id=user_id):
                         if isinstance(msg, AssistantMessage):
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
@@ -152,7 +152,7 @@ async def employee_query_stream(
                         await session_manager.update_session_activity(user_id, turn_count=turn_count)
 
                 except Exception as e:
-                    logger.error(f"Employee stream error: {e}", exc_info=True)
+                    logger.error(f"User stream error: {e}", exc_info=True)
                     yield sse_error_event(str(e))
 
             return create_sse_response(event_generator())
@@ -167,11 +167,11 @@ async def employee_query_stream(
             else:
                 session = session_manager.create_session(user_id=None)
 
-            logger.info(f"Processing employee query for session {session.session_id} (legacy mode, no resume)")
+            logger.info(f"Processing user query for session {session.session_id} (legacy mode, no resume)")
 
-            # 确保 Employee Service 已初始化
-            if not employee_service.is_initialized:
-                await employee_service.initialize()
+            # 确保 User Service 已初始化
+            if not user_service.is_initialized:
+                await user_service.initialize()
 
             # 定义 SSE 生成器
             async def event_generator():
@@ -182,8 +182,8 @@ async def employee_query_stream(
                     # 发送会话 ID
                     yield sse_session_event(session.session_id)
 
-                    # 流式接收 Employee Agent 响应（旧模式：不传 sdk_session_id）
-                    async for msg in employee_service.query(message, sdk_session_id=None, user_id=None):
+                    # 流式接收 User Agent 响应（旧模式：不传 sdk_session_id）
+                    async for msg in user_service.query(message, sdk_session_id=None, user_id=None):
                         if isinstance(msg, AssistantMessage):
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
@@ -198,7 +198,7 @@ async def employee_query_stream(
                             yield sse_done_event(msg.duration_ms)
 
                 except Exception as e:
-                    logger.error(f"Employee stream error: {e}", exc_info=True)
+                    logger.error(f"User stream error: {e}", exc_info=True)
                     yield sse_error_event(str(e))
 
             return create_sse_response(event_generator())
@@ -206,5 +206,5 @@ async def employee_query_stream(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Employee query stream error: {e}", exc_info=True)
+        logger.error(f"User query stream error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

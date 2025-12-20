@@ -1,7 +1,7 @@
 """
 KB Service Factory - 知识库服务工厂
 
-管理Employee Agent和Admin Agent两个独立的Agent SDK客户端
+管理User Agent和Admin Agent两个独立的Agent SDK客户端
 支持未来拆分为微服务（仅需修改此文件的实现）
 
 并发支持：使用 SDKClientPool 实现多用户真正并发
@@ -23,7 +23,7 @@ from claude_agent_sdk import (
     create_sdk_mcp_server
 )
 
-from backend.agents.kb_qa_agent import get_employee_agent_definition
+from backend.agents.kb_qa_agent import get_user_agent_definition
 from backend.agents.kb_admin_agent import get_admin_agent_definition
 from backend.config.settings import get_settings
 from backend.tools.image_read import image_read_handler
@@ -32,9 +32,9 @@ from backend.services.client_pool import SDKClientPool, get_pool_manager
 logger = logging.getLogger(__name__)
 
 
-class KBEmployeeService:
+class KBUserService:
     """
-    员工端知识库服务
+    用户端知识库服务
 
     职责:
     - 知识查询(6阶段检索)
@@ -53,7 +53,7 @@ class KBEmployeeService:
     """
 
     def __init__(self):
-        """初始化员工端服务"""
+        """初始化用户端服务"""
         self.settings = get_settings()
         self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
@@ -61,9 +61,9 @@ class KBEmployeeService:
         # 缓存 MCP servers 配置（在 initialize 中设置）
         self._mcp_servers = None
         self._env_vars = None
-        self._employee_agent_def = None
+        self._user_agent_def = None
 
-        logger.info("KBEmployeeService instance created")
+        logger.info("KBUserService instance created")
 
     def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
         """
@@ -83,7 +83,7 @@ class KBEmployeeService:
             system_prompt={
                 "type": "preset",
                 "preset": "claude_code",
-                "append": f"\n\n{self._employee_agent_def.prompt}"
+                "append": f"\n\n{self._user_agent_def.prompt}"
             },
             agents=None,  # 单一Agent架构
             mcp_servers=self._mcp_servers,
@@ -119,9 +119,9 @@ class KBEmployeeService:
         return options
 
     async def initialize(self):
-        """初始化Employee Agent连接池"""
+        """初始化User Agent连接池"""
         if self.is_initialized:
-            logger.warning("Employee service already initialized")
+            logger.warning("User service already initialized")
             return
 
         try:
@@ -146,8 +146,8 @@ class KBEmployeeService:
                 if self.settings.ANTHROPIC_BASE_URL:
                     self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
-            # 获取Employee Agent定义（缓存供 _create_options 使用）
-            self._employee_agent_def = get_employee_agent_definition(
+            # 获取User Agent定义（缓存供 _create_options 使用）
+            self._user_agent_def = get_user_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
                 faq_max_entries=self.settings.FAQ_MAX_ENTRIES
             )
@@ -189,7 +189,7 @@ class KBEmployeeService:
             }
 
             # 创建连接池
-            pool_size = self.settings.EMPLOYEE_CLIENT_POOL_SIZE
+            pool_size = self.settings.USER_CLIENT_POOL_SIZE
             max_wait = self.settings.CLIENT_POOL_MAX_WAIT
 
             self.client_pool = SDKClientPool(
@@ -199,16 +199,16 @@ class KBEmployeeService:
             )
 
             # 初始化连接池
-            logger.info(f"Initializing Employee client pool (size={pool_size})...")
+            logger.info(f"Initializing User client pool (size={pool_size})...")
             await self.client_pool.initialize()
 
             self.is_initialized = True
-            logger.info("✅ Employee service initialized successfully")
+            logger.info("✅ User service initialized successfully")
             logger.info(f"   Pool size: {pool_size}")
             logger.info(f"   MCP Servers: {list(self._mcp_servers.keys())}")
 
         except Exception as e:
-            logger.error(f"❌ Failed to initialize employee service: {e}")
+            logger.error(f"❌ Failed to initialize user service: {e}")
             raise
 
     async def query(
@@ -218,7 +218,7 @@ class KBEmployeeService:
         user_id: Optional[str] = None
     ) -> AsyncIterator[Message]:
         """
-        处理员工查询（使用连接池支持并发）
+        处理用户查询（使用连接池支持并发）
 
         Args:
             user_message: 用户消息
@@ -233,7 +233,7 @@ class KBEmployeeService:
         if not self.is_initialized:
             await self.initialize()
 
-        logger.info(f"Employee query from {user_id or 'unknown'}: {user_message[:100]}...")
+        logger.info(f"User query from {user_id or 'unknown'}: {user_message[:100]}...")
 
         try:
             message_count = 0
@@ -560,7 +560,7 @@ class KBServiceFactory:
     """
     知识库服务工厂
 
-    管理Employee和Admin两个独立的Agent服务
+    管理User和Admin两个独立的Agent服务
     采用单例模式,预留未来拆分为微服务的扩展点
 
     未来演进路径:
@@ -568,22 +568,22 @@ class KBServiceFactory:
     - 未来: 可改为HTTP客户端,调用独立的微服务
     """
 
-    _employee_service: Optional[KBEmployeeService] = None
+    _user_service: Optional[KBUserService] = None
     _admin_service: Optional[KBAdminService] = None
 
     @classmethod
-    def get_employee_service(cls) -> KBEmployeeService:
+    def get_user_service(cls) -> KBUserService:
         """
-        获取员工端服务单例
+        获取用户端服务单例
 
         Returns:
-            KBEmployeeService实例
+            KBUserService实例
         """
-        if cls._employee_service is None:
-            cls._employee_service = KBEmployeeService()
-            logger.info("Created new Employee service instance")
+        if cls._user_service is None:
+            cls._user_service = KBUserService()
+            logger.info("Created new User service instance")
 
-        return cls._employee_service
+        return cls._user_service
 
     @classmethod
     def get_admin_service(cls) -> KBAdminService:
@@ -602,19 +602,19 @@ class KBServiceFactory:
     @classmethod
     async def initialize_all(cls):
         """初始化所有服务"""
-        employee = cls.get_employee_service()
+        user = cls.get_user_service()
         admin = cls.get_admin_service()
 
-        await employee.initialize()
+        await user.initialize()
         await admin.initialize()
 
         logger.info("✅ All KB services initialized")
 
 
 # 便捷函数(向后兼容)
-def get_employee_service() -> KBEmployeeService:
-    """获取员工端服务"""
-    return KBServiceFactory.get_employee_service()
+def get_user_service() -> KBUserService:
+    """获取用户端服务"""
+    return KBServiceFactory.get_user_service()
 
 
 def get_admin_service() -> KBAdminService:
@@ -624,8 +624,8 @@ def get_admin_service() -> KBAdminService:
 
 __all__ = [
     'KBServiceFactory',
-    'KBEmployeeService',
+    'KBUserService',
     'KBAdminService',
-    'get_employee_service',
+    'get_user_service',
     'get_admin_service'
 ]

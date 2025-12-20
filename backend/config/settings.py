@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     PADDLE_OCR_TOKEN: Optional[str] = None
 
     # 客户端连接池配置
-    EMPLOYEE_CLIENT_POOL_SIZE: int = 3  # 员工服务池大小（高频查询）
+    USER_CLIENT_POOL_SIZE: int = 3  # 用户服务池大小（高频查询）
     ADMIN_CLIENT_POOL_SIZE: int = 2     # 管理员服务池大小（低频操作）
     CLIENT_POOL_MAX_WAIT: int = 30      # 获取客户端最大等待时间（秒）
 
@@ -93,9 +93,9 @@ class Settings(BaseSettings):
     SLACK_APP_TOKEN: Optional[str] = None
     SLACK_PORT: int = 8084
 
-    # Employee UI 配置
-    EMPLOYEE_UI_ENABLED: bool = True
-    EMPLOYEE_UI_PORT: int = 3001
+    # User UI 配置
+    USER_UI_ENABLED: bool = True
+    USER_UI_PORT: int = 3001
 
     @model_validator(mode='after')
     def validate_api_key(self):

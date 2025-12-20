@@ -1,12 +1,12 @@
 /**
  * App Main Component
  * EFKA - Embed-Free Knowledge Agent Frontend
- * Supports Admin and Employee modes
+ * Supports Admin and User modes
  */
 
 import React from 'react';
 import ChatView from './components/ChatView';
-import EmployeeChatView from './components/EmployeeChatView';
+import UserChatView from './components/UserChatView';
 import './App.css';
 
 // 根据环境变量决定加载哪个视图
@@ -16,7 +16,7 @@ function App() {
   return (
     <div className="app">
       <div className="app-background"></div>
-      {APP_MODE === 'employee' ? <EmployeeChatView /> : <ChatView />}
+      {APP_MODE === 'user' ? <UserChatView /> : <ChatView />}
     </div>
   );
 }

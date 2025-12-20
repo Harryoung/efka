@@ -108,7 +108,7 @@ class ConversationStateManager:
         new_context = ConversationContext(
             session_id="",
             state=ConversationState.IDLE,
-            employee_userid=user_id,
+            user_id=user_id,
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
@@ -126,13 +126,13 @@ class ConversationStateManager:
 
         Args:
             user_id: 用户 UserID
-            **kwargs: 要更新的字段 (state, employee_question, domain, expert_userid, etc.)
+            **kwargs: 要更新的字段 (state, user_question, domain, expert_userid, etc.)
 
         Example:
             await state_mgr.update_state(
                 user_id='zhangsan',
                 state=ConversationState.WAITING_FOR_EXPERT,
-                employee_question='如何调整薪资?',
+                user_question='如何调整薪资?',
                 domain='薪酬福利',
                 expert_userid='wangwu',
                 expert_name='王五',
@@ -192,8 +192,8 @@ class ConversationStateManager:
             pending = await state_mgr.check_pending_expert_reply('wangwu')
             if pending:
                 # 专家 wangwu 有待回复的问题
-                employee_id = pending.employee_userid
-                question = pending.employee_question
+                inquirer_id = pending.user_id
+                question = pending.user_question
         """
         # 如果使用 Redis,扫描所有 wework:conv_state:* keys
         if not self._using_fallback and self.storage:
@@ -218,7 +218,7 @@ class ConversationStateManager:
                                 context.expert_userid == expert_userid):
                                 logger.info(
                                     f"Found pending reply for expert {expert_userid}: "
-                                    f"employee={context.employee_userid}"
+                                    f"user={context.user_id}"
                                 )
                                 return context
 
@@ -236,7 +236,7 @@ class ConversationStateManager:
                 context.expert_userid == expert_userid):
                 logger.info(
                     f"Found pending reply in memory for expert {expert_userid}: "
-                    f"employee={context.employee_userid}"
+                    f"user={context.user_id}"
                 )
                 return context
 

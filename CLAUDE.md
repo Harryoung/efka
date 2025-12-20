@@ -12,12 +12,12 @@
 ### Dual Agent Architecture (v3.0)
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Frontend: Admin UI (3000) + Employee UI (3001)         │
+│  Frontend: Admin UI (3000) + User UI (3001)         │
 │  + IM Platforms (WeWork/Feishu/DingTalk)               │
 ├─────────────────────────────────────────────────────────┤
 │  Backend (FastAPI 8000)                                 │
 │  ├─ Admin Agent: Doc management, batch notifications   │
-│  └─ Employee Agent: Q&A, expert routing                │
+│  └─ User Agent: Q&A, expert routing                │
 ├─────────────────────────────────────────────────────────┤
 │  Channel Layer: BaseChannelAdapter + ChannelRouter     │
 │  WeWork (8081) / Feishu (8082) / DingTalk (8083)       │
@@ -48,7 +48,7 @@ python3 -m backend.main                                    # :8000
 
 # Frontend
 cd frontend && npm run dev                                 # Admin :3000
-cd frontend && VITE_APP_MODE=employee npm run dev -- --port 3001  # Employee :3001
+cd frontend && VITE_APP_MODE=user npm run dev -- --port 3001  # User :3001
 
 # IM Channel (optional)
 python -m backend.channels.wework.server                   # :8081
@@ -80,7 +80,7 @@ Copy and configure `.env` from `.env.example`:
 ```
 agents/
 ├── kb_admin_agent.py      # Admin Agent definition
-├── kb_qa_agent.py         # Employee Agent definition
+├── kb_qa_agent.py         # User Agent definition
 └── prompts/               # Agent prompts
 
 services/
@@ -93,7 +93,7 @@ services/
 
 api/
 ├── query.py              # /api/query (Admin)
-├── employee.py           # /api/employee/query (Employee)
+├── user.py              # /api/user/query (User)
 └── streaming_utils.py    # SSE streaming response
 
 channels/
@@ -111,13 +111,13 @@ utils/
 ```
 components/
 ├── ChatView.jsx          # Admin interface
-└── EmployeeChatView.jsx  # Employee interface
+└── UserChatView.jsx  # User interface
 ```
 
 ## Key Design Patterns
 
 1. **Env vars before SDK import**: `backend/main.py` loads dotenv first, then imports Agent SDK
-2. **Singleton pattern**: Use `get_admin_service()`, `get_employee_service()` to get services
+2. **Singleton pattern**: Use `get_admin_service()`, `get_user_service()` to get services
 3. **SSE streaming**: Knowledge Q&A uses Server-Sent Events for real-time response
 4. **File locks**: `SharedKBAccess` prevents concurrent write conflicts (FAQ.md, BADCASE.md)
 5. **permission_mode="acceptEdits"**: Agent can auto-execute file edits

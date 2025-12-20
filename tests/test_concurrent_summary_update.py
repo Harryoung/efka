@@ -30,7 +30,7 @@ async def test_concurrent_summary_update_optimistic_lock():
     # 创建Session
     session = await mgr.create_session(
         user_id="emp001",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="测试并发更新"
     )
 
@@ -75,7 +75,7 @@ async def test_concurrent_update_different_sessions():
     for i in range(10):
         session = await mgr.create_session(
             user_id=f"emp{i:03d}",
-            role=SessionRole.EMPLOYEE,
+            role=SessionRole.USER,
             original_question=f"Q{i}"
         )
         sessions.append(session)
@@ -119,7 +119,7 @@ async def test_concurrent_update_with_key_points():
 
     session = await mgr.create_session(
         user_id="emp100",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="测试key_points累积"
     )
 
@@ -162,7 +162,7 @@ async def test_concurrent_update_stress_test():
 
     session = await mgr.create_session(
         user_id="emp_stress",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="压力测试"
     )
 
@@ -224,7 +224,7 @@ async def test_sequential_vs_concurrent_comparison():
     # === 顺序更新测试 ===
     session_seq = await mgr.create_session(
         user_id="emp_seq",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="顺序测试"
     )
 
@@ -244,7 +244,7 @@ async def test_sequential_vs_concurrent_comparison():
     # === 并发更新测试 ===
     session_conc = await mgr.create_session(
         user_id="emp_conc",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         original_question="并发测试"
     )
 

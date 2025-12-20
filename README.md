@@ -124,12 +124,12 @@ Understanding these trade-offs helps determine when EFKA is the right solution f
 - **Smart Document Ingestion**: Automatic format conversion, semantic conflict detection, intelligent file placement
 - **FAQ System**: Automatic learning from interactions, usage tracking, and optimization
 - **Multi-Channel Support**: Web UI + Enterprise IM platforms (WeChat Work, Feishu, DingTalk, Slack)
-- **Dual-Agent Architecture**: Separate agents optimized for admin tasks and employee queries
+- **Dual-Agent Architecture**: Separate agents optimized for admin tasks and user queries
 - **Streaming Responses**: Real-time SSE streaming with Markdown rendering
 
 ## Agent Workflow
 
-![EFKA Admin & Employee Agents](assets/EFKA_Admin_Employee_Agents.png)
+![EFKA Admin & User Agents](assets/EFKA_Admin_User_Agents.png)
 
 ### Admin Agent Flow
 
@@ -160,8 +160,8 @@ flowchart TD
     end
 
     subgraph BatchNotify["📢 Batch Notification"]
-        B -->|Notify/Send| E1[Read Employee Mapping]
-        E1 --> E2[Filter Target Employees]
+        B -->|Notify/Send| E1[Read User Mapping]
+        E1 --> E2[Filter Target Users]
         E2 --> E3[Build Message & Preview]
         E3 -->|User Confirms| E4[Batch Send via WeWork]
     end
@@ -172,7 +172,7 @@ flowchart TD
     style BatchNotify fill:#fff3e0
 ```
 
-### Employee Agent Flow
+### User Agent Flow
 
 ```mermaid
 flowchart TD
@@ -224,7 +224,7 @@ flowchart TD
 ├──────────────────────┼───────────────────────────────┤
 │  Backend (FastAPI)   │                               │
 │  ┌─────────────┐  ┌──┴──────────┐                   │
-│  │ Admin Agent │  │ Employee    │                   │
+│  │ Admin Agent │  │ User        │                   │
 │  │ - Doc Mgmt  │  │ Agent       │                   │
 │  │ - KB Admin  │  │ - Q&A       │                   │
 │  │ - Notify    │  │ - Routing   │                   │
@@ -322,7 +322,7 @@ See [Channel Development Guide](docs/CHANNELS.md) for adding new platforms.
 ```
 efka/
 ├── backend/
-│   ├── agents/          # Agent definitions (Admin + Employee)
+│   ├── agents/          # Agent definitions (Admin + User)
 │   ├── api/             # FastAPI routes
 │   ├── channels/        # IM platform adapters
 │   ├── services/        # Business logic

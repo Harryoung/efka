@@ -6,7 +6,7 @@
 1. URL验证(GET)
 2. 消息接收(POST)
 3. 调用适配器解析消息
-4. 通过渠道路由器转发给Employee Agent
+4. 通过渠道路由器转发给User Agent
 """
 
 import asyncio
@@ -75,19 +75,19 @@ async def initialize_services():
     logger.info("✅ WeWork adapter initialized")
 
     # 初始化 wework_callback.py 中的全局服务
-    # 这会设置 employee_service 和 state_manager 全局变量
+    # 这会设置 user_service 和 state_manager 全局变量
     from backend.api.wework_callback import init_services as init_callback_services
     init_callback_services()
-    logger.info("✅ Callback services initialized (employee_service, state_manager)")
+    logger.info("✅ Callback services initialized (user_service, state_manager)")
 
-    # 确保 Employee Service 已初始化
-    from backend.services.kb_service_factory import get_employee_service
+    # 确保 User Service 已初始化
+    from backend.services.kb_service_factory import get_user_service
     from backend.services.conversation_state_manager import get_conversation_state_manager
     from backend.storage.redis_storage import RedisSessionStorage
 
-    employee_service = get_employee_service()
-    await employee_service.initialize()
-    logger.info("✅ Employee service initialized")
+    user_service = get_user_service()
+    await user_service.initialize()
+    logger.info("✅ User service initialized")
 
     # 初始化Conversation State Manager(Redis存储)
     try:
@@ -201,7 +201,7 @@ async def process_message(request_data: dict):
     流程:
     1. 解析消息 → ChannelMessage
     2. 转发给渠道路由器
-    3. 渠道路由器调用Employee Agent
+    3. 渠道路由器调用User Agent
     4. Agent响应通过适配器发送回企微
     """
     try:
@@ -214,7 +214,7 @@ async def process_message(request_data: dict):
             logger.info(f"Ignoring non-text message: {channel_msg.msg_type}")
             return
 
-        # TODO: 这里应该通过渠道路由器转发给Employee Agent
+        # TODO: 这里应该通过渠道路由器转发给User Agent
         # 目前保留原有的直接调用逻辑(向后兼容)
         from backend.api.wework_callback import process_wework_message
         await process_wework_message(channel_msg.raw_data)

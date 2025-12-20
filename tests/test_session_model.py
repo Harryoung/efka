@@ -31,7 +31,7 @@ def test_session_creation():
     session = Session(
         session_id="test-123",
         user_id="emp001",
-        role=SessionRole.EMPLOYEE,
+        role=SessionRole.USER,
         status=SessionStatus.ACTIVE,
         summary=summary,
         full_context_key="session_history:test-123",
@@ -42,7 +42,7 @@ def test_session_creation():
 
     assert session.session_id == "test-123"
     assert session.user_id == "emp001"
-    assert session.role == SessionRole.EMPLOYEE
+    assert session.role == SessionRole.USER
     assert session.status == SessionStatus.ACTIVE
     assert session.summary.version == 0
 
@@ -70,9 +70,9 @@ def test_session_summary_versioning():
 
 def test_session_role_enum():
     """测试SessionRole枚举"""
-    assert SessionRole.EMPLOYEE.value == "employee"
+    assert SessionRole.USER.value == "user"
     assert SessionRole.EXPERT.value == "expert"
-    assert SessionRole.EXPERT_AS_EMPLOYEE.value == "expert_as_employee"
+    assert SessionRole.EXPERT_AS_USER.value == "expert_as_user"
 
 
 def test_session_status_enum():

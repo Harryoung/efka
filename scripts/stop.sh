@@ -136,10 +136,10 @@ stop_frontend() {
     stop_ui_service "$1" 3000 "Admin UI"
 }
 
-# 停止员工前端服务 (Employee UI, 端口3001)
-stop_employee_ui() {
-    local port=${EMPLOYEE_UI_PORT:-3001}
-    stop_ui_service "$1" $port "Employee UI"
+# 停止用户前端服务 (User UI, 端口3001)
+stop_user_ui() {
+    local port=${USER_UI_PORT:-3001}
+    stop_ui_service "$1" $port "User UI"
 }
 
 # 停止前端服务
@@ -154,17 +154,17 @@ else
     stop_frontend $FRONTEND_PID
 fi
 
-# 停止 Employee UI 服务
-if [ -f "logs/frontend-employee.pid" ]; then
-    EMPLOYEE_UI_PID=$(cat logs/frontend-employee.pid)
-    stop_employee_ui $EMPLOYEE_UI_PID
-    rm logs/frontend-employee.pid
+# 停止 User UI 服务
+if [ -f "logs/frontend-user.pid" ]; then
+    USER_UI_PID=$(cat logs/frontend-user.pid)
+    stop_user_ui $USER_UI_PID
+    rm logs/frontend-user.pid
 else
-    echo -e "${YELLOW}⚠️  未找到 frontend-employee.pid 文件${NC}"
+    echo -e "${YELLOW}⚠️  未找到 frontend-user.pid 文件${NC}"
     # 直接通过端口查找
-    EMPLOYEE_UI_PORT=${EMPLOYEE_UI_PORT:-3001}
-    EMPLOYEE_UI_PID=$(lsof -ti :$EMPLOYEE_UI_PORT 2>/dev/null | head -1)
-    stop_employee_ui $EMPLOYEE_UI_PID
+    USER_UI_PORT=${USER_UI_PORT:-3001}
+    USER_UI_PID=$(lsof -ti :$USER_UI_PORT 2>/dev/null | head -1)
+    stop_user_ui $USER_UI_PID
 fi
 
 # 停止 wework-mcp 服务

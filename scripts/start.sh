@@ -110,14 +110,14 @@ else
     IM_ENABLED=true
 fi
 
-# 检测Employee Web UI配置
-EMPLOYEE_UI_ENABLED=${EMPLOYEE_UI_ENABLED:-true}
-EMPLOYEE_UI_PORT=${EMPLOYEE_UI_PORT:-3001}
+# 检测User Web UI配置
+USER_UI_ENABLED=${USER_UI_ENABLED:-true}
+USER_UI_PORT=${USER_UI_PORT:-3001}
 
-if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
-    echo -e "${GREEN}✅ Employee Web UI 已启用 (端口: $EMPLOYEE_UI_PORT)${NC}"
+if [ "$USER_UI_ENABLED" = "true" ]; then
+    echo -e "${GREEN}✅ User Web UI 已启用 (端口: $USER_UI_PORT)${NC}"
 else
-    echo -e "${YELLOW}⏭️  Employee Web UI 未启用${NC}"
+    echo -e "${YELLOW}⏭️  User Web UI 未启用${NC}"
 fi
 
 echo ""
@@ -132,9 +132,9 @@ check_port 8000 || exit 1
 # 检查Admin UI端口
 check_port 3000 || exit 1
 
-# 检查Employee UI端口(如果启用)
-if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
-    check_port $EMPLOYEE_UI_PORT || exit 1
+# 检查User UI端口(如果启用)
+if [ "$USER_UI_ENABLED" = "true" ]; then
+    check_port $USER_UI_PORT || exit 1
 fi
 
 # 检查各渠道端口
@@ -193,7 +193,7 @@ echo "启动后端服务"
 echo "=========================================="
 
 # 启动 FastAPI 主服务（Admin API，端口8000）
-echo "🚀 启动 FastAPI 主服务（Admin API + Employee API）..."
+echo "🚀 启动 FastAPI 主服务（Admin API + User API）..."
 $PYTHON_CMD -m backend.main > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > logs/backend.pid
@@ -337,28 +337,28 @@ fi
 
 echo ""
 
-# 启动 Employee UI (如果启用) - 使用同一前端项目的 employee 模式
-if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
-    echo "🚀 启动 Employee UI (端口$EMPLOYEE_UI_PORT)..."
+# 启动 User UI (如果启用) - 使用同一前端项目的 user 模式
+if [ "$USER_UI_ENABLED" = "true" ]; then
+    echo "🚀 启动 User UI (端口$USER_UI_PORT)..."
     cd frontend
 
-    # 使用 VITE_APP_MODE=employee 启动第二个实例
-    VITE_APP_MODE=employee npm run dev -- --port $EMPLOYEE_UI_PORT > ../logs/frontend-employee.log 2>&1 &
-    EMPLOYEE_UI_PID=$!
-    echo $EMPLOYEE_UI_PID > ../logs/frontend-employee.pid
-    echo -e "${GREEN}   PID: $EMPLOYEE_UI_PID${NC}"
-    echo "   运行在: http://localhost:$EMPLOYEE_UI_PORT"
+    # 使用 VITE_APP_MODE=user 启动第二个实例
+    VITE_APP_MODE=user npm run dev -- --port $USER_UI_PORT > ../logs/frontend-user.log 2>&1 &
+    USER_UI_PID=$!
+    echo $USER_UI_PID > ../logs/frontend-user.pid
+    echo -e "${GREEN}   PID: $USER_UI_PID${NC}"
+    echo "   运行在: http://localhost:$USER_UI_PORT"
 
     cd ..
 
-    # 等待Employee UI启动
+    # 等待User UI启动
     sleep 5
 
-    if curl -s http://localhost:$EMPLOYEE_UI_PORT > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Employee UI 启动成功${NC}"
+    if curl -s http://localhost:$USER_UI_PORT > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ User UI 启动成功${NC}"
     else
-        echo -e "${RED}❌ Employee UI 启动失败${NC}"
-        echo "请查看日志: cat logs/frontend-employee.log"
+        echo -e "${RED}❌ User UI 启动失败${NC}"
+        echo "请查看日志: cat logs/frontend-user.log"
     fi
 fi
 
@@ -371,8 +371,8 @@ echo "=========================================="
 echo ""
 echo "📱 访问地址:"
 echo "   Admin UI: http://localhost:3000"
-if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
-    echo "   Employee UI: http://localhost:$EMPLOYEE_UI_PORT"
+if [ "$USER_UI_ENABLED" = "true" ]; then
+    echo "   User UI: http://localhost:$USER_UI_PORT"
 fi
 echo "   FastAPI 主服务: http://localhost:8000"
 if [ "$IM_ENABLED" = true ]; then
@@ -396,8 +396,8 @@ if [ "$IM_ENABLED" = true ]; then
     done
 fi
 echo "   Admin UI: logs/frontend.log"
-if [ "$EMPLOYEE_UI_ENABLED" = "true" ]; then
-    echo "   Employee UI: logs/frontend-employee.log"
+if [ "$USER_UI_ENABLED" = "true" ]; then
+    echo "   User UI: logs/frontend-user.log"
 fi
 echo ""
 echo "=========================================="

@@ -1,5 +1,5 @@
 """
-Employee Agent - 员工端智能助手
+User Agent - 用户端智能助手
 负责知识查询、满意度反馈和领域专家路由
 """
 
@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from claude_agent_sdk import AgentDefinition
 
 
-def generate_employee_agent_prompt(
+def generate_user_agent_prompt(
     small_file_threshold_kb: int = 30,
     faq_max_entries: int = 50
 ) -> str:
     """
-    生成员工端智能助手的系统提示词
+    生成用户端智能助手的系统提示词
 
     Args:
         small_file_threshold_kb: 小文件阈值(KB)
@@ -22,7 +22,7 @@ def generate_employee_agent_prompt(
         系统提示词字符串
     """
     return f"""
-你是知了（EFKA员工端），通过企业微信为员工提供7x24自助服务。
+你是知了（EFKA用户端），通过企业微信为用户提供7x24自助服务。
 
 ## ⛔ 安全边界（最高优先级）
 
@@ -43,7 +43,7 @@ def generate_employee_agent_prompt(
 
 ## 架构说明
 
-你是Employee Agent，专注于业务逻辑（知识检索、专家路由、满意度反馈）。
+你是User Agent，专注于业务逻辑（知识检索、专家路由、满意度反馈）。
 
 **你的职责**：
 1. 执行知识检索（6阶段检索策略）
@@ -72,11 +72,11 @@ name: 张三
 **使用场景**：
 1. **回复时使用姓名**：可以称呼"张三您好"显得更亲切
 2. **发送企微消息**：调用`mcp__wework__wework_send_markdown_message`时使用user_id
-3. **专家路由**：通知专家时告知是哪个员工提问（包含姓名）
+3. **专家路由**：通知专家时告知是哪个用户提问（包含姓名）
 
 **示例**：
 ```python
-# 回复员工时（使用Markdown格式）
+# 回复用户时（使用Markdown格式）
 mcp__wework__wework_send_markdown_message(
     touser="zhangsan",  # 从[用户信息]获取
     content="## 年假申请流程\\n\\n张三您好！\\n\\n**申请步骤**：\\n1. 登录OA系统\\n2. 提前3天提交申请\\n\\n> 💡 回复<font color=\\"info\\">满意</font>可添加至FAQ"
@@ -85,7 +85,7 @@ mcp__wework__wework_send_markdown_message(
 # 通知专家时（使用Markdown格式）
 mcp__wework__wework_send_markdown_message(
     touser="expert_userid",
-    content="## 【员工咨询】\\n\\n员工 **张三**(zhangsan) 提问：\\n\\n> 如何申请年假？\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。"
+    content="## 【用户咨询】\\n\\n用户 **张三**(zhangsan) 提问：\\n\\n> 如何申请年假？\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。"
 )
 ```
 
@@ -139,7 +139,7 @@ Read `knowledge_base/README.md` 理解知识库结构。
 5. **生成答案**：基于提取的数据回答问题
 
 **已知配置表（无需 Skill）**：
-- `employee_mapping.xlsx`, `domain_experts.xlsx` 等项目内置表
+- `user_mapping.xlsx`, `domain_experts.xlsx` 等项目内置表
 - 结构固定，直接 `pd.read_excel()` 即可
 
 **Markdown 文件**：
@@ -228,16 +228,16 @@ print(result[['姓名', 'userid', '工作领域']].to_json(orient='records'))
 ```python
 {{
   "touser": "{{expert_userid}}",
-  "content": "## 【员工咨询】\\n\\n员工 **{{employee_name}}**({{employee_userid}}) 提问：\\n\\n> {{question}}\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。我会将您的回复转发给该员工。\\n\\n💡 建议您及时补充相关文档到知识库。"
+  "content": "## 【用户咨询】\\n\\n用户 **{{user_name}}**({{user_id}}) 提问：\\n\\n> {{question}}\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。我会将您的回复转发给该用户。\\n\\n💡 建议您及时补充相关文档到知识库。"
 }}
 ```
 
-**Step 4: 通知员工等待**
+**Step 4: 通知用户等待**
 发送等待消息（使用Markdown格式）：
 ```python
 {{
-  "touser": "{{employee_userid}}",
-  "content": "**{{employee_name}}**您好！\\n\\n已为您联系<font color=\\"info\\">{{domain}}</font>负责人 **{{expert_name}}**，请稍等，会尽快回复您。"
+  "touser": "{{user_id}}",
+  "content": "**{{user_name}}**您好！\\n\\n已为您联系<font color=\\"info\\">{{domain}}</font>负责人 **{{expert_name}}**，请稍等，会尽快回复您。"
 }}
 ```
 
@@ -471,11 +471,11 @@ Agent找不到答案，联系专家后：
 ```python
 mcp__wework__wework_send_markdown_message(
     touser="zhangsan",
-    content="## 【员工咨询】\\n\\n员工 **李四**(lisi) 提问：\\n\\n> 新员工试用期薪资如何计算？\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复..."
+    content="## 【用户咨询】\\n\\n用户 **李四**(lisi) 提问：\\n\\n> 新员工试用期薪资如何计算？\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复..."
 )
 ```
 
-回复员工（企微MCP，Markdown格式）：
+回复用户（企微MCP，Markdown格式）：
 ```python
 mcp__wework__wework_send_markdown_message(
     touser="lisi",
@@ -531,7 +531,7 @@ mcp__wework__wework_send_markdown_message(
 6. ⚠️ 满意度询问内嵌在答案中，不要单独发送消息
 7. ⚠️ 使用姓名回复显得更亲切（"张三您好"）
 
-记住：你是员工的智能助手，当知识库无法满足时，主动帮助他们联系领域专家！
+记住：你是用户的智能助手，当知识库无法满足时，主动帮助他们联系领域专家！
 
 ## 时间信息
 
@@ -542,9 +542,9 @@ mcp__wework__wework_send_markdown_message(
 
 
 @dataclass
-class EmployeeAgentConfig:
-    """Employee Agent 配置"""
-    description: str = "员工端智能助手 - 知识查询(6阶段检索+专家路由)、满意度反馈(FAQ改进/新增+BADCASE记录)、通过JSON元数据与脚手架层协作"
+class UserAgentConfig:
+    """User Agent 配置"""
+    description: str = "用户端智能助手 - 知识查询(6阶段检索+专家路由)、满意度反馈(FAQ改进/新增+BADCASE记录)、通过JSON元数据与脚手架层协作"
     small_file_threshold_kb: int = 30
     faq_max_entries: int = 50
     tools: list[str] = None
@@ -553,7 +553,7 @@ class EmployeeAgentConfig:
     @property
     def prompt(self) -> str:
         """动态生成 prompt"""
-        return generate_employee_agent_prompt(
+        return generate_user_agent_prompt(
             small_file_threshold_kb=self.small_file_threshold_kb,
             faq_max_entries=self.faq_max_entries
         )
@@ -574,15 +574,15 @@ class EmployeeAgentConfig:
 
 
 # 创建默认配置实例
-employee_agent = EmployeeAgentConfig()
+user_agent = UserAgentConfig()
 
 
-def get_employee_agent_definition(
+def get_user_agent_definition(
     small_file_threshold_kb: int = 30,
     faq_max_entries: int = 50
 ) -> AgentDefinition:
     """
-    获取Employee Agent的定义
+    获取User Agent的定义
 
     Args:
         small_file_threshold_kb: 小文件阈值（KB）
@@ -591,7 +591,7 @@ def get_employee_agent_definition(
     Returns:
         AgentDefinition 实例
     """
-    config = EmployeeAgentConfig(
+    config = UserAgentConfig(
         small_file_threshold_kb=small_file_threshold_kb,
         faq_max_entries=faq_max_entries
     )
@@ -606,8 +606,8 @@ def get_employee_agent_definition(
 
 # 导出
 __all__ = [
-    "EmployeeAgentConfig",
-    "employee_agent",
-    "get_employee_agent_definition",
-    "generate_employee_agent_prompt"
+    "UserAgentConfig",
+    "user_agent",
+    "get_user_agent_definition",
+    "generate_user_agent_prompt"
 ]

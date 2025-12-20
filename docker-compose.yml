@@ -72,8 +72,8 @@ services:
       - ENABLE_DINGTALK=${ENABLE_DINGTALK:-auto}
       - ENABLE_SLACK=${ENABLE_SLACK:-auto}
 
-      # Employee UI 配置
-      - EMPLOYEE_UI_ENABLED=${EMPLOYEE_UI_ENABLED:-true}
+      # User UI 配置
+      - USER_UI_ENABLED=${USER_UI_ENABLED:-true}
 
       # Vision 模型配置
       - VISION_MODEL_PROVIDER=${VISION_MODEL_PROVIDER:-doubao}
@@ -162,20 +162,20 @@ services:
     networks:
       - ikba-network
 
-  employee-ui:
+  user-ui:
     build:
       context: ./frontend
       dockerfile: ../deploy/Dockerfile.frontend
       args:
-        - VITE_APP_MODE=employee
+        - VITE_APP_MODE=user
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
-    container_name: ikba-employee-ui
+    container_name: ikba-user-ui
     ports:
       - "3001:80"
     depends_on:
       - backend
     profiles:
-      - employee-ui
+      - user-ui
     restart: unless-stopped
     networks:
       - ikba-network
