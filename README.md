@@ -85,10 +85,38 @@ While traditional RAG systems can be faster for simple lookups, EFKA achieves ne
 
 - **FAQ System**: Caches frequent questions and answers, bypassing full searches for common queries
 - **Directory Summaries**: Maintains summaries of document structures for quick navigation
-- **Intelligent Caching**: Remembers previous searches and their results
-- **Expert Routing**: Directs queries to the most relevant knowledge areas first
+
 
 This optimized approach makes EFKA suitable for interactive applications while maintaining the accuracy and completeness advantages of human-like search.
+
+### Limitations and Use Cases
+
+#### Limitations
+
+While EFKA provides more reliable and accurate answers compared to traditional RAG systems, it has some inherent limitations:
+
+1. **Latency**: Response times are longer than traditional RAG, typically in the 10-30 second range. The system aims for near-real-time performance but cannot match the sub-second response times of embedding-based systems.
+
+2. **Token Consumption**: The agent-based approach consumes more tokens as it reads entire documents or sections. This requires more powerful models and results in higher API costs compared to simple similarity search.
+
+3. **Concurrency Architecture**: Because the Claude Agent SDK wraps CLI processes, each conversation requires a separate CLI process. While EFKA implements a client pool for concurrency management, this approach is less elegant than traditional API-based systems.
+
+#### Suitable Use Cases
+
+EFKA is best suited for scenarios where:
+
+- **Accuracy over Speed**: When answer quality and reliability are more important than response time
+- **Low to Moderate Frequency**: For occasional or periodic queries rather than high-volume, real-time interactions
+- **Knowledge-Intensive Domains**: Complex domains where context preservation and complete information retrieval are critical
+- **Transparency Requirements**: When users need to verify information sources and understand the reasoning process
+
+#### Not Suitable For
+
+- **Real-Time Chat**: Applications requiring sub-second response times
+- **High-Frequency Queries**: Scenarios with thousands of queries per hour where cost would be prohibitive
+- **Simple FAQ Lookups**: When a traditional vector database would be sufficient and faster
+
+Understanding these trade-offs helps determine when EFKA is the right solution for your knowledge management needs.
 
 ## Features
 
