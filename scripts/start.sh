@@ -1,10 +1,51 @@
 #!/bin/bash
 
 # EFKA v3.0 - Multi-channel Startup Script
-# Supports: WeWork, Feishu, DingTalk, Slack
-# Auto-detects and starts configured channels
+# Supports: standalone mode and IM integration (WeWork, Feishu, DingTalk, Slack)
+# Usage: ./scripts/start.sh [--mode <mode>]
+# Modes: standalone (default), wework, feishu, dingtalk, slack
 
 set -e  # Exit on error
+
+# 颜色定义
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 解析命令行参数
+MODE=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --mode|-m)
+            MODE="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: ./scripts/start.sh [--mode <mode>]"
+            echo ""
+            echo "Modes:"
+            echo "  standalone  - Pure Web mode, no IM integration (default)"
+            echo "  wework      - WeChat Work integration"
+            echo "  feishu      - Feishu/Lark integration"
+            echo "  dingtalk    - DingTalk integration"
+            echo "  slack       - Slack integration"
+            echo ""
+            echo "Examples:"
+            echo "  ./scripts/start.sh                    # Standalone mode"
+            echo "  ./scripts/start.sh --mode standalone  # Standalone mode"
+            echo "  ./scripts/start.sh --mode wework      # WeChat Work mode"
+            echo "  ./scripts/start.sh -m wework          # Short form"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 echo "=========================================="
 echo "🚀 EFKA v3.0 - Embed-Free Knowledge Agent"
@@ -14,13 +55,6 @@ echo ""
 # 获取项目根目录
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
-
-# 颜色定义
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
 
 # 检查端口是否被占用
 check_port() {
@@ -84,31 +118,36 @@ fi
 
 echo ""
 
-# 步骤 2: 检测已启用的渠道
-echo "🔍 步骤 2/5: 检测已启用的渠道"
+# 步骤 2: 确定运行模式
+echo "🔍 步骤 2/5: 确定运行模式"
 echo "----------------------------------------"
 
-# 使用Python脚本检测已启用的渠道
-echo "正在检测渠道配置..."
-ENABLED_CHANNELS=$($PYTHON_CMD -c "
-import os
-import sys
-sys.path.insert(0, '$PROJECT_ROOT')
-from backend.config.channel_config import get_channel_config
-
-config = get_channel_config()
-channels = config.get_enabled_channels()
-print(' '.join(channels))
-" 2>/dev/null)
-
-if [ -z "$ENABLED_CHANNELS" ]; then
-    echo -e "${YELLOW}⚠️  未检测到已启用的IM渠道${NC}"
-    echo "   系统将以Web-only模式运行"
-    IM_ENABLED=false
-else
-    echo -e "${GREEN}✅ 已启用的渠道: $ENABLED_CHANNELS${NC}"
-    IM_ENABLED=true
+# 确定运行模式（CLI > ENV > default）
+if [ -n "$MODE" ]; then
+    RUN_MODE="$MODE"
+elif [ -z "$RUN_MODE" ]; then
+    RUN_MODE="standalone"
 fi
+export RUN_MODE
+
+# 验证模式并设置 IM 标志
+case $RUN_MODE in
+    standalone)
+        IM_ENABLED=false
+        echo -e "${GREEN}✅ 运行模式: standalone (纯 Web)${NC}"
+        ;;
+    wework|feishu|dingtalk|slack)
+        IM_ENABLED=true
+        IM_CHANNEL=$RUN_MODE
+        ENABLED_CHANNELS=$RUN_MODE
+        echo -e "${GREEN}✅ 运行模式: $RUN_MODE (IM 集成)${NC}"
+        ;;
+    *)
+        echo -e "${RED}❌ 无效模式: $RUN_MODE${NC}"
+        echo "有效模式: standalone, wework, feishu, dingtalk, slack"
+        exit 1
+        ;;
+esac
 
 # 检测User Web UI配置
 USER_UI_ENABLED=${USER_UI_ENABLED:-true}
@@ -194,7 +233,8 @@ echo "=========================================="
 
 # 启动 FastAPI 主服务（Admin API，端口8000）
 echo "🚀 启动 FastAPI 主服务（Admin API + User API）..."
-$PYTHON_CMD -m backend.main > logs/backend.log 2>&1 &
+echo "   运行模式: $RUN_MODE"
+$PYTHON_CMD -m backend.main --mode $RUN_MODE > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > logs/backend.pid
 echo -e "${GREEN}   PID: $BACKEND_PID${NC}"

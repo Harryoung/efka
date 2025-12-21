@@ -303,13 +303,34 @@ Key environment variables (see `.env.example` for full list):
 >
 > **⚠️ Thinking Mode**: Extended thinking is disabled by default because third-party API providers (DeepSeek, GLM, Minimax, etc.) may not yet support the Claude Agent SDK's thinking mode response format. If you're using the official Anthropic API and want to enable thinking, modify `max_thinking_tokens` in `backend/services/kb_service_factory.py`.
 
-### IM Platform Integration
+### Run Mode Configuration (v3.0)
 
-The system supports multiple IM platforms through a pluggable Channel Adapter architecture:
+EFKA v3.0 introduces explicit run mode configuration. By default, it runs in **standalone** mode (Web-only). To enable IM integration, configure `RUN_MODE`:
 
 ```bash
-# WeChat Work
-ENABLE_WEWORK=auto
+# Standalone mode (default) - Pure Web, no IM integration
+./scripts/start.sh
+
+# WeChat Work mode
+./scripts/start.sh --mode wework
+
+# Or via environment variable
+RUN_MODE=wework ./scripts/start.sh
+```
+
+**Available modes**: `standalone`, `wework`, `feishu`, `dingtalk`, `slack`
+
+**Note**: Only one IM channel can be active at a time (single-channel mutual exclusivity).
+
+### IM Platform Integration
+
+Configure the corresponding environment variables for your chosen IM platform:
+
+```bash
+# Run mode
+RUN_MODE=wework
+
+# WeChat Work configuration
 WEWORK_CORP_ID=your_corp_id
 WEWORK_CORP_SECRET=your_secret
 WEWORK_AGENT_ID=your_agent_id

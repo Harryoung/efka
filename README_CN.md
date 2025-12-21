@@ -301,13 +301,34 @@ docker-compose up -d
 >
 > **Thinking 模式**：默认禁用扩展思考模式，因为第三方 API 提供商（DeepSeek、GLM、Minimax 等）可能尚不支持 Claude Agent SDK 的 thinking 模式响应格式。如果你使用官方 Anthropic API 并希望启用 thinking，请修改 `backend/services/kb_service_factory.py` 中的 `max_thinking_tokens`。
 
-### IM 平台集成
+### 运行模式配置（v3.0）
 
-系统通过可插拔的渠道适配器架构支持多个 IM 平台：
+EFKA v3.0 引入了显式运行模式配置。默认以 **standalone** 模式运行（纯 Web）。要启用 IM 集成，请配置 `RUN_MODE`：
 
 ```bash
-# 企业微信
-ENABLE_WEWORK=auto
+# Standalone 模式（默认）- 纯 Web，无 IM 集成
+./scripts/start.sh
+
+# 企业微信模式
+./scripts/start.sh --mode wework
+
+# 或通过环境变量
+RUN_MODE=wework ./scripts/start.sh
+```
+
+**可用模式**：`standalone`、`wework`、`feishu`、`dingtalk`、`slack`
+
+**注意**：同一时间只能激活一个 IM 渠道（单渠道互斥）。
+
+### IM 平台集成
+
+为所选的 IM 平台配置相应的环境变量：
+
+```bash
+# 运行模式
+RUN_MODE=wework
+
+# 企业微信配置
 WEWORK_CORP_ID=your_corp_id
 WEWORK_CORP_SECRET=your_secret
 WEWORK_AGENT_ID=your_agent_id

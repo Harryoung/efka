@@ -4,11 +4,25 @@ Main application entry point for EFKA - Embed-Free Knowledge Agent.
 # ⚠️ 必须在导入任何模块之前先设置环境变量
 # 这样可以确保子 Agent 也能获得认证信息
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
 # 加载 .env 文件
 load_dotenv()
+
+# 解析 --mode 参数（必须在其他导入之前）
+from backend.config.run_mode import set_cli_mode, get_run_mode, get_im_channel
+
+for i, arg in enumerate(sys.argv):
+    if arg in ["--mode", "-m"] and i + 1 < len(sys.argv):
+        try:
+            set_cli_mode(sys.argv[i + 1])
+            print(f"✅ Run mode set via CLI: {sys.argv[i + 1]}")
+        except ValueError as e:
+            print(f"❌ Invalid run mode: {e}")
+            sys.exit(1)
+        break
 
 # 立即导出认证环境变量到进程环境
 # 这样所有子进程（包括子 Agent）都能访问
@@ -51,7 +65,16 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时初始化
+    run_mode = get_run_mode()
+    im_channel = get_im_channel()
+
     logger.info("Starting EFKA (知了) - Embed-Free Knowledge Agent...")
+    logger.info(f"Run mode: {run_mode.value}")
+
+    if run_mode.value == "standalone":
+        logger.info("Standalone mode: IM features disabled")
+    else:
+        logger.info(f"IM mode: {im_channel} channel enabled")
 
     # 初始化 Redis 存储（如果配置了 REDIS_URL）
     redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
@@ -106,7 +129,7 @@ async def lifespan(app: FastAPI):
 # 创建FastAPI应用
 app = FastAPI(
     title="EFKA 知了",
-    version="2.0.0",
+    version="3.0.0",
     description="Embed-Free Knowledge Agent - 无需向量数据库，让 Agent 直接阅读你的文件",
     lifespan=lifespan
 )
@@ -146,8 +169,9 @@ async def health_check():
     """系统健康检查端点"""
     return {
         "status": "healthy",
-        "version": "2.0.0",
-        "service": "EFKA 知了"
+        "version": "3.0.0",
+        "service": "EFKA 知了",
+        "run_mode": get_run_mode().value
     }
 
 
@@ -156,6 +180,8 @@ async def health_check():
 async def system_info():
     """返回系统配置信息"""
     return {
+        "run_mode": get_run_mode().value,
+        "im_channel": get_im_channel(),
         "kb_root_path": settings.KB_ROOT_PATH,
         "small_file_threshold_kb": settings.SMALL_FILE_KB_THRESHOLD,
         "faq_max_entries": settings.FAQ_MAX_ENTRIES,
@@ -170,7 +196,8 @@ async def root():
     """根路径"""
     return {
         "message": "Welcome to EFKA 知了 - Embed-Free Knowledge Agent",
-        "version": "2.0.0",
+        "version": "3.0.0",
+        "run_mode": get_run_mode().value,
         "docs": "/docs"
     }
 

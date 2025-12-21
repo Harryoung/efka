@@ -68,12 +68,6 @@ class Settings(BaseSettings):
     ADMIN_CLIENT_POOL_SIZE: int = 2     # 管理员服务池大小（低频操作）
     CLIENT_POOL_MAX_WAIT: int = 30      # 获取客户端最大等待时间（秒）
 
-    # 渠道启用配置
-    ENABLE_WEWORK: str = "auto"
-    ENABLE_FEISHU: str = "auto"
-    ENABLE_DINGTALK: str = "auto"
-    ENABLE_SLACK: str = "auto"
-
     # 飞书配置
     FEISHU_APP_ID: Optional[str] = None
     FEISHU_APP_SECRET: Optional[str] = None

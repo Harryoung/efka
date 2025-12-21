@@ -26,6 +26,7 @@ from claude_agent_sdk import (
 from backend.agents.kb_qa_agent import get_user_agent_definition
 from backend.agents.kb_admin_agent import get_admin_agent_definition
 from backend.config.settings import get_settings
+from backend.config.run_mode import get_run_mode, get_im_channel, is_standalone
 from backend.tools.image_read import image_read_handler
 from backend.services.client_pool import SDKClientPool, get_pool_manager
 
@@ -65,6 +66,49 @@ class KBUserService:
 
         logger.info("KBUserService instance created")
 
+    def _get_allowed_tools(self) -> list:
+        """根据运行模式获取允许的工具列表"""
+        tools = [
+            "Read",
+            "Grep",
+            "Glob",
+            "Write",
+            "Bash",
+            "Skill",  # Enable Claude Code Skills
+            # Image Vision MCP tool
+            "mcp__image_vision__image_read",
+        ]
+
+        # IM 模式下添加对应渠道的工具
+        im_channel = get_im_channel()
+        if im_channel:
+            tools.extend([
+                f"mcp__{im_channel}__send_text_message",
+                f"mcp__{im_channel}__send_markdown_message",
+                f"mcp__{im_channel}__send_image_message",
+                f"mcp__{im_channel}__send_file_message",
+                f"mcp__{im_channel}__upload_media",
+            ])
+
+        return tools
+
+    def _get_im_mcp_command(self, channel: str) -> str:
+        """获取 IM MCP 命令路径"""
+        import sys
+        import shutil
+
+        mcp_name = f"{channel}-mcp"
+        mcp_path = shutil.which(mcp_name)
+        if not mcp_path:
+            venv_path = Path(sys.executable).parent / mcp_name
+            if venv_path.exists():
+                mcp_path = str(venv_path)
+            else:
+                logger.warning(f"{mcp_name} not found in PATH or venv, using '{mcp_name}' (may fail)")
+                mcp_path = mcp_name
+
+        return mcp_path
+
     def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
         """
         创建 ClaudeAgentOptions（Options Factory）
@@ -87,22 +131,7 @@ class KBUserService:
             },
             agents=None,  # 单一Agent架构
             mcp_servers=self._mcp_servers,
-            allowed_tools=[
-                "Read",
-                "Grep",
-                "Glob",
-                "Write",
-                "Bash",
-                "Skill",  # Enable Claude Code Skills
-                # Image Vision MCP tool
-                "mcp__image_vision__image_read",
-                # WeWork MCP tools
-                "mcp__wework__wework_send_text_message",
-                "mcp__wework__wework_send_markdown_message",
-                "mcp__wework__wework_send_image_message",
-                "mcp__wework__wework_send_file_message",
-                "mcp__wework__wework_upload_media",
-            ],
+            allowed_tools=self._get_allowed_tools(),
             cwd=str(kb_path.parent),  # 项目根目录
             permission_mode="acceptEdits",
             env=self._env_vars,
@@ -147,26 +176,15 @@ class KBUserService:
                     self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
             # 获取User Agent定义（缓存供 _create_options 使用）
+            run_mode = get_run_mode()
             self._user_agent_def = get_user_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
-                faq_max_entries=self.settings.FAQ_MAX_ENTRIES
+                faq_max_entries=self.settings.FAQ_MAX_ENTRIES,
+                run_mode=run_mode.value
             )
+            logger.info(f"User Agent definition created with run_mode={run_mode.value}")
 
             # 配置MCP servers（缓存供 _create_options 使用）
-            import sys
-            import shutil
-
-            wework_mcp_path = shutil.which("wework-mcp")
-            if not wework_mcp_path:
-                venv_path = Path(sys.executable).parent / "wework-mcp"
-                if venv_path.exists():
-                    wework_mcp_path = str(venv_path)
-                else:
-                    logger.warning("wework-mcp not found in PATH or venv, using 'wework-mcp' (may fail)")
-                    wework_mcp_path = "wework-mcp"
-
-            logger.info(f"Using wework-mcp at: {wework_mcp_path}")
-
             # 创建 SDK MCP server for image_read tool
             image_vision_server = create_sdk_mcp_server(
                 name="image_vision",
@@ -175,18 +193,29 @@ class KBUserService:
             )
 
             self._mcp_servers = {
-                "wework": {
-                    "type": "stdio",
-                    "command": wework_mcp_path,
-                    "args": [],
-                    "env": {
-                        "WEWORK_CORP_ID": os.getenv("WEWORK_CORP_ID", ""),
-                        "WEWORK_CORP_SECRET": os.getenv("WEWORK_CORP_SECRET", ""),
-                        "WEWORK_AGENT_ID": os.getenv("WEWORK_AGENT_ID", ""),
-                    }
-                },
                 "image_vision": image_vision_server
             }
+
+            # IM 模式下添加对应渠道的 MCP 服务器
+            im_channel = get_im_channel()
+            if im_channel:
+                mcp_path = self._get_im_mcp_command(im_channel)
+                logger.info(f"Using {im_channel}-mcp at: {mcp_path}")
+
+                # 获取对应渠道的环境变量
+                channel_upper = im_channel.upper()
+                self._mcp_servers[im_channel] = {
+                    "type": "stdio",
+                    "command": mcp_path,
+                    "args": [],
+                    "env": {
+                        f"{channel_upper}_CORP_ID": os.getenv(f"{channel_upper}_CORP_ID", ""),
+                        f"{channel_upper}_CORP_SECRET": os.getenv(f"{channel_upper}_CORP_SECRET", ""),
+                        f"{channel_upper}_AGENT_ID": os.getenv(f"{channel_upper}_AGENT_ID", ""),
+                    }
+                }
+            else:
+                logger.info("Standalone mode: No IM MCP server loaded")
 
             # 创建连接池
             pool_size = self.settings.USER_CLIENT_POOL_SIZE
@@ -331,6 +360,49 @@ class KBAdminService:
 
         logger.info("KBAdminService instance created")
 
+    def _get_allowed_tools(self) -> list:
+        """根据运行模式获取允许的工具列表"""
+        tools = [
+            "Read",
+            "Write",
+            "Grep",
+            "Glob",
+            "Bash",  # Document conversion via smart_convert.py
+            "Skill",  # Enable Claude Code Skills
+            # Image Vision MCP tool
+            "mcp__image_vision__image_read",
+        ]
+
+        # IM 模式下添加对应渠道的工具
+        im_channel = get_im_channel()
+        if im_channel:
+            tools.extend([
+                f"mcp__{im_channel}__send_text_message",
+                f"mcp__{im_channel}__send_markdown_message",
+                f"mcp__{im_channel}__send_image_message",
+                f"mcp__{im_channel}__send_file_message",
+                f"mcp__{im_channel}__upload_media",
+            ])
+
+        return tools
+
+    def _get_im_mcp_command(self, channel: str) -> str:
+        """获取 IM MCP 命令路径"""
+        import sys
+        import shutil
+
+        mcp_name = f"{channel}-mcp"
+        mcp_path = shutil.which(mcp_name)
+        if not mcp_path:
+            venv_path = Path(sys.executable).parent / mcp_name
+            if venv_path.exists():
+                mcp_path = str(venv_path)
+            else:
+                logger.warning(f"{mcp_name} not found in PATH or venv, using '{mcp_name}' (may fail)")
+                mcp_path = mcp_name
+
+        return mcp_path
+
     def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
         """
         创建 ClaudeAgentOptions（Options Factory）
@@ -353,22 +425,7 @@ class KBAdminService:
             },
             agents=None,  # 单一Agent架构
             mcp_servers=self._mcp_servers,
-            allowed_tools=[
-                "Read",
-                "Write",
-                "Grep",
-                "Glob",
-                "Bash",  # Document conversion via smart_convert.py
-                "Skill",  # Enable Claude Code Skills
-                # Image Vision MCP tool
-                "mcp__image_vision__image_read",
-                # WeWork MCP tools
-                "mcp__wework__wework_send_text_message",
-                "mcp__wework__wework_send_markdown_message",
-                "mcp__wework__wework_send_image_message",
-                "mcp__wework__wework_send_file_message",
-                "mcp__wework__wework_upload_media",
-            ],
+            allowed_tools=self._get_allowed_tools(),
             cwd=str(kb_path.parent),  # 项目根目录
             permission_mode="acceptEdits",
             env=self._env_vars,
@@ -413,26 +470,15 @@ class KBAdminService:
                     self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
             # 获取Admin Agent定义（缓存供 _create_options 使用）
+            run_mode = get_run_mode()
             self._admin_agent_def = get_admin_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
-                faq_max_entries=self.settings.FAQ_MAX_ENTRIES
+                faq_max_entries=self.settings.FAQ_MAX_ENTRIES,
+                run_mode=run_mode.value
             )
+            logger.info(f"Admin Agent definition created with run_mode={run_mode.value}")
 
             # 配置MCP servers（缓存供 _create_options 使用）
-            import sys
-            import shutil
-
-            wework_mcp_path = shutil.which("wework-mcp")
-            if not wework_mcp_path:
-                venv_path = Path(sys.executable).parent / "wework-mcp"
-                if venv_path.exists():
-                    wework_mcp_path = str(venv_path)
-                else:
-                    logger.warning("wework-mcp not found in PATH or venv, using 'wework-mcp' (may fail)")
-                    wework_mcp_path = "wework-mcp"
-
-            logger.info(f"Using wework-mcp at: {wework_mcp_path}")
-
             # 创建 SDK MCP server for image_read tool
             image_vision_server = create_sdk_mcp_server(
                 name="image_vision",
@@ -441,18 +487,29 @@ class KBAdminService:
             )
 
             self._mcp_servers = {
-                "wework": {
-                    "type": "stdio",
-                    "command": wework_mcp_path,
-                    "args": [],
-                    "env": {
-                        "WEWORK_CORP_ID": os.getenv("WEWORK_CORP_ID", ""),
-                        "WEWORK_CORP_SECRET": os.getenv("WEWORK_CORP_SECRET", ""),
-                        "WEWORK_AGENT_ID": os.getenv("WEWORK_AGENT_ID", ""),
-                    }
-                },
                 "image_vision": image_vision_server
             }
+
+            # IM 模式下添加对应渠道的 MCP 服务器
+            im_channel = get_im_channel()
+            if im_channel:
+                mcp_path = self._get_im_mcp_command(im_channel)
+                logger.info(f"Using {im_channel}-mcp at: {mcp_path}")
+
+                # 获取对应渠道的环境变量
+                channel_upper = im_channel.upper()
+                self._mcp_servers[im_channel] = {
+                    "type": "stdio",
+                    "command": mcp_path,
+                    "args": [],
+                    "env": {
+                        f"{channel_upper}_CORP_ID": os.getenv(f"{channel_upper}_CORP_ID", ""),
+                        f"{channel_upper}_CORP_SECRET": os.getenv(f"{channel_upper}_CORP_SECRET", ""),
+                        f"{channel_upper}_AGENT_ID": os.getenv(f"{channel_upper}_AGENT_ID", ""),
+                    }
+                }
+            else:
+                logger.info("Standalone mode: No IM MCP server loaded")
 
             # 创建连接池
             pool_size = self.settings.ADMIN_CLIENT_POOL_SIZE

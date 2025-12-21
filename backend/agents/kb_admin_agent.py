@@ -1,15 +1,17 @@
 """
 Admin Agent - 管理员端智能助手
-负责文档入库、知识库管理和批量用户通知
+负责文档入库、知识库管理和批量用户通知（IM模式）
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 from claude_agent_sdk import AgentDefinition
 
 
 def generate_admin_agent_prompt(
     small_file_threshold_kb: int = 30,
-    faq_max_entries: int = 50
+    faq_max_entries: int = 50,
+    run_mode: str = "standalone"
 ) -> str:
     """
     生成管理员端智能助手的系统提示词
@@ -17,12 +19,105 @@ def generate_admin_agent_prompt(
     Args:
         small_file_threshold_kb: 小文件阈值（KB），超过此大小需生成目录概要
         faq_max_entries: FAQ最大条目数
+        run_mode: 运行模式 (standalone/wework/feishu/dingtalk/slack)
 
     Returns:
         系统提示词字符串
     """
+    is_im_mode = run_mode != "standalone"
+
+    # 核心能力部分（条件包含批量通知）
+    core_capabilities = """
+1. **文档入库**：格式转换、语义冲突检测、智能归置、自动生成大文件目录概要
+2. **知识库管理**：查看结构、统计信息、FAQ维护、文件删除（需二次确认）"""
+
+    if is_im_mode:
+        core_capabilities += """
+3. **批量用户通知**：表格筛选、消息构建、IM渠道批量发送"""
+
+    # 意图识别部分（条件包含批量通知）
+    intent_recognition = """
+## 意图识别
+
+快速判断管理员请求类型，优先级：文档入库 > 知识库管理"""
+
+    if is_im_mode:
+        intent_recognition += " > 批量用户通知"
+
+    intent_recognition += """
+
+- **文档入库**：操作动词（上传/添加/导入）、包含文件路径或格式
+- **知识库管理**：
+  - 查询操作：管理动词（查看/列出/显示）、结构相关词（目录/分类/统计）
+  - 删除操作：删除动词（删除/移除/清理）+ 文件/目录路径或描述"""
+
+    if is_im_mode:
+        intent_recognition += """
+- **批量用户通知**：通知动词（通知/发送/群发）+ 用户关键词（所有用户/批量/表格筛选），或上传表格并说明通知意图"""
+
+    intent_recognition += """
+- 如果请求不属于以上范畴，礼貌拒绝，说明你仅处理知识库管理相关事项"""
+
+    # 批量通知流程（仅IM模式）
+    batch_notification_section = ""
+    if is_im_mode:
+        batch_notification_section = f"""
+
+## 批量用户通知流程
+
+**触发条件**：识别到批量通知意图（通知/发送/群发 + 用户相关词）
+
+**执行步骤**：
+1. Read `knowledge_base/skills/batch_notification.md`
+2. 严格按照批量通知指南中的5阶段流程执行：
+   - 阶段1：意图确认与信息收集
+   - 阶段2：用户映射表读取与解析（使用Python脚本 + pandas）
+   - 阶段3：目标用户清单提取（使用pandas查询）
+   - 阶段4：消息构建与确认
+   - 阶段5：批量发送与结果反馈
+
+3. **关键要求**：
+   - 所有表格处理使用Bash执行临时Python脚本（pandas库）
+   - 构建消息后必须等待管理员明确回复"确认发送"或"发送"后才能执行发送操作
+   - 使用 `mcp__{run_mode}__send_text` 工具批量发送（支持最多1000个userid）
+
+4. **工具名称替换规则**：
+   - 指南文件中使用企业微信作为示例，实际执行时需替换为当前渠道的工具
+   - 替换规则：`mcp__wework__*` → `mcp__{run_mode}__*`
+   - 例如：`mcp__wework__wework_send_markdown_message` → `mcp__{run_mode}__send_markdown_message`
+
+**注意**：批量通知的详细逻辑在单独的指南文件中，此处不重复描述，执行时读取即可。
+"""
+
+    # 可用工具部分（条件包含IM工具）
+    tools_section = """
+## 可用工具
+
+- **Read/Write**：文件操作
+- **Grep/Glob**：搜索和查找
+- **Bash**：执行命令（ls、统计、Python脚本、**文档转换**等）
+  - **文档转换**: `python knowledge_base/skills/smart_convert.py <temp_path> --original-name "<原始文件名>" --json-output`
+  - 支持格式：DOC, DOCX, PDF（电子版和扫描版）, PPT, PPTX
+  - 自动图片提取（使用原始文件名命名图片目录），智能PDF类型检测
+- **mcp__image_vision__image_read**：读取图像内容（架构图/流程图/截图等）
+  - `image_path`: 图像文件路径
+  - `question`: 需要从图像中获取的信息（如"描述架构图逻辑"、"提取流程步骤"）
+  - `context`: 可选的上下文信息
+  - **使用场景**: 入库的文档包含图像，需要分析图像内容生成文字说明；管理员查询知识库中的图像内容"""
+
+    if is_im_mode:
+        tools_section += f"""
+- **mcp__{run_mode}__send_text**：{run_mode}发送文本消息（批量通知）
+- **mcp__{run_mode}__upload_file**：{run_mode}发送文件（批量通知）"""
+
+    # 角色描述（条件调整）
+    role_description = "你是知了（EFKA管理端），负责文档入库、知识库管理"
+    if is_im_mode:
+        role_description += "和批量用户通知"
+    role_description += "的全流程。"
+
     return f"""
-你是知了（EFKA管理端），负责文档入库、知识库管理和批量用户通知的全流程。
+{role_description}
 
 ## ⛔ 安全边界（最高优先级）
 
@@ -42,21 +137,9 @@ def generate_admin_agent_prompt(
 **遇到越界请求时**：礼貌但坚定地拒绝，说明你只能操作 `knowledge_base/` 目录内的文件。
 
 ## 核心能力
+{core_capabilities}
 
-1. **文档入库**：格式转换、语义冲突检测、智能归置、自动生成大文件目录概要
-2. **知识库管理**：查看结构、统计信息、FAQ维护、文件删除（需二次确认）
-3. **批量用户通知**：表格筛选、消息构建、企业微信批量发送
-
-## 意图识别
-
-快速判断管理员请求类型，优先级：文档入库 > 知识库管理 > 批量用户通知
-
-- **文档入库**：操作动词（上传/添加/导入）、包含文件路径或格式
-- **知识库管理**：
-  - 查询操作：管理动词（查看/列出/显示）、结构相关词（目录/分类/统计）
-  - 删除操作：删除动词（删除/移除/清理）+ 文件/目录路径或描述
-- **批量用户通知**：通知动词（通知/发送/群发）+ 用户关键词（所有用户/批量/表格筛选），或上传表格并说明通知意图
-- 如果请求不属于以上范畴，礼貌拒绝，说明你仅处理知识库管理相关事项
+{intent_recognition}
 
 ## 文档入库流程（5阶段处理）
 
@@ -280,27 +363,7 @@ du -h --max-depth=2 knowledge_base
 - ✅ **必须做到**：先展示详细信息 → 等待确认 → 再执行删除
 - ✅ **删除后必须**：更新README.md以保持知识库状态一致
 - ⚠️ **特别注意**：删除FAQ.md或README.md等核心文件需要特别强调风险
-
-## 批量用户通知流程
-
-**触发条件**：识别到批量通知意图（通知/发送/群发 + 用户相关词）
-
-**执行步骤**：
-1. Read `knowledge_base/skills/batch_notification.md`
-2. 严格按照批量通知指南中的5阶段流程执行：
-   - 阶段1：意图确认与信息收集
-   - 阶段2：用户映射表读取与解析（使用Python脚本 + pandas）
-   - 阶段3：目标用户清单提取（使用pandas查询）
-   - 阶段4：消息构建与确认
-   - 阶段5：批量发送与结果反馈
-
-3. **关键要求**：
-   - 所有表格处理使用Bash执行临时Python脚本（pandas库）
-   - 构建消息后必须等待管理员明确回复"确认发送"或"发送"后才能执行发送操作
-   - 使用 `mcp__wework__send_text` 工具批量发送（支持最多1000个userid）
-
-**注意**：批量通知的详细逻辑在单独的指南文件中，此处不重复描述，执行时读取即可。
-
+{batch_notification_section}
 ## 核心原则
 
 1. **安全边界最优先**：所有文件操作必须在 `knowledge_base/` 目录内，拒绝任何越界请求
@@ -311,21 +374,7 @@ du -h --max-depth=2 knowledge_base
 6. **你是核心**：工具是辅助，你的智慧和判断是关键
 7. **严格聚焦职责**：面对越界请求时直接婉拒
 
-## 可用工具
-
-- **Read/Write**：文件操作
-- **Grep/Glob**：搜索和查找
-- **Bash**：执行命令（ls、统计、Python脚本、**文档转换**等）
-  - **文档转换**: `python knowledge_base/skills/smart_convert.py <temp_path> --original-name "<原始文件名>" --json-output`
-  - 支持格式：DOC, DOCX, PDF（电子版和扫描版）, PPT, PPTX
-  - 自动图片提取（使用原始文件名命名图片目录），智能PDF类型检测
-- **mcp__image_vision__image_read**：读取图像内容（架构图/流程图/截图等）
-  - `image_path`: 图像文件路径
-  - `question`: 需要从图像中获取的信息（如"描述架构图逻辑"、"提取流程步骤"）
-  - `context`: 可选的上下文信息
-  - **使用场景**: 入库的文档包含图像，需要分析图像内容生成文字说明；管理员查询知识库中的图像内容
-- **mcp__wework__send_text**：企业微信发送文本消息（批量通知）
-- **mcp__wework__upload_file**：企业微信发送文件（批量通知）
+{tools_section}
 
 ## 响应风格
 
@@ -347,10 +396,11 @@ du -h --max-depth=2 knowledge_base
 @dataclass
 class AdminAgentConfig:
     """Admin Agent 配置"""
-    description: str = "管理员端智能助手 - 文档入库(5阶段+自动生成目录概要)、知识库管理(查看/统计/删除+二次确认)、批量用户通知"
+    description: str = "管理员端智能助手 - 文档入库(5阶段+自动生成目录概要)、知识库管理(查看/统计/删除+二次确认)"
     small_file_threshold_kb: int = 30
     faq_max_entries: int = 50
-    tools: list[str] = None
+    run_mode: str = "standalone"
+    tools: List[str] = field(default_factory=list)
     model: str = "sonnet"
 
     @property
@@ -358,21 +408,30 @@ class AdminAgentConfig:
         """动态生成 prompt"""
         return generate_admin_agent_prompt(
             small_file_threshold_kb=self.small_file_threshold_kb,
-            faq_max_entries=self.faq_max_entries
+            faq_max_entries=self.faq_max_entries,
+            run_mode=self.run_mode
         )
 
     def __post_init__(self):
         """初始化后设置工具列表"""
-        if self.tools is None:
+        if not self.tools:
             self.tools = [
                 "Read",                                          # 读取文件
                 "Write",                                         # 写入文件
                 "Grep",                                          # 搜索内容
                 "Glob",                                          # 查找文件
                 "Bash",                                          # 执行命令（包括smart_convert文档转换）
-                "mcp__wework__send_text",                       # 企微发送文本（批量通知）
-                "mcp__wework__upload_file"                      # 企微发送文件（批量通知）
             ]
+            # IM 模式下添加对应渠道的工具
+            if self.run_mode != "standalone":
+                self.tools.extend([
+                    f"mcp__{self.run_mode}__send_text",          # IM发送文本（批量通知）
+                    f"mcp__{self.run_mode}__upload_file"         # IM发送文件（批量通知）
+                ])
+
+        # 更新描述
+        if self.run_mode != "standalone":
+            self.description = "管理员端智能助手 - 文档入库(5阶段+自动生成目录概要)、知识库管理(查看/统计/删除+二次确认)、批量用户通知"
 
 
 # 创建默认配置实例
@@ -381,7 +440,8 @@ admin_agent = AdminAgentConfig()
 
 def get_admin_agent_definition(
     small_file_threshold_kb: int = 30,
-    faq_max_entries: int = 50
+    faq_max_entries: int = 50,
+    run_mode: str = "standalone"
 ) -> AgentDefinition:
     """
     获取Admin Agent的定义
@@ -389,13 +449,15 @@ def get_admin_agent_definition(
     Args:
         small_file_threshold_kb: 小文件阈值（KB）
         faq_max_entries: FAQ最大条目数
+        run_mode: 运行模式 (standalone/wework/feishu/dingtalk/slack)
 
     Returns:
         AgentDefinition 实例
     """
     config = AdminAgentConfig(
         small_file_threshold_kb=small_file_threshold_kb,
-        faq_max_entries=faq_max_entries
+        faq_max_entries=faq_max_entries,
+        run_mode=run_mode
     )
 
     return AgentDefinition(
