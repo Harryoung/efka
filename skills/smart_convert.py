@@ -272,9 +272,9 @@ def process_paddle_ocr(input_file, output_file, token, images_base_name=None):
     for i, res in enumerate(result.get("layoutParsingResults", [])):
         md_content = res["markdown"]["text"]
 
-        # 修改markdown中的图片路径引用，从 "images/xxx.jpg" 改为 "{filename}_images/xxx.jpg"
-        # PaddleOCR返回的markdown里图片路径通常是 "images/xxx.jpg"
-        md_content = md_content.replace("images/", f"{images_folder_name}/")
+        # 修改markdown中的图片路径引用，从 "imgs/xxx.jpg" 改为 "{filename}_images/xxx.jpg"
+        # PaddleOCR返回的markdown里图片路径通常是 "imgs/xxx.jpg"
+        md_content = md_content.replace("imgs/", f"{images_folder_name}/")
 
         full_markdown.append(md_content)
 
