@@ -114,17 +114,26 @@ class SDKClientPool:
 
             yield client
 
+        except asyncio.CancelledError:
+            # 显式捕获取消，确保清理后重新抛出
+            logger.warning(f"Client operation cancelled (session={session_id or 'new'})")
+            raise
         finally:
             # 在同一个 task 中断开连接
             if client:
                 try:
-                    await client.disconnect()
+                    # 使用 shield 保护 disconnect 不被取消
+                    await asyncio.shield(client.disconnect())
                     logger.debug(f"Client disconnected (session={session_id or 'new'})")
+                except asyncio.CancelledError:
+                    # shield 中的取消会变成 CancelledError，忽略它
+                    logger.warning(f"Client disconnect interrupted but resources released (session={session_id or 'new'})")
                 except Exception as e:
                     logger.warning(f"Error disconnecting client: {e}")
 
-            # 释放信号量
+            # 释放信号量（必须执行）
             self._semaphore.release()
+            logger.debug(f"Semaphore released (session={session_id or 'new'})")
 
             async with self._lock:
                 self._active_count -= 1
