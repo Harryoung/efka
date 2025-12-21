@@ -99,7 +99,7 @@
 
 2. **Token 消耗较多**：基于 Agent 的方法会消耗更多 token，因为它会读取整个文档或章节。这需要更强大的模型，并导致比简单的相似度搜索更高的 API 成本。
 
-3. **并发架构不够优雅**：由于 Claude Agent SDK 本质上是对 CLI 的包装，每个会话都必须有单独的 CLI 进程。虽然知了实现了 Client Pool 来管理并发，但这种做法不如传统的基于 API 的系统优雅。
+3. **并发架构不够优雅**：由于 Claude Agent SDK 本质上是对 CLI 的包装，每个会话都必须有单独的 CLI 进程。虽然知了实现了 Client Pool 来管理并发，但这种做法不如传统的基于 API 的系统优雅。相关Issue: [#333](https://github.com/anthropics/claude-agent-sdk-python/issues/333)。
 
 #### 适用场景
 

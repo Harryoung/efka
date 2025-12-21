@@ -99,7 +99,7 @@ While EFKA provides more reliable and accurate answers compared to traditional R
 
 2. **Token Consumption**: The agent-based approach consumes more tokens as it reads entire documents or sections. This requires more powerful models and results in higher API costs compared to simple similarity search.
 
-3. **Concurrency Architecture**: Because the Claude Agent SDK wraps CLI processes, each conversation requires a separate CLI process. While EFKA implements a client pool for concurrency management, this approach is less elegant than traditional API-based systems.
+3. **Concurrency Architecture**: Because the Claude Agent SDK wraps CLI processes, each conversation requires a separate CLI process. While EFKA implements a client pool for concurrency management, this approach is less elegant than traditional API-based systems. Related issue: [#333](https://github.com/anthropics/claude-agent-sdk-python/issues/333).
 
 #### Suitable Use Cases
 
