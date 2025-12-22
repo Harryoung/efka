@@ -168,54 +168,19 @@ mcp__{run_mode}__send_markdown_message(
 - **满意度询问内嵌在答案中**
 """
 
-    # 阶段6根据模式调整
+    # 阶段6根据模式调整 - 改为 Skill 引用
+    expert_routing_skill = ""
     if is_im_mode:
         phase6_section = f"""
 #### 阶段6：专家路由（无结果场景）
 
-如果经过前5阶段仍未找到答案，启动专家路由：
-
-**Step 1: 领域识别**
-基于问题语义识别所属领域（示例）：
-- "薪资调整" → 薪酬福利
-- "请假流程" → 考勤管理
-- "新员工入职" → 招聘培训
-- "劳动合同" → 员工关系
-
-**Step 2: 查询领域负责人**
-使用Bash工具执行pandas查询：
-```bash
-python3 -c "
-import pandas as pd
-df = pd.read_excel('knowledge_base/企业管理/人力资源/domain_experts.xlsx')
-result = df[df['工作领域'] == '{{{{domain}}}}']
-if result.empty:
-    # 使用默认负责人（兜底）
-    result = df[df['工作领域'] == '默认负责人']
-print(result[['姓名', 'userid', '工作领域']].to_json(orient='records'))
-"
-```
-
-**Step 3: 通知专家**
-使用 `mcp__{run_mode}__send_markdown_message` 工具：
-```python
-{{{{
-  "touser": "{{{{expert_userid}}}}",
-  "content": "## 【用户咨询】\\n\\n用户 **{{{{user_name}}}}**({{{{user_id}}}}) 提问：\\n\\n> {{{{question}}}}\\n\\n<font color=\\"warning\\">该问题在知识库中暂无答案</font>，请您回复。我会将您的回复转发给该用户。\\n\\n💡 建议您及时补充相关文档到知识库。"
-}}}}
-```
-
-**Step 4: 通知用户等待**
-发送等待消息（使用Markdown格式）：
-```python
-{{{{
-  "touser": "{{{{user_id}}}}",
-  "content": "**{{{{user_name}}}}**您好！\\n\\n已为您联系<font color=\\"info\\">{{{{domain}}}}</font>负责人 **{{{{expert_name}}}}**，请稍等，会尽快回复您。"
-}}}}
-```
-
-**Step 5: 输出元数据**
-输出包含专家路由信息的元数据（见后文"元数据输出规范"）
+如果经过前5阶段仍未找到答案，使用 `expert-routing` Skill 启动专家路由：
+- Skill 包含领域识别、查询专家、通知模板等完整流程
+- 工具名称中的 `{{channel}}` 替换为 `{run_mode}`
+"""
+        expert_routing_skill = """
+- **专家路由**：使用 `expert-routing` Skill
+  触发条件：6阶段检索无结果（仅 IM 模式）
 """
     else:
         phase6_section = """
@@ -252,148 +217,32 @@ with kb.file_lock('BADCASE.md', timeout=5):
 ```
 """
 
-    # 满意度反馈处理
+    # 满意度反馈处理 - 根据模式区分
     if is_im_mode:
-        satisfaction_section = f"""
+        satisfaction_section = """
 ### 2. 满意度反馈处理
 
-用户回复"满意"/"不满意"等反馈词时，根据**上一轮答案来源**分类处理：
+用户回复"满意"/"不满意"等反馈词时，使用 `satisfaction-feedback` Skill：
+- 通过元数据 `answer_source` 判断上一轮答案来源（FAQ/知识库）
+- Skill 包含 FAQ 增删改、BADCASE 记录的完整流程
+- 使用 SharedKBAccess 文件锁确保并发安全
 
-#### 2.1 答案来自FAQ的满意度反馈
-
-**如何判断**：上一轮元数据的`answer_source`为"FAQ"
-
-**满意反馈**（触发词："满意"/"解决了"/"谢谢"等）
-
-使用Bash工具更新FAQ使用计数：
-```bash
-python3 -c "
-from backend.services.shared_kb_access import SharedKBAccess
-kb = SharedKBAccess('knowledge_base')
-with kb.file_lock('FAQ.md', timeout=5):
-    # Read FAQ.md
-    # Find matching entry (based on session history)
-    # Increment usage count by 1
-    # Write updated FAQ.md
-    pass
-"
-```
-
-回复："很高兴能帮到您！已更新FAQ使用统计。"
-输出元数据（session_status: "resolved"）
-
-**不满意反馈**（触发词："不满意"/"没解决"/"不对"等）
-
-检查用户消息中是否包含具体改进意见：
-
-**情况A：用户提供了改进意见**
-使用Bash工具更新FAQ内容：
-```bash
-python3 -c "
-from backend.services.shared_kb_access import SharedKBAccess
-kb = SharedKBAccess('knowledge_base')
-with kb.file_lock('FAQ.md', timeout=5):
-    # Read FAQ.md
-    # Find matching entry
-    # Update answer with improved version
-    # Write updated FAQ.md
-    pass
-"
-```
-回复："感谢您的反馈！已根据您的建议更新FAQ内容。"
-
-**情况B：用户未说明理由**
-1. 从FAQ移除该条目
-2. 记录到BADCASE.md（使用文件锁）
-3. 回复："感谢反馈！该FAQ条目已移除并记录为待改进项，管理员将尽快补充准确资料。"
-
-输出元数据（session_status: "active" - 可能还有追问）
-
-#### 2.2 答案来自知识库文件的满意度反馈
-
-**如何判断**：上一轮元数据的`answer_source`为"knowledge_base"
-
-**满意反馈**
-
-将问答添加到FAQ：
-```bash
-python3 -c "
-from backend.services.shared_kb_access import SharedKBAccess
-kb = SharedKBAccess('knowledge_base')
-with kb.file_lock('FAQ.md', timeout=5):
-    # Read FAQ.md
-    # Append new entry: | {{{{question}}}} | {{{{answer}}}} | 1 |
-    # Check total entries, remove least used if > {faq_max_entries}
-    # Write updated FAQ.md
-    pass
-"
-```
-
-回复："很高兴能帮到您！已将此问答添加到FAQ，方便其他同事查询。"
-输出元数据（session_status: "resolved"）
-
-**不满意反馈**
-
-1. 记录到BADCASE.md（使用文件锁）
-2. 回复："很抱歉未能提供满意答案，该case已被记录，管理员后续将补充相关资料。是否需要为您联系领域专家？"
-3. 输出元数据（session_status: "active"）
+**触发词**：满意/不满意/解决了/没解决/谢谢/不对
 """
     else:
-        satisfaction_section = f"""
+        satisfaction_section = """
 ### 2. 满意度反馈处理
 
-用户回复"满意"/"不满意"等反馈词时，根据**上一轮答案来源**分类处理：
+用户回复"满意"/"不满意"等反馈词时，使用 `satisfaction-feedback` Skill：
+- **判断答案来源**：根据对话历史推断
+  - 检查上一轮回复是否包含 "参考来源: FAQ.md" → 来自 FAQ
+  - 检查上一轮回复是否包含其他 "参考来源: xxx.md" → 来自知识库文件
+  - 无法确定时，默认按知识库文件处理
+- Skill 包含 FAQ 增删改、BADCASE 记录的完整流程
+- 使用 SharedKBAccess 文件锁确保并发安全
+- ⚠️ **不要输出元数据**
 
-#### 2.1 答案来自FAQ的满意度反馈
-
-**满意反馈**（触发词："满意"/"解决了"/"谢谢"等）
-
-使用Bash工具更新FAQ使用计数：
-```bash
-python3 -c "
-from backend.services.shared_kb_access import SharedKBAccess
-kb = SharedKBAccess('knowledge_base')
-with kb.file_lock('FAQ.md', timeout=5):
-    # Read FAQ.md
-    # Find matching entry
-    # Increment usage count by 1
-    # Write updated FAQ.md
-    pass
-"
-```
-
-回复："很高兴能帮到您！已更新FAQ使用统计。"
-
-**不满意反馈**（触发词："不满意"/"没解决"/"不对"等）
-
-1. 从FAQ移除该条目
-2. 记录到BADCASE.md（使用文件锁）
-3. 回复："感谢反馈！该FAQ条目已移除并记录为待改进项，管理员将尽快补充准确资料。"
-
-#### 2.2 答案来自知识库文件的满意度反馈
-
-**满意反馈**
-
-将问答添加到FAQ：
-```bash
-python3 -c "
-from backend.services.shared_kb_access import SharedKBAccess
-kb = SharedKBAccess('knowledge_base')
-with kb.file_lock('FAQ.md', timeout=5):
-    # Read FAQ.md
-    # Append new entry
-    # Check total entries, remove least used if > {faq_max_entries}
-    # Write updated FAQ.md
-    pass
-"
-```
-
-回复："很高兴能帮到您！已将此问答添加到FAQ，方便其他用户查询。"
-
-**不满意反馈**
-
-1. 记录到BADCASE.md（使用文件锁）
-2. 回复："很抱歉未能提供满意答案，该case已被记录，管理员后续将补充相关资料。"
+**触发词**：满意/不满意/解决了/没解决/谢谢/不对
 """
 
     # 元数据输出规范（仅IM模式需要）
@@ -634,6 +483,17 @@ Read `knowledge_base/README.md` 理解知识库结构。
 {phase6_section}
 {satisfaction_section}
 {metadata_section}
+
+## 可用 Skills
+
+当识别到以下场景时，调用对应 Skill：
+
+- **满意度反馈**：使用 `satisfaction-feedback` Skill
+  触发词：满意/不满意/解决了/没解决/谢谢/不对
+
+- **Excel文件分析**：使用 `excel-parser` Skill
+  触发条件：查询未知结构的 Excel 文件
+{expert_routing_skill}
 {tools_section}
 
 ## 响应风格

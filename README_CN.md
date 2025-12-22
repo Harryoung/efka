@@ -340,6 +340,8 @@ WEWORK_AGENT_ID=your_agent_id
 
 ```
 efka/
+├── .claude/
+│   └── skills/          # Agent 技能（SDK 原生机制）
 ├── backend/
 │   ├── agents/          # Agent 定义（管理员 + 用户）
 │   ├── api/             # FastAPI 路由
@@ -349,8 +351,7 @@ efka/
 │   └── utils/           # 工具函数
 ├── frontend/            # React Web 界面
 ├── knowledge_base/      # 文档存储
-│   └── skills/          # Agent 技能（启动时自动复制）
-├── skills/              # 技能源文件（smart_convert.py、prompts）
+│   └── .claude/skills/  # Agent 技能（启动时自动复制）
 ├── scripts/             # 部署脚本
 ├── docs/                # 文档
 └── wework-mcp/          # 企业微信 MCP 服务（子模块）
@@ -358,19 +359,14 @@ efka/
 
 ### Skills 目录
 
-`skills/` 目录包含 Agent 需要访问的工具和提示词：
-- `smart_convert.py` - 文档格式转换器（DOC/PDF/PPT → Markdown）
-- `batch_notification.md` - 批量通知工作流指南
+`.claude/skills/` 目录包含使用 Claude Agent SDK 原生机制的 Agent 技能：
+- `batch-notification/` - 批量用户通知工作流
+- `document-conversion/` - 文档格式转换器（DOC/PDF/PPT → Markdown）
+- `expert-routing/` - 领域专家路由
+- `satisfaction-feedback/` - 用户满意度反馈处理
+- `large-file-toc/` - 大文件目录概要生成
 
-**重要**：这些文件必须在使用前复制到 `knowledge_base/skills/`：
-- **自动**：`scripts/deploy.sh` 脚本会在部署时自动复制
-- **手动**：
-  ```bash
-  mkdir -p knowledge_base
-  cp -r skills/ knowledge_base/skills/
-  ```
-
-此设计确保 Agent 只能访问知识库目录边界内的文件。
+**重要**：这些文件会在启动时自动复制到 `knowledge_base/.claude/skills/`，以确保 Agent 只能访问知识库目录边界内的文件。
 
 ## 文档
 

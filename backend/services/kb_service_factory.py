@@ -132,10 +132,10 @@ class KBUserService:
             agents=None,  # 单一Agent架构
             mcp_servers=self._mcp_servers,
             allowed_tools=self._get_allowed_tools(),
-            cwd=str(kb_path.parent),  # 项目根目录
+            cwd=str(kb_path),  # 知识库目录作为 Agent 工作目录
             permission_mode="acceptEdits",
             env=self._env_vars,
-            setting_sources=None,
+            setting_sources=["project"],  # 启用项目级 Skills，从 .claude/skills/ 加载
             # 禁用 extended thinking（第三方 API 代理不兼容 thinking mode）
             max_thinking_tokens=0
         )
@@ -426,10 +426,10 @@ class KBAdminService:
             agents=None,  # 单一Agent架构
             mcp_servers=self._mcp_servers,
             allowed_tools=self._get_allowed_tools(),
-            cwd=str(kb_path.parent),  # 项目根目录
+            cwd=str(kb_path),  # 知识库目录作为 Agent 工作目录
             permission_mode="acceptEdits",
             env=self._env_vars,
-            setting_sources=None,
+            setting_sources=["project"],  # 启用项目级 Skills，从 .claude/skills/ 加载
             # 禁用 extended thinking（第三方 API 代理不兼容 thinking mode）
             max_thinking_tokens=0
         )
