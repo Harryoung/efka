@@ -363,9 +363,10 @@ efka/
 The `skills/` directory contains Agent skills using Claude Agent SDK's native mechanism:
 - `batch-notification/` - Batch user notification workflow
 - `document-conversion/` - Document format converter (DOC/PDF/PPT → Markdown)
+- `excel-parser/` - Smart Excel/CSV parsing with automatic complexity-based strategy selection
 - `expert-routing/` - Domain expert routing
-- `satisfaction-feedback/` - User satisfaction feedback handling
 - `large-file-toc/` - Large file table of contents generation
+- `satisfaction-feedback/` - User satisfaction feedback handling
 
 **Important**: These files are automatically copied from `skills/` to `knowledge_base/.claude/skills/` on startup to ensure agents only access files within the knowledge base directory boundary.
 

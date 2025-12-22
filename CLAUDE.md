@@ -9,15 +9,26 @@
 - **Agent Driven**: Let Claude intelligently search and combine information
 - **Business Logic in Prompts**: Not in code
 
+### Run Mode Configuration (v3.0)
+Single-channel mutual exclusivity model:
+- **standalone** (default): Pure Web, no IM integration
+- **wework/feishu/dingtalk/slack**: Enable specific IM channel
+
+```bash
+./scripts/start.sh              # standalone mode (default)
+./scripts/start.sh --mode wework  # WeChat Work mode
+RUN_MODE=wework ./scripts/start.sh  # via env var
+```
+
 ### Dual Agent Architecture (v3.0)
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Frontend: Admin UI (3000) + User UI (3001)         │
-│  + IM Platforms (WeWork/Feishu/DingTalk)               │
+│  Frontend: Admin UI (3000) + User UI (3001)             │
+│  + IM Platforms (WeWork/Feishu/DingTalk)                │
 ├─────────────────────────────────────────────────────────┤
 │  Backend (FastAPI 8000)                                 │
 │  ├─ Admin Agent: Doc management, batch notifications   │
-│  └─ User Agent: Q&A, expert routing                │
+│  └─ User Agent: Q&A, expert routing                    │
 ├─────────────────────────────────────────────────────────┤
 │  Channel Layer: BaseChannelAdapter + ChannelRouter     │
 │  WeWork (8081) / Feishu (8082) / DingTalk (8083)       │
@@ -104,7 +115,15 @@ tools/
 └── image_read.py         # Image recognition tool (SDK MCP Tool)
 
 utils/
-└── smart_convert.py      # Document conversion tool
+└── logging_config.py     # Logging configuration
+
+skills/                   # Agent skills (project root, copied to KB on startup)
+├── batch-notification/   # Batch user notification workflow
+├── document-conversion/  # DOC/PDF/PPT → Markdown converter
+├── excel-parser/         # Smart Excel/CSV parsing with complexity analysis
+├── expert-routing/       # Domain expert routing
+├── large-file-toc/       # Large file TOC generation
+└── satisfaction-feedback/ # User satisfaction feedback
 ```
 
 ### Frontend (`frontend/src/`)
@@ -122,11 +141,19 @@ components/
 4. **File locks**: `SharedKBAccess` prevents concurrent write conflicts (FAQ.md, BADCASE.md)
 5. **permission_mode="acceptEdits"**: Agent can auto-execute file edits
 
+## Skills (SDK Native Mechanism)
+
+Agent skills use Claude Agent SDK's native skill loading via `setting_sources=["project"]`.
+
+**Location**: `knowledge_base/.claude/skills/` (auto-copied from `skills/` on startup)
+
+Skills are referenced by name in agent prompts and automatically loaded by the SDK.
+
 ## Document Conversion
 
-Use `smart_convert.py` instead of external MCP:
+Use the `document-conversion` skill or invoke directly:
 ```bash
-python backend/utils/smart_convert.py <input_file> --json-output
+python skills/document-conversion/scripts/smart_convert.py <input_file> --json-output
 ```
 
 Supports: DOCX, PDF (electronic/scanned), PPTX, TXT
@@ -165,4 +192,4 @@ Implement `BaseChannelAdapter`:
 3. Add to `channel_config.py`
 
 ---
-**Version**: v3.0 | **Updated**: 2025-12-11 | **Docs**: `docs/CHANNELS.md`, `docs/DEPLOYMENT.md`
+**Version**: v3.0 | **Updated**: 2025-12-23 | **Docs**: `docs/CHANNELS.md`, `docs/DEPLOYMENT.md`

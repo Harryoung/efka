@@ -361,9 +361,10 @@ efka/
 `skills/` 目录包含使用 Claude Agent SDK 原生机制的 Agent 技能：
 - `batch-notification/` - 批量用户通知工作流
 - `document-conversion/` - 文档格式转换器（DOC/PDF/PPT → Markdown）
+- `excel-parser/` - 智能 Excel/CSV 解析，根据复杂度自动选择处理策略
 - `expert-routing/` - 领域专家路由
-- `satisfaction-feedback/` - 用户满意度反馈处理
 - `large-file-toc/` - 大文件目录概要生成
+- `satisfaction-feedback/` - 用户满意度反馈处理
 
 **重要**：这些文件会在启动时自动从 `skills/` 复制到 `knowledge_base/.claude/skills/`，以确保 Agent 只能访问知识库目录边界内的文件。
 
