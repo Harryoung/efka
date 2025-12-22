@@ -342,8 +342,7 @@ See [Channel Development Guide](docs/CHANNELS.md) for adding new platforms.
 
 ```
 efka/
-├── .claude/
-│   └── skills/          # Agent skills (SDK native mechanism)
+├── skills/              # Agent skills (SDK native mechanism)
 ├── backend/
 │   ├── agents/          # Agent definitions (Admin + User)
 │   ├── api/             # FastAPI routes
@@ -361,14 +360,14 @@ efka/
 
 ### Skills Directory
 
-The `.claude/skills/` directory contains Agent skills using Claude Agent SDK's native mechanism:
+The `skills/` directory contains Agent skills using Claude Agent SDK's native mechanism:
 - `batch-notification/` - Batch user notification workflow
 - `document-conversion/` - Document format converter (DOC/PDF/PPT → Markdown)
 - `expert-routing/` - Domain expert routing
 - `satisfaction-feedback/` - User satisfaction feedback handling
 - `large-file-toc/` - Large file table of contents generation
 
-**Important**: These files are automatically copied to `knowledge_base/.claude/skills/` on startup to ensure agents only access files within the knowledge base directory boundary.
+**Important**: These files are automatically copied from `skills/` to `knowledge_base/.claude/skills/` on startup to ensure agents only access files within the knowledge base directory boundary.
 
 ## Documentation
 

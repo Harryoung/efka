@@ -340,8 +340,7 @@ WEWORK_AGENT_ID=your_agent_id
 
 ```
 efka/
-├── .claude/
-│   └── skills/          # Agent 技能（SDK 原生机制）
+├── skills/              # Agent 技能（SDK 原生机制）
 ├── backend/
 │   ├── agents/          # Agent 定义（管理员 + 用户）
 │   ├── api/             # FastAPI 路由
@@ -359,14 +358,14 @@ efka/
 
 ### Skills 目录
 
-`.claude/skills/` 目录包含使用 Claude Agent SDK 原生机制的 Agent 技能：
+`skills/` 目录包含使用 Claude Agent SDK 原生机制的 Agent 技能：
 - `batch-notification/` - 批量用户通知工作流
 - `document-conversion/` - 文档格式转换器（DOC/PDF/PPT → Markdown）
 - `expert-routing/` - 领域专家路由
 - `satisfaction-feedback/` - 用户满意度反馈处理
 - `large-file-toc/` - 大文件目录概要生成
 
-**重要**：这些文件会在启动时自动复制到 `knowledge_base/.claude/skills/`，以确保 Agent 只能访问知识库目录边界内的文件。
+**重要**：这些文件会在启动时自动从 `skills/` 复制到 `knowledge_base/.claude/skills/`，以确保 Agent 只能访问知识库目录边界内的文件。
 
 ## 文档
 

@@ -219,9 +219,9 @@ mkdir -p logs
 # 创建 knowledge_base 目录并复制 skills 文件（Agent 安全边界要求）
 echo "📁 创建知识库目录结构..."
 mkdir -p "$PROJECT_ROOT/knowledge_base/.claude"
-if [ -d "$PROJECT_ROOT/.claude/skills" ]; then
-    echo "📋 复制 .claude/skills 到知识库..."
-    cp -r "$PROJECT_ROOT/.claude/skills" "$PROJECT_ROOT/knowledge_base/.claude/" 2>/dev/null || true
+if [ -d "$PROJECT_ROOT/skills" ]; then
+    echo "📋 复制 skills 到知识库..."
+    cp -r "$PROJECT_ROOT/skills" "$PROJECT_ROOT/knowledge_base/.claude/" 2>/dev/null || true
     echo -e "${GREEN}✅ skills 目录已复制到 knowledge_base/.claude/skills/${NC}"
 fi
 
