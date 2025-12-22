@@ -127,7 +127,7 @@ class APIService {
   }
 
   /**
-   * 清空用户上下文（仅 Admin 模式可用）
+   * 清空用户上下文（Admin 和 User 模式均可用）
    * @returns {Promise<{success: boolean, new_session_id: string}>}
    */
   async clearContext() {

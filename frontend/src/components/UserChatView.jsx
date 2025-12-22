@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { DeleteOutlined } from '@ant-design/icons';
 import apiService from '../shared/api';
 import Message from './Message';
 import CicadaLogo from './CicadaLogo';
@@ -183,6 +184,30 @@ const UserChatView = () => {
     }
   };
 
+  // 清空对话
+  const handleClearChat = async () => {
+    if (!window.confirm('确定要清空对话记录和上下文吗？')) {
+      return;
+    }
+
+    try {
+      // 调用清空上下文API（基于 user_id）
+      const result = await apiService.clearContext();
+
+      // 更新 session_id
+      if (result.new_session_id) {
+        setSessionId(result.new_session_id);
+      }
+
+      // 清空消息
+      setMessages([]);
+      addSystemMessage('对话和上下文已清空，新会话已创建');
+    } catch (error) {
+      console.error('Failed to clear context:', error);
+      setError('清空对话失败: ' + error.message);
+    }
+  };
+
   return (
     <div className="chat-view">
       {/* 头部 */}
@@ -192,6 +217,15 @@ const UserChatView = () => {
           <p className="header-subtitle">
             {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
           </p>
+        </div>
+        <div className="header-actions">
+          <button
+            className="btn-secondary"
+            onClick={handleClearChat}
+            title="清空对话"
+          >
+            <DeleteOutlined /> 清空会话
+          </button>
         </div>
       </div>
 
