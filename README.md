@@ -79,16 +79,6 @@ EFKA mimics how humans actually search for information:
 
 7. **Context Preservation**: Maintains document structure and logical flow by reading complete sections rather than fragmented chunks.
 
-### Performance and Speed Considerations
-
-While traditional RAG systems can be faster for simple lookups, EFKA achieves near-real-time performance (typically under 10 seconds) through:
-
-- **FAQ System**: Caches frequent questions and answers, bypassing full searches for common queries
-- **Directory Summaries**: Maintains summaries of document structures for quick navigation
-
-
-This optimized approach makes EFKA suitable for interactive applications while maintaining the accuracy and completeness advantages of human-like search.
-
 ### Limitations and Use Cases
 
 #### Limitations
@@ -159,11 +149,11 @@ flowchart TD
         D2 -->|User Cancels| D4[Abort]
     end
 
-    subgraph BatchNotify["📢 Batch Notification"]
+    subgraph BatchNotify["📢 Batch Notification (Requires IM Integration)"]
         B -->|Notify/Send| E1[Read User Mapping]
         E1 --> E2[Filter Target Users]
         E2 --> E3[Build Message & Preview]
-        E3 -->|User Confirms| E4[Batch Send via WeWork]
+        E3 -->|User Confirms| E4[Batch Send via IM]
     end
 
     style Intent fill:#e1f5fe
@@ -191,10 +181,10 @@ flowchart TD
         G -->|No| I[6. Expert Routing]
     end
 
-    subgraph Expert["👨‍💼 Expert Routing"]
+    subgraph Expert["👨‍💼 Expert Routing (Requires IM Integration)"]
         I --> I1[Identify Domain]
         I1 --> I2[Query domain_experts.xlsx]
-        I2 --> I3[Notify Expert via WeWork]
+        I2 --> I3[Notify Expert via IM]
         I3 --> I4[Inform User to Wait]
     end
 
