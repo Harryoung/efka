@@ -122,21 +122,21 @@ class ExcelComplexityAnalyzer:
         # Rule 1: Deep merged cells indicate complex structure
         if deep_merges > 2:
             is_complex = True
-            reasons.append(f"检测到数据区域有 {deep_merges} 处合并单元格")
+            reasons.append(f"Detected {deep_merges} merged cells in data region")
 
         # Rule 2: Multiple empty row interruptions suggest multi-table layout
         if max_row < 300 and empty_interruptions > 2:
             is_complex = True
-            reasons.append(f"检测到 {empty_interruptions} 处空行中断,疑为多子表布局")
+            reasons.append(f"Detected {empty_interruptions} empty row interruptions (multi-table layout)")
 
         # Rule 3: Large tables must use Pandas (HTML would exceed token limits)
         if max_row > 1000:
             is_complex = False
-            reasons = [f"行数过多 ({max_row} > 1000), 强制使用 Pandas 模式"]
+            reasons = [f"Row count ({max_row}) exceeds 1000, forcing Pandas mode"]
 
         # Rule 4: Default for standard tables
         if not is_complex and not reasons:
-            reasons.append("结构规则,未检测到复杂布局")
+            reasons.append("Standard table structure, no complex patterns detected")
 
         # Determine recommended strategy
         recommended_strategy = "html" if is_complex else "pandas"

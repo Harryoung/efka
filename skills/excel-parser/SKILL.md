@@ -5,6 +5,20 @@ description: Smart Excel/CSV file parsing with intelligent routing based on file
 
 # Excel Parser
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Core Philosophy: Scout Pattern](#core-philosophy-scout-pattern)
+- [When to Use This Skill](#when-to-use-this-skill)
+- [Processing Workflow](#processing-workflow)
+- [Complexity Scoring Rules](#complexity-scoring-rules)
+- [Path A: Pandas Standard Mode](#path-a-pandas-standard-mode)
+- [Path B: HTML Semantic Mode](#path-b-html-semantic-mode)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Dependencies](#dependencies)
+- [Resources](#resources)
+
 ## Overview
 
 Provide intelligent routing strategies for parsing Excel/CSV files by analyzing complexity and choosing the optimal processing path. The skill implements a "Scout Pattern" that scans file metadata before processing to balance speed (Pandas) with accuracy (semantic extraction).
@@ -22,7 +36,7 @@ Before processing data, deploy a lightweight "scout" to analyze file metadata an
 
 ## When to Use This Skill
 
-Use excel-parser when:
+**Use excel-parser when:**
 - Processing Excel/CSV files with unknown structure or varying complexity
 - Handling files ranging from simple data tables to complex financial reports
 - Need to optimize between processing speed and extraction accuracy
@@ -53,7 +67,7 @@ python scripts/complexity_analyzer.py <file_path> [sheet_name]
 {
   "is_complex": false,
   "recommended_strategy": "pandas",
-  "reasons": ["No deep merges detected", "行数过多 (>1000), 强制使用 Pandas 模式"],
+  "reasons": ["No deep merges detected", "Row count exceeds 1000, forcing Pandas mode"],
   "stats": {
     "total_rows": 5000,
     "deep_merges": 0,
@@ -102,242 +116,50 @@ Follow the selected path's workflow to extract data.
 
 **When**: Simple/large tables (most common case)
 
-**Strategy**: Let LLM analyze ONLY the first 20 rows to determine header position, then use Pandas to read full data at native speed.
+**Strategy**: Agent analyzes ONLY the first 20 rows to determine header position, then use Pandas to read full data at native speed.
 
 **Workflow**:
 
 1. **Sample First 20 Rows**
-   ```python
-   import pandas as pd
+   - Read only the first 20 rows using `pd.read_excel(..., nrows=20)`
+   - Convert to CSV format for analysis
 
-   df_sample = pd.read_excel(file_path, sheet_name=sheet_name, header=None, nrows=20)
-   csv_sample = df_sample.to_csv(index=False)
-   ```
+2. **Determine Header Position**
+   - Examine the sampled rows to identify which row contains the actual column headers
+   - Common patterns: Row 0 (standard), Row 1-2 (if title rows exist), Row with distinct column names
 
-2. **LLM Analyzes Header Position**
+3. **Read Full Data**
+   - Use `pd.read_excel(..., header=<detected_row>)` to load complete data
+   - The header parameter ensures proper column naming
 
-   Prompt template:
-   ```
-   You are a Pandas expert. Analyze the following first 20 rows of an Excel file (in CSV format):
-
-   {csv_sample}
-
-   Task: Identify the true header row index (0-based). If row 0 is the header, return 0.
-   If the first two rows are titles and row 2 is the header, return 2.
-
-   Return JSON format:
-   {
-       "header_row": <int>,
-       "explanation": "<reasoning>"
-   }
-   ```
-
-3. **Parse LLM Response**
-   ```python
-   import json, re
-
-   json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-   config = json.loads(json_match.group())
-   header_idx = config.get("header_row", 0)
-   ```
-
-4. **Read Full Data with Correct Parameters**
-   ```python
-   full_df = pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx)
-   print(f"Successfully loaded DataFrame: {full_df.shape}")
-   ```
-
-**Token Cost**: ~500 tokens (only 20 rows analyzed by LLM)
+**Token Cost**: ~500 tokens (only 20 rows analyzed)
 **Processing Speed**: Very fast (Pandas native speed)
+
+> For implementation details, see `references/smart_excel_router.py`
 
 ## Path B: HTML Semantic Mode
 
 **When**: Complex/irregular tables (merged cells, multi-level headers)
 
-**Strategy**: Convert to semantic HTML preserving structure (rowspan/colspan), then let LLM extract data understanding the visual layout.
+**Strategy**: Convert to semantic HTML preserving structure (rowspan/colspan), then extract data understanding the visual layout.
 
 **Workflow**:
 
 1. **Convert to Semantic HTML**
-   ```python
-   import openpyxl
-   from openpyxl.utils import get_column_letter
+   - Load workbook with `openpyxl`
+   - Build HTML table preserving merged cell spans
+   - Use `rowspan` and `colspan` attributes to maintain structure
 
-   wb = openpyxl.load_workbook(file_path, data_only=True)
-   sheet = wb[sheet_name]
-
-   html_parts = ['<table border="1">']
-
-   # Track merged cell spans
-   merge_map = {}
-   for merge in sheet.merged_cells.ranges:
-       min_col, min_row, max_col, max_row = merge.bounds
-       merge_map[(min_row, min_col)] = {
-           'rowspan': max_row - min_row + 1,
-           'colspan': max_col - min_col + 1
-       }
-
-   # Build HTML with rowspan/colspan
-   for row_idx, row in enumerate(sheet.iter_rows(), start=1):
-       html_parts.append('<tr>')
-       for col_idx, cell in enumerate(row, start=1):
-           # Skip cells that are part of a merge (not the top-left)
-           if any((row_idx, col_idx) in range(...) for merge in sheet.merged_cells.ranges):
-               if (row_idx, col_idx) not in merge_map:
-                   continue
-
-           # Get cell value
-           value = cell.value or ''
-
-           # Add rowspan/colspan if this is a merged cell origin
-           attrs = ''
-           if (row_idx, col_idx) in merge_map:
-               span = merge_map[(row_idx, col_idx)]
-               if span['rowspan'] > 1:
-                   attrs += f' rowspan="{span["rowspan"]}"'
-               if span['colspan'] > 1:
-                   attrs += f' colspan="{span["colspan"]}"'
-
-           html_parts.append(f'<td{attrs}>{value}</td>')
-       html_parts.append('</tr>')
-
-   html_parts.append('</table>')
-   html_content = '\n'.join(html_parts)
-   ```
-
-2. **LLM Extracts Structured Data**
-
-   Prompt template:
-   ```
-   Analyze the following HTML table and extract key data as JSON.
-   Pay attention to merged cells (rowspan/colspan) which indicate hierarchical headers or grouped data.
-
-   HTML (first 2000 chars):
-   {html_content[:2000]}
-
-   Task: Extract the data preserving the semantic structure. Return JSON format suitable for the data type.
-   ```
-
-3. **Parse and Return**
-   ```python
-   import json, re
-
-   json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-   extracted_data = json.loads(json_match.group())
-   ```
+2. **Extract Structured Data**
+   - Analyze HTML table structure
+   - Identify hierarchical headers from merged cells
+   - Extract data preserving semantic relationships
 
 **Token Cost**: Higher (full HTML structure analyzed)
-**Processing Speed**: Slower (LLM semantic extraction)
-**Use Case**: Only for small, complex files where Pandas would fail
+**Processing Speed**: Slower (semantic extraction)
+**Use Case**: Only for small (<1000 rows), complex files where Pandas would fail
 
-## Implementation Code Template
-
-Complete executable example combining both paths:
-
-```python
-import openpyxl
-from openpyxl.utils import range_boundaries
-import pandas as pd
-import json
-import sys
-
-class SmartExcelRouter:
-    def __init__(self, file_path):
-        self.file_path = file_path
-        self.wb = openpyxl.load_workbook(file_path, read_only=False, data_only=True)
-
-    def analyze_sheet_complexity(self, sheet_name):
-        """Scout function: Calculate complexity score without loading data."""
-        sheet = self.wb[sheet_name]
-
-        max_row = sheet.max_row
-        merged_ranges = sheet.merged_cells.ranges
-
-        # Analyze merge distribution
-        deep_merges = 0
-        for merge in merged_ranges:
-            min_col, min_row, max_col, max_row_merge = range_boundaries(str(merge))
-            if min_row > 5:  # Beyond header region
-                deep_merges += 1
-
-        # Check empty row interruptions
-        empty_interruptions = 0
-        if max_row < 200:  # Only check short tables
-            for row in sheet.iter_rows(min_row=1, max_row=max_row):
-                if all(cell.value is None for cell in row):
-                    empty_interruptions += 1
-
-        # Apply scoring rules
-        is_complex = False
-        reasons = []
-
-        if deep_merges > 2:
-            is_complex = True
-            reasons.append(f"检测到数据区域有 {deep_merges} 处合并单元格")
-
-        if max_row < 300 and empty_interruptions > 2:
-            is_complex = True
-            reasons.append("检测到多处空行,疑为多子表布局")
-
-        if max_row > 1000:
-            is_complex = False
-            reasons = ["行数过多 (>1000), 强制使用 Pandas 模式"]
-
-        if not is_complex and not reasons:
-            reasons.append("结构规则,未检测到复杂布局")
-
-        return {
-            "is_complex": is_complex,
-            "recommended_strategy": "html" if is_complex else "pandas",
-            "reasons": reasons,
-            "stats": {
-                "total_rows": max_row,
-                "deep_merges": deep_merges,
-                "empty_interruptions": empty_interruptions
-            }
-        }
-
-    def process_pandas_mode(self, sheet_name):
-        """Path A: Read first 20 rows, LLM determines header, Pandas loads full data."""
-        print(f"[Pandas Mode] Processing {sheet_name}...")
-
-        # Step 1: Sample
-        df_sample = pd.read_excel(self.file_path, sheet_name=sheet_name, header=None, nrows=20)
-        csv_sample = df_sample.to_csv(index=False)
-
-        # Step 2: LLM analyzes (you need to implement call_llm function)
-        # For now, assume header is at row 0
-        header_idx = 0  # Replace with LLM analysis
-
-        # Step 3: Full read
-        full_df = pd.read_excel(self.file_path, sheet_name=sheet_name, header=header_idx)
-        print(f"   Loaded DataFrame: {full_df.shape}")
-
-        return full_df
-
-    def process_html_mode(self, sheet_name):
-        """Path B: Convert to HTML, LLM extracts semantically."""
-        print(f"[HTML Mode] Processing {sheet_name}...")
-
-        # Implementation would include HTML conversion as shown above
-        # For brevity, returning placeholder
-        return {"message": "Use HTML conversion code from Path B section"}
-
-# Usage
-if __name__ == "__main__":
-    router = SmartExcelRouter("example.xlsx")
-
-    for sheet_name in router.wb.sheetnames:
-        analysis = router.analyze_sheet_complexity(sheet_name)
-        print(f"\nSheet: {sheet_name}")
-        print(f"Strategy: {analysis['recommended_strategy']}")
-        print(f"Reasons: {analysis['reasons']}")
-
-        if analysis['is_complex']:
-            router.process_html_mode(sheet_name)
-        else:
-            router.process_pandas_mode(sheet_name)
-```
+> For implementation details, see `references/smart_excel_router.py`
 
 ## Best Practices
 
@@ -356,15 +178,63 @@ If processing multiple sheets from same file, run analysis once and cache result
 ### 5. Preserve Original Files
 Never modify the original Excel file during analysis or processing.
 
+## Troubleshooting
+
+### File Cannot Be Opened
+- **Symptom**: `FileNotFoundError` or permission errors
+- **Causes**: Invalid path, file locked by another process, insufficient permissions
+- **Solutions**:
+  - Verify file path is correct and file exists
+  - Close the file if open in Excel or another application
+  - Check read permissions on the file
+
+### Corrupted File Errors
+- **Symptom**: `BadZipFile` or `InvalidFileException`
+- **Causes**: Incomplete download, file corruption, wrong file extension
+- **Solutions**:
+  - Re-download or obtain fresh copy of the file
+  - Verify file is actual Excel format (not CSV with .xlsx extension)
+  - Try opening in Excel to confirm file integrity
+
+### Memory Issues with Large Files
+- **Symptom**: `MemoryError` or system slowdown
+- **Causes**: File too large for available RAM
+- **Solutions**:
+  - Use `read_only=True` mode in openpyxl
+  - Process file in chunks using Pandas `chunksize` parameter
+  - Increase system memory or use machine with more RAM
+
+### Encoding Problems
+- **Symptom**: Garbled text or `UnicodeDecodeError`
+- **Causes**: Non-UTF8 encoding in source data
+- **Solutions**:
+  - Specify encoding when reading CSV: `pd.read_csv(..., encoding='gbk')`
+  - For Excel, data is usually UTF-8; check source data generation
+
+### HTML Mode Token Overflow
+- **Symptom**: Truncated output or API errors
+- **Causes**: Complex file exceeds token limits despite row count check
+- **Solutions**:
+  - Force Pandas mode even for complex files
+  - Split sheet into smaller ranges and process separately
+  - Extract only essential columns before HTML conversion
+
+### Incorrect Header Detection
+- **Symptom**: Wrong columns or data shifted
+- **Causes**: Unusual header patterns not caught by sampling
+- **Solutions**:
+  - Manually specify header row if known
+  - Increase sample size beyond 20 rows
+  - Use HTML mode for better structure understanding
+
 ## Dependencies
 
 Required Python packages:
 - `openpyxl` - Metadata scanning and Excel file manipulation
 - `pandas` - High-speed data reading and manipulation
-- Access to Bash tool for executing Python scripts
 
 ## Resources
 
 This skill includes:
 - `scripts/complexity_analyzer.py` - Standalone executable for complexity analysis
-- Implementation code templates in this document for both processing paths
+- `references/smart_excel_router.py` - Complete implementation reference with both processing paths
