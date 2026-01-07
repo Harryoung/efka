@@ -422,8 +422,15 @@ Read `knowledge_base/FAQ.md`，检查是否存在语义相似的条目。
 
 #### 阶段2：结构导航
 
-Read `knowledge_base/README.md` 理解知识库结构。
-- README.md记录每个文件的大小
+Read `knowledge_base/README.md` 理解知识库顶层结构。
+
+**分层导航**：
+- 主 README 展示顶级目录概要，大型目录会指向子目录 README
+- 如果目标可能在某大型目录，Read 对应的 `<dir>/README.md` 获取详细文件清单
+- 根据子目录 README 中的文件清单，定位具体目标文件
+
+**文件元信息**：
+- README 记录每个文件的大小
 - 大文件(>{small_file_threshold_kb}KB)会有目录概要路径
 - 基于语义判断可能包含答案的目标文件清单
 
