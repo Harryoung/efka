@@ -79,12 +79,44 @@ check_command() {
     fi
 }
 
+# 检查 Node.js 版本 (需要 >= 20.19.0)
+check_node_version() {
+    local node_version=$(node --version 2>/dev/null | sed 's/v//')
+    local required_version="20.19.0"
+
+    if [ -z "$node_version" ]; then
+        echo -e "${RED}❌ 无法获取 Node.js 版本${NC}"
+        return 1
+    fi
+
+    # 比较版本号
+    local node_major=$(echo "$node_version" | cut -d. -f1)
+    local node_minor=$(echo "$node_version" | cut -d. -f2)
+    local req_major=$(echo "$required_version" | cut -d. -f1)
+    local req_minor=$(echo "$required_version" | cut -d. -f2)
+
+    if [ "$node_major" -gt "$req_major" ] || \
+       ([ "$node_major" -eq "$req_major" ] && [ "$node_minor" -ge "$req_minor" ]); then
+        echo -e "${GREEN}✅ Node.js 版本: v$node_version (满足 >= $required_version)${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Node.js 版本过低: v$node_version${NC}"
+        echo -e "${YELLOW}   需要 Node.js >= $required_version (Vite 7.x 要求)${NC}"
+        echo -e "${YELLOW}   升级方法:${NC}"
+        echo -e "${YELLOW}   1. 使用 n: npm install -g n && n 22${NC}"
+        echo -e "${YELLOW}   2. 使用 nvm: nvm install 22 && nvm use 22${NC}"
+        echo -e "${YELLOW}   3. 直接下载: https://nodejs.org/${NC}"
+        return 1
+    fi
+}
+
 # 步骤 1: 环境检查
 echo "📋 步骤 1/5: 环境检查"
 echo "----------------------------------------"
 
 check_command python3 || exit 1
 check_command node || exit 1
+check_node_version || exit 1
 check_command npm || exit 1
 
 # 检查环境变量文件
@@ -100,11 +132,15 @@ fi
 if [ -d "venv" ]; then
     echo -e "${GREEN}✅ 检测到虚拟环境，正在激活...${NC}"
     source venv/bin/activate
-    PYTHON_CMD="python"
 else
-    echo -e "${YELLOW}⚠️  未检测到虚拟环境，使用全局 Python${NC}"
-    PYTHON_CMD="python3"
+    echo -e "${YELLOW}⚠️  未检测到虚拟环境，正在创建...${NC}"
+    python3 -m venv venv
+    source venv/bin/activate
+    # 新建 venv 需要重新安装依赖，删除旧标记
+    rm -f backend/.venv_installed
+    echo -e "${GREEN}✅ 虚拟环境已创建并激活${NC}"
 fi
+PYTHON_CMD="python"
 
 # 加载环境变量
 echo ""
