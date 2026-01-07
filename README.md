@@ -79,6 +79,26 @@ EFKA mimics how humans actually search for information:
 
 7. **Context Preservation**: Maintains document structure and logical flow by reading complete sections rather than fragmented chunks.
 
+### Knowledge Base README Layering (Progressive Disclosure)
+
+As the knowledge base grows, EFKA automatically manages a hierarchical README structure to maintain navigation efficiency:
+
+**Layering Strategy**:
+- **Main README** (`knowledge_base/README.md`): Contains top-level directory overview (directory name, file count, one-line description). Small directories (<20 files) are expanded inline; large directories link to sub-directory READMEs.
+- **Sub-directory READMEs** (`knowledge_base/<dir>/README.md`): Detailed file listings for that directory. Further nested if the directory is still too large.
+
+**Automatic Triggers**:
+- When any directory reaches ≥50 files
+- When main README exceeds 200 lines
+- The Admin Agent autonomously decides based on actual content complexity
+
+**Design Principles**:
+- README is a navigation index, not an encyclopedia
+- Each README level should be scannable in ~3 seconds
+- The User Agent clone only needs to know "where to look", not "all the details"
+
+This progressive disclosure ensures efficient navigation regardless of knowledge base size, while keeping the tree-search approach performant.
+
 ### Limitations and Use Cases
 
 #### Limitations
