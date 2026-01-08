@@ -41,92 +41,20 @@ Traditional RAG systems rely on vector embeddings and similarity search, which c
 
 EFKA represents a paradigm shift from traditional embedding-based RAG systems. Instead of fragmenting documents into chunks and relying on similarity search, EFKA adopts a human-like, tree-search approach that directly interacts with your knowledge base files.
 
-### The Limitations of Traditional Embedding-based RAG
 
-Traditional RAG systems face several fundamental challenges:
-
-1. **Information Fragmentation**: Documents must be split into chunks, which disrupts logical flow and context. Important information often spans multiple chunks, making it difficult to reconstruct complete answers.
-
-2. **Chunking Strategy Dependency**: Quality heavily depends on chunking strategies (size, overlap, semantic boundaries). Poor chunking leads to information loss or irrelevant retrieval.
-
-3. **Incomplete Context**: Even with similarity search, there's no guarantee that retrieved chunks contain all information needed to answer a query. Critical context may be missing.
-
-4. **Similarity Threshold Problems**: Setting appropriate similarity thresholds is challenging – too high misses relevant information, too low retrieves noise.
-
-5. **Embedding Model Complexity**: Requires deploying and maintaining embedding models (and often rerankers), adding infrastructure complexity and maintenance overhead.
-
-6. **Domain Adaptation Issues**: General-purpose embeddings may not capture domain-specific semantics, leading to poor retrieval quality in specialized fields.
-
-7. **High Update Cost**: Adding or modifying documents requires re-embedding and re-indexing the entire dataset, which is resource-intensive.
-
-8. **Cost Considerations**: Commercial embedding APIs incur ongoing costs, while local models require significant GPU resources.
-
-### EFKA's Human-Like Search Strategy
-
-EFKA mimics how humans actually search for information:
-
-1. **Tree-Structured Exploration**: Starts with the knowledge base directory structure, identifies relevant files, then drills down as needed – just like a person browsing files.
-
-2. **On-Demand Deep Dives**: For large documents, first examines the table of contents or structure, then focuses on relevant sections. Small documents are read entirely.
-
-3. **Transparent and Explainable**: You can see exactly which files the agent reads, providing full traceability and trust.
-
-4. **No Embedding Models Needed**: Leverages the LLM's reasoning capabilities directly, eliminating embedding model dependencies and associated complexities.
-
-5. **Multi-Modal Support**: Naturally handles images, tables, and formatted content within documents without special processing pipelines.
-
-6. **Incremental Updates**: Simply add new files to the knowledge base – no re-embedding or re-indexing required.
-
-7. **Context Preservation**: Maintains document structure and logical flow by reading complete sections rather than fragmented chunks.
-
-### Knowledge Base README Layering (Progressive Disclosure)
-
-As the knowledge base grows, EFKA automatically manages a hierarchical README structure to maintain navigation efficiency:
-
-**Layering Strategy**:
-- **Main README** (`knowledge_base/README.md`): Contains top-level directory overview (directory name, file count, one-line description). Small directories (<20 files) are expanded inline; large directories link to sub-directory READMEs.
-- **Sub-directory READMEs** (`knowledge_base/<dir>/README.md`): Detailed file listings for that directory. Further nested if the directory is still too large.
-
-**Automatic Triggers**:
-- When any directory reaches ≥50 files
-- When main README exceeds 200 lines
-- The Admin Agent autonomously decides based on actual content complexity
-
-**Design Principles**:
-- README is a navigation index, not an encyclopedia
-- Each README level should be scannable in ~3 seconds
-- The User Agent clone only needs to know "where to look", not "all the details"
-
-This progressive disclosure ensures efficient navigation regardless of knowledge base size, while keeping the tree-search approach performant.
-
-### Limitations and Use Cases
-
-#### Limitations
-
-While EFKA provides more reliable and accurate answers compared to traditional RAG systems, it has some inherent limitations:
-
-1. **Latency**: Response times are longer than traditional RAG, typically in the 10-30 second range. The system aims for near-real-time performance but cannot match the sub-second response times of embedding-based systems.
-
-2. **Token Consumption**: The agent-based approach consumes more tokens as it reads entire documents or sections. This requires more powerful models and results in higher API costs compared to simple similarity search.
-
-3. **Concurrency Architecture**: Because the Claude Agent SDK wraps CLI processes, each conversation requires a separate CLI process. While EFKA implements a client pool for concurrency management, this approach is less elegant than traditional API-based systems. Related issue: [#333](https://github.com/anthropics/claude-agent-sdk-python/issues/333).
-
-#### Suitable Use Cases
-
-EFKA is best suited for scenarios where:
-
-- **Accuracy over Speed**: When answer quality and reliability are more important than response time
-- **Low to Moderate Frequency**: For occasional or periodic queries rather than high-volume, real-time interactions
-- **Knowledge-Intensive Domains**: Complex domains where context preservation and complete information retrieval are critical
-- **Transparency Requirements**: When users need to verify information sources and understand the reasoning process
-
-#### Not Suitable For
-
-- **Real-Time Chat**: Applications requiring sub-second response times
-- **High-Frequency Queries**: Scenarios with thousands of queries per hour where cost would be prohibitive
-- **Simple FAQ Lookups**: When a traditional vector database would be sufficient and faster
-
-Understanding these trade-offs helps determine when EFKA is the right solution for your knowledge management needs.
+| Dimension | Traditional RAG | EFKA | Example |
+|-----------|-----------------|------|---------|
+| **Information Integrity** | Documents split into chunks, disrupting logical flow | Reads complete sections, preserving context | *Querying "employee onboarding process": Traditional RAG retrieves scattered chunks from HR policy, missing the required sequence. EFKA reads the full onboarding guide and provides step-by-step instructions.* |
+| **Chunking Strategy** | Quality depends heavily on chunk size/overlap settings | No chunking required | *A 50-page technical manual: Traditional RAG must tune chunk sizes (too small loses context, too large retrieves noise). EFKA navigates via TOC to the relevant section.* |
+| **Context Completeness** | No guarantee retrieved chunks contain all needed info | Follows document structure to gather complete context | *"What's the refund policy for enterprise customers?" Traditional RAG may only retrieve general refund rules, missing the enterprise-specific exceptions in a later paragraph. EFKA reads the entire policy section.* |
+| **Similarity Threshold** | Hard to tune – too high misses info, too low adds noise | Uses LLM reasoning, no threshold tuning | *Searching for "API rate limits": Traditional RAG may miss "request throttling" (different wording). EFKA understands synonyms and finds all related content.* |
+| **Information Aggregation** | Cannot reliably aggregate semantically similar content | Agent intelligently synthesizes across documents | *"Summarize Q1-Q3 weekly reports into a quarterly summary": Traditional RAG retrieves all weekly reports (semantically identical) but cannot distinguish which weeks belong to which month. EFKA reads each report, extracts dates, and organizes by time period.* |
+| **Knowledge Base Quality Control** | No ingestion-time quality enforcement; conflicting content may coexist | Strict ingestion standards with conflict detection | *Two policy documents with contradictory vacation rules: Traditional RAG stores both, causing inconsistent answers. EFKA's Admin Agent detects conflicts during ingestion and requires resolution before adding.* |
+| **Infrastructure Complexity** | Requires embedding models + vector DB + often rerankers | Only needs LLM API | *Setting up a new knowledge base: Traditional RAG needs Pinecone/Milvus/Weaviate + embedding model deployment. EFKA just needs a folder of files.* |
+| **Domain Adaptation** | General embeddings may miss domain-specific semantics | LLM understands domain context directly | *Medical knowledge base: "MI" means "myocardial infarction" not "Michigan". Traditional RAG may confuse these; EFKA understands from context.* |
+| **Update Cost** | Adding/modifying docs requires re-embedding entire dataset | Just add/edit files, no re-indexing | *Adding 100 new documents: Traditional RAG must re-embed and update vector indices. EFKA: just copy files to the knowledge base folder.* |
+| **Multi-Modal Support** | Requires separate pipelines for images/tables | Native support via LLM vision capabilities | *Document with embedded diagrams: Traditional RAG often ignores images. EFKA can read and interpret diagrams in context.* |
+| **Transparency** | Black-box similarity scores | Full visibility into which files are read | *Debugging wrong answers: Traditional RAG shows similarity scores that are hard to interpret. EFKA shows exactly which files and sections were consulted.* |
 
 ## Features
 
@@ -136,6 +64,36 @@ Understanding these trade-offs helps determine when EFKA is the right solution f
 - **Multi-Channel Support**: Web UI + Enterprise IM platforms (WeChat Work, Feishu, DingTalk, Slack)
 - **Dual-Agent Architecture**: Separate agents optimized for admin tasks and user queries
 - **Streaming Responses**: Real-time SSE streaming with Markdown rendering
+- **Progressive README Layering**: Auto-generates hierarchical README structure as knowledge base grows, ensuring fast navigation at any scale
+
+## Limitations and Use Cases
+
+### Limitations
+
+While EFKA provides more reliable and accurate answers compared to traditional RAG systems, it has some inherent limitations:
+
+1. **Latency**: Response times are longer than traditional RAG, typically in the 10-30 second range. The system aims for near-real-time performance but cannot match the sub-second response times of embedding-based systems.
+
+2. **Token Consumption**: The agent-based approach consumes more tokens as it reads entire documents or sections. This requires more powerful models and results in higher API costs compared to simple similarity search.
+
+3. **Concurrency Architecture**: Because the Claude Agent SDK wraps CLI processes, each conversation requires a separate CLI process. While EFKA implements a client pool for concurrency management, this approach is less elegant than traditional API-based systems. Related issue: [#333](https://github.com/anthropics/claude-agent-sdk-python/issues/333).
+
+### Suitable Use Cases
+
+EFKA is best suited for scenarios where:
+
+- **Accuracy over Speed**: When answer quality and reliability are more important than response time
+- **Low to Moderate Frequency**: For occasional or periodic queries rather than high-volume, real-time interactions
+- **Knowledge-Intensive Domains**: Complex domains where context preservation and complete information retrieval are critical
+- **Transparency Requirements**: When users need to verify information sources and understand the reasoning process
+
+### Not Suitable For
+
+- **Real-Time Chat**: Applications requiring sub-second response times
+- **High-Frequency Queries**: Scenarios with thousands of queries per hour where cost would be prohibitive
+- **Simple FAQ Lookups**: When a traditional vector database would be sufficient and faster
+
+Understanding these trade-offs helps determine when EFKA is the right solution for your knowledge management needs.
 
 ## Agent Workflow
 
