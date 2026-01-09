@@ -343,6 +343,50 @@ The `skills/` directory contains Agent skills using Claude Agent SDK's native me
 - [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment instructions
 - [Channel Development Guide](docs/CHANNELS.md) - Adding new IM platform support
 
+## Roadmap
+
+### IM Platform Integrations
+
+Currently only **WeChat Work** is fully implemented. The following platforms are planned:
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| WeChat Work | ✅ Implemented | Full feature support |
+| Feishu (Lark) | 🔜 Planned | Event subscription + message API |
+| DingTalk | 🔜 Planned | Robot callback + message push |
+| Slack | 🔜 Planned | Slack App with Events API |
+
+Each platform will implement `BaseChannelAdapter` interface. See [Channel Development Guide](docs/CHANNELS.md) for implementation details.
+
+### Enterprise Access Control System
+
+**Goal**: Fine-grained file-level permission control for multi-tenant enterprise deployments.
+
+**Core Design**: Leverage Claude Agent SDK's `PreToolUse` hook to intercept `Read` / `Glob` / `Grep` tool calls and enforce permission checks before file access.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  PreToolUse Hook (Permission Gate)                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  1. Extract file paths from tool input          │    │
+│  │  2. Query permission service (user → ACL)       │    │
+│  │  3. ALLOW / DENY / FILTER (partial access)      │    │
+│  └─────────────────────────────────────────────────┘    │
+├─────────────────────────────────────────────────────────┤
+│  Permission Service                                     │
+│  ├─ User identity (from session / IM context)          │
+│  ├─ Role → Permission mapping (RBAC)                   │
+│  ├─ File / Directory ACL rules                         │
+│  └─ Audit logging                                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key Features**:
+- **Path-based ACL**: Define allow/deny rules at directory or file level
+- **Role-Based Access Control (RBAC)**: Map users to roles, roles to permissions
+- **IM-aware Identity**: Auto-resolve user identity from WeChat Work / Feishu / DingTalk context
+- **Audit Trail**: Log all file access attempts for compliance
+
 ## Tech Stack
 
 - **Backend**: Python / FastAPI / Claude Agent SDK / Redis
