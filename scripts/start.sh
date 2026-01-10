@@ -482,4 +482,7 @@ if command -v open &> /dev/null; then
     echo "3 秒后自动打开浏览器..."
     sleep 3
     open http://localhost:3000
+    if [ "$USER_UI_ENABLED" = "true" ]; then
+        open http://localhost:$USER_UI_PORT
+    fi
 fi
