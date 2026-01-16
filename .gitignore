@@ -71,6 +71,7 @@ knowledge_base/
 .venv_installed
 *.backup
 *.pid
+CLAUDE.md.bak
 
 # Internal docs (不推送至公开仓库)
 claude-agent-sdk-python.md
