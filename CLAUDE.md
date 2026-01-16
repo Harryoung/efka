@@ -38,6 +38,13 @@ RUN_MODE=wework ./scripts/start.sh  # via env var
 └─────────────────────────────────────────────────────────┘
 ```
 
+## Modules
+
+模块详情见各目录下的 CLAUDE.md:
+- [`backend/CLAUDE.md`](backend/CLAUDE.md) - 后端服务、API、设计模式
+- [`frontend/CLAUDE.md`](frontend/CLAUDE.md) - 前端组件
+- [`skills/CLAUDE.md`](skills/CLAUDE.md) - Agent Skills
+
 ## Development Commands
 
 ### Required: Activate Virtual Environment
@@ -47,28 +54,8 @@ source venv/bin/activate  # Must run before any Python commands
 
 ### Start/Stop
 ```bash
-cd efka  # Change to project directory if not already there
 ./scripts/start.sh   # Auto-detect and start all configured services
 ./scripts/stop.sh    # Stop all services
-```
-
-### Manual Start
-```bash
-# Backend
-python3 -m backend.main                                    # :8000
-
-# Frontend
-cd frontend && npm run dev                                 # Admin :3000
-cd frontend && VITE_APP_MODE=user npm run dev -- --port 3001  # User :3001
-
-# IM Channel (optional)
-python -m backend.channels.wework.server                   # :8081
-```
-
-### Install Dependencies
-```bash
-pip3 install -r backend/requirements.txt  # Backend
-cd frontend && npm install                 # Frontend
 ```
 
 ## Environment Configuration
@@ -84,79 +71,6 @@ Copy and configure `.env` from `.env.example`:
 - `VISION_MODEL_*`: Image recognition model
 - `REDIS_*`: Redis configuration (has memory fallback)
 - `*_CLIENT_POOL_SIZE`: Concurrent client pool size
-
-## Code Structure
-
-### Backend (`backend/`)
-```
-agents/
-├── kb_admin_agent.py      # Admin Agent definition
-├── kb_qa_agent.py         # User Agent definition
-└── prompts/               # Agent prompts
-
-services/
-├── kb_service_factory.py  # Main service factory
-├── client_pool.py         # SDK client pool (concurrency)
-├── session_manager.py     # Session management (Redis)
-├── conversation_state_manager.py  # Multi-turn conversation state
-├── domain_expert_router.py        # Expert routing
-└── shared_kb_access.py           # File locks
-
-api/
-├── query.py              # /api/query (Admin)
-├── user.py              # /api/user/query (User)
-└── streaming_utils.py    # SSE streaming response
-
-channels/
-├── base.py               # Channel abstract base class
-└── wework/               # WeChat Work adapter
-
-tools/
-└── image_read.py         # Image recognition tool (SDK MCP Tool)
-
-utils/
-└── logging_config.py     # Logging configuration
-
-skills/                   # Agent skills (project root, copied to KB on startup)
-├── batch-notification/   # Batch user notification workflow
-├── document-conversion/  # DOC/PDF/PPT → Markdown converter
-├── excel-parser/         # Smart Excel/CSV parsing with complexity analysis
-├── expert-routing/       # Domain expert routing
-├── large-file-toc/       # Large file TOC generation
-└── satisfaction-feedback/ # User satisfaction feedback
-```
-
-### Frontend (`frontend/src/`)
-```
-components/
-├── ChatView.jsx          # Admin interface
-└── UserChatView.jsx  # User interface
-```
-
-## Key Design Patterns
-
-1. **Env vars before SDK import**: `backend/main.py` loads dotenv first, then imports Agent SDK
-2. **Singleton pattern**: Use `get_admin_service()`, `get_user_service()` to get services
-3. **SSE streaming**: Knowledge Q&A uses Server-Sent Events for real-time response
-4. **File locks**: `SharedKBAccess` prevents concurrent write conflicts (FAQ.md, BADCASE.md)
-5. **permission_mode="acceptEdits"**: Agent can auto-execute file edits
-
-## Skills (SDK Native Mechanism)
-
-Agent skills use Claude Agent SDK's native skill loading via `setting_sources=["project"]`.
-
-**Location**: `knowledge_base/.claude/skills/` (auto-copied from `skills/` on startup)
-
-Skills are referenced by name in agent prompts and automatically loaded by the SDK.
-
-## Document Conversion
-
-Use the `document-conversion` skill or invoke directly:
-```bash
-python skills/document-conversion/scripts/smart_convert.py <input_file> --json-output
-```
-
-Supports: DOCX, PDF (electronic/scanned), PPTX, TXT
 
 ## Troubleshooting
 
@@ -183,13 +97,6 @@ curl http://localhost:8000/health
 3. Don't import SDK before setting env vars
 4. Don't instantiate services directly - use singleton getters
 5. Don't modify Agent business logic in code - modify prompts
-
-## Extending Channels
-
-Implement `BaseChannelAdapter`:
-1. Create `backend/channels/<name>/`
-2. Reference WeWork implementation
-3. Add to `channel_config.py`
 
 ---
 **Version**: v3.0 | **Updated**: 2025-12-23 | **Docs**: `docs/CHANNELS.md`, `docs/DEPLOYMENT.md`
