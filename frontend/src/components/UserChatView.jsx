@@ -1,17 +1,21 @@
 /**
- * UserChatView - 用户端问答界面
- * 简化版 ChatView，只有问答功能，无文件上传
+ * UserChatView - User Q&A Interface
+ * Simplified ChatView with Q&A only, no file upload
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DeleteOutlined } from '@ant-design/icons';
 import apiService from '../shared/api';
 import Message from './Message';
 import CicadaLogo from './CicadaLogo';
+import LanguageSwitcher from './LanguageSwitcher';
 import './ChatView.css';
 
 const UserChatView = () => {
-  // 状态管理
+  const { t, i18n } = useTranslation();
+
+  // State management
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -24,7 +28,7 @@ const UserChatView = () => {
   const inputRef = useRef(null);
   const isInitializedRef = useRef(false);
 
-  // 初始化：创建会话
+  // Initialize: create session
   useEffect(() => {
     if (isInitializedRef.current) {
       return;
@@ -33,7 +37,6 @@ const UserChatView = () => {
 
     initializeSession();
 
-    // 清理函数
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -41,31 +44,40 @@ const UserChatView = () => {
     };
   }, []);
 
-  // 自动滚动到底部
+  // Auto scroll to bottom
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // 初始化会话
+  // Update welcome message on language change
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length > 0 && prev[0].role === 'system') {
+        const newMessages = [...prev];
+        newMessages[0] = { ...newMessages[0], content: t('welcome.userGreeting') };
+        return newMessages;
+      }
+      return prev;
+    });
+  }, [i18n.language, t]);
+
+  // Initialize session
   const initializeSession = async () => {
     try {
       const result = await apiService.createSession();
       setSessionId(result.session_id);
 
-      // 添加欢迎消息
-      addSystemMessage('你好！我是知了，有什么可以帮你的吗？');
+      addSystemMessage(t('welcome.userGreeting'));
     } catch (error) {
       console.error('Failed to create session:', error);
-      setError('无法创建会话，请刷新页面重试');
+      setError(t('session.createFailed'));
     }
   };
 
-  // 滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // 添加消息到列表
   const addMessage = (role, content) => {
     setMessages(prev => [
       ...prev,
@@ -77,7 +89,6 @@ const UserChatView = () => {
     ]);
   };
 
-  // 添加系统消息
   const addSystemMessage = (content) => {
     setMessages(prev => [
       ...prev,
@@ -89,7 +100,6 @@ const UserChatView = () => {
     ]);
   };
 
-  // 更新最后一条助手消息（用于流式响应）
   const updateLastAssistantMessage = (content) => {
     setMessages(prev => {
       const newMessages = [...prev];
@@ -101,7 +111,6 @@ const UserChatView = () => {
           content: newMessages[lastIndex].content + content,
         };
       } else {
-        // 如果最后一条不是助手消息，创建新的
         newMessages.push({
           role: 'assistant',
           content,
@@ -113,7 +122,7 @@ const UserChatView = () => {
     });
   };
 
-  // 发送消息（使用 SSE 流式响应）
+  // Send message (SSE streaming)
   const sendMessage = async () => {
     const userMessage = inputMessage.trim();
 
@@ -125,15 +134,12 @@ const UserChatView = () => {
     setIsLoading(true);
     setError(null);
 
-    // 添加用户消息到界面
     addMessage('user', userMessage);
 
     try {
-      // 使用 SSE 流式响应
       eventSourceRef.current = apiService.queryStream(
         sessionId,
         userMessage,
-        // onMessage - 接收流式数据
         (data) => {
           if (data.type === 'message') {
             updateLastAssistantMessage(data.content);
@@ -141,29 +147,26 @@ const UserChatView = () => {
             console.log('Session info:', data);
           } else if (data.type === 'error') {
             console.error('Server error:', data);
-            setError(`错误: ${data.message || '未知错误'}`);
+            setError(`${t('chat.error')}: ${data.message || t('chat.unknownError')}`);
             setIsLoading(false);
           }
         },
-        // onError - 错误处理
         async (error) => {
           console.error('Stream error:', error);
 
-          // 尝试重新创建会话
           try {
-            console.log('尝试重新创建会话...');
+            console.log(t('session.recreating'));
             const result = await apiService.createSession();
             setSessionId(result.session_id);
-            setError('会话已过期，已自动创建新会话。请重新发送消息。');
-            addSystemMessage('会话已过期，已自动创建新会话，请重新发送您的消息');
+            setError(t('session.expired'));
+            addSystemMessage(t('session.expired'));
           } catch (retryError) {
             console.error('Failed to recreate session:', retryError);
-            setError('会话已过期且无法重新创建，请刷新页面');
+            setError(t('session.expiredCannotRecreate'));
           }
 
           setIsLoading(false);
         },
-        // onComplete - 完成回调
         () => {
           setIsLoading(false);
           eventSourceRef.current = null;
@@ -171,12 +174,11 @@ const UserChatView = () => {
       );
     } catch (error) {
       console.error('Failed to send message:', error);
-      setError('消息发送失败: ' + error.message);
+      setError(`${t('actions.messageFailed')}: ${error.message}`);
       setIsLoading(false);
     }
   };
 
-  // 处理输入框回车
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -184,52 +186,49 @@ const UserChatView = () => {
     }
   };
 
-  // 清空对话
   const handleClearChat = async () => {
-    if (!window.confirm('确定要清空对话记录和上下文吗？')) {
+    if (!window.confirm(t('actions.confirmClear'))) {
       return;
     }
 
     try {
-      // 调用清空上下文API（基于 user_id）
       const result = await apiService.clearContext();
 
-      // 更新 session_id
       if (result.new_session_id) {
         setSessionId(result.new_session_id);
       }
 
-      // 清空消息
       setMessages([]);
-      addSystemMessage('对话和上下文已清空，新会话已创建');
+      addSystemMessage(t('session.cleared'));
     } catch (error) {
       console.error('Failed to clear context:', error);
-      setError('清空对话失败: ' + error.message);
+      setError(`${t('session.clearFailed')}: ${error.message}`);
     }
   };
 
   return (
     <div className="chat-view">
-      {/* 头部 */}
+      {/* Header */}
       <div className="chat-header">
         <div className="header-title">
-          <h1><CicadaLogo size={24} color="#10b981" /> 知了 · 用户端</h1>
+          <h1><CicadaLogo size={24} color="#10b981" /> {t('header.userTitle')}</h1>
           <p className="header-subtitle">
-            {sessionId ? `会话ID: ${sessionId.substring(0, 8)}...` : '初始化中...'}
+            {sessionId ? `${t('header.sessionId')}: ${sessionId.substring(0, 8)}...` : t('header.initializing')}
           </p>
         </div>
         <div className="header-actions">
+          <LanguageSwitcher />
           <button
             className="btn-secondary"
             onClick={handleClearChat}
-            title="清空对话"
+            title={t('actions.clearSession')}
           >
-            <DeleteOutlined /> 清空会话
+            <DeleteOutlined /> {t('actions.clearSession')}
           </button>
         </div>
       </div>
 
-      {/* 错误提示 */}
+      {/* Error banner */}
       {error && (
         <div className="error-banner">
           <span>{error}</span>
@@ -237,17 +236,17 @@ const UserChatView = () => {
         </div>
       )}
 
-      {/* 消息列表 */}
+      {/* Message list */}
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="welcome-message">
             <div className="welcome-icon"><CicadaLogo size={48} color="#10b981" /></div>
-            <h2>欢迎使用知了</h2>
-            <p>你可以：</p>
+            <h2>{t('welcome.title')}</h2>
+            <p>{t('welcome.canDo')}</p>
             <ul>
-              <li>询问知识库中的任何问题</li>
-              <li>智能搜索和多轮对话</li>
-              <li>获取专业的知识解答</li>
+              <li>{t('features.userAskKnowledge')}</li>
+              <li>{t('features.userSmartSearch')}</li>
+              <li>{t('features.userGetAnswers')}</li>
             </ul>
           </div>
         )}
@@ -256,7 +255,7 @@ const UserChatView = () => {
           <Message key={index} message={message} />
         ))}
 
-        {/* 加载中提示 */}
+        {/* Loading indicator */}
         {isLoading && (
           <div className="loading-indicator">
             <div className="loading-dots">
@@ -264,14 +263,14 @@ const UserChatView = () => {
               <span></span>
               <span></span>
             </div>
-            <p>正在思考...</p>
+            <p>{t('chat.thinking')}</p>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 输入区域 */}
+      {/* Input area */}
       <div className="input-container">
         <textarea
           ref={inputRef}
@@ -279,7 +278,7 @@ const UserChatView = () => {
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="输入你的问题... (Shift+Enter 换行)"
+          placeholder={t('chat.placeholder')}
           rows={3}
           disabled={!sessionId || isLoading}
         />
@@ -288,7 +287,7 @@ const UserChatView = () => {
           onClick={() => sendMessage()}
           disabled={!sessionId || isLoading || !inputMessage.trim()}
         >
-          {isLoading ? '发送中...' : '发送'}
+          {isLoading ? t('chat.sending') : t('chat.send')}
         </button>
       </div>
     </div>

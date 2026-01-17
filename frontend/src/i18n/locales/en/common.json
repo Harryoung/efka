@@ -1,0 +1,87 @@
+{
+  "header": {
+    "adminTitle": "Cicada · Admin",
+    "userTitle": "Cicada · User",
+    "sessionId": "Session ID",
+    "initializing": "Initializing..."
+  },
+  "welcome": {
+    "title": "Welcome to Cicada",
+    "subtitle": "Embed-Free Knowledge Agent",
+    "greeting": "Session created. I'm Cicada, how can I help you?",
+    "userGreeting": "Hello! I'm Cicada, how can I help you?",
+    "canDo": "You can:"
+  },
+  "features": {
+    "askKnowledge": "Ask any question about the knowledge base",
+    "uploadFiles": "Upload files and auto-archive to knowledge base",
+    "addToFaq": "Add satisfactory answers to FAQ",
+    "smartSearch": "Smart search and multi-turn conversation",
+    "userAskKnowledge": "Ask any question about the knowledge base",
+    "userSmartSearch": "Smart search and multi-turn conversation",
+    "userGetAnswers": "Get professional knowledge answers"
+  },
+  "chat": {
+    "placeholder": "Type your question... (Shift+Enter for new line)",
+    "send": "Send",
+    "sending": "Sending...",
+    "stop": "Stop",
+    "thinking": "Thinking...",
+    "error": "Error",
+    "unknownError": "Unknown error",
+    "retry": "Retry",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "upload": {
+    "title": "Upload Files",
+    "close": "Close Upload",
+    "dragHint": "Click or drag files here to upload",
+    "dropHint": "Release to upload files",
+    "uploading": "Uploading...",
+    "startUpload": "Start Upload",
+    "success": "Upload successful",
+    "failed": "Upload failed",
+    "selectFirst": "Please select files first",
+    "formatHint": "Supports PDF, Word, Excel, PowerPoint, Markdown, etc.",
+    "selectedFiles": "Selected Files",
+    "remove": "Remove",
+    "uploadedFiles": "Uploaded Files",
+    "filePath": "Path",
+    "batchNotifyHint": "You can:\n1. Batch notify: Describe notification targets and filter conditions (e.g., 'Notify employees with points > 0')\n2. Add to KB: Type 'Please add these files to the knowledge base'",
+    "addToKb": "Please add the files above to the knowledge base"
+  },
+  "feedback": {
+    "helpful": "Helpful",
+    "notHelpful": "Not helpful",
+    "alreadyGiven": "Feedback sent",
+    "satisfiedTitle": "Satisfied with this answer",
+    "unsatisfiedTitle": "Not satisfied with this answer",
+    "hint": "Satisfactory answers will be added to FAQ for answering similar questions",
+    "satisfied": "I'm satisfied with this result",
+    "unsatisfied": "I'm not satisfied with this result"
+  },
+  "message": {
+    "user": "You",
+    "assistant": "Cicada"
+  },
+  "session": {
+    "createFailed": "Failed to create session. Please refresh the page.",
+    "expired": "Session expired. New session created automatically. Please resend your message.",
+    "expiredCannotRecreate": "Session expired and cannot be recreated. Please refresh the page.",
+    "recreating": "Recreating session...",
+    "cleared": "Conversation and context cleared. New session created.",
+    "clearFailed": "Failed to clear conversation"
+  },
+  "actions": {
+    "clearChat": "Clear Chat",
+    "clearSession": "Clear Session",
+    "confirmClear": "Are you sure you want to clear the conversation and context?",
+    "messageFailed": "Failed to send message"
+  },
+  "language": {
+    "switch": "Switch Language",
+    "en": "English",
+    "zh": "中文"
+  }
+}

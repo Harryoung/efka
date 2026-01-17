@@ -1,0 +1,87 @@
+{
+  "header": {
+    "adminTitle": "知了 · 管理端",
+    "userTitle": "知了 · 用户端",
+    "sessionId": "会话ID",
+    "initializing": "初始化中..."
+  },
+  "welcome": {
+    "title": "欢迎使用知了",
+    "subtitle": "无需向量的知识智能体",
+    "greeting": "会话已创建，我是知了，有什么可以帮你的吗？",
+    "userGreeting": "你好！我是知了，有什么可以帮你的吗？",
+    "canDo": "你可以："
+  },
+  "features": {
+    "askKnowledge": "询问知识库中的任何问题",
+    "uploadFiles": "上传文件并自动归档到知识库",
+    "addToFaq": "将满意的回答添加到 FAQ",
+    "smartSearch": "智能搜索和多轮对话",
+    "userAskKnowledge": "询问知识库中的任何问题",
+    "userSmartSearch": "智能搜索和多轮对话",
+    "userGetAnswers": "获取专业的知识解答"
+  },
+  "chat": {
+    "placeholder": "输入你的问题... (Shift+Enter 换行)",
+    "send": "发送",
+    "sending": "发送中...",
+    "stop": "停止",
+    "thinking": "正在思考...",
+    "error": "错误",
+    "unknownError": "未知错误",
+    "retry": "重试",
+    "copy": "复制",
+    "copied": "已复制!"
+  },
+  "upload": {
+    "title": "上传文件",
+    "close": "关闭上传",
+    "dragHint": "点击或拖拽文件到此处上传",
+    "dropHint": "松开鼠标上传文件",
+    "uploading": "上传中...",
+    "startUpload": "开始上传",
+    "success": "上传成功",
+    "failed": "上传失败",
+    "selectFirst": "请先选择文件",
+    "formatHint": "支持 PDF、Word、Excel、PowerPoint、Markdown 等格式",
+    "selectedFiles": "已选文件",
+    "remove": "移除",
+    "uploadedFiles": "已上传文件",
+    "filePath": "路径",
+    "batchNotifyHint": "您可以：\n1. 批量通知：描述通知对象和筛选条件（如'通知福利积分>0的员工'）\n2. 文档入库：输入'请将这些文件入库'",
+    "addToKb": "请将上面的文件添加到知识库"
+  },
+  "feedback": {
+    "helpful": "有帮助",
+    "notHelpful": "没帮助",
+    "alreadyGiven": "已反馈",
+    "satisfiedTitle": "对这个回答满意",
+    "unsatisfiedTitle": "对这个回答不满意",
+    "hint": "满意的回答会被加入FAQ列表，用于直接回答同类问题",
+    "satisfied": "我对结果满意",
+    "unsatisfied": "我对结果不满意"
+  },
+  "message": {
+    "user": "你",
+    "assistant": "知了"
+  },
+  "session": {
+    "createFailed": "无法创建会话，请刷新页面重试",
+    "expired": "会话已过期，已自动创建新会话。请重新发送消息。",
+    "expiredCannotRecreate": "会话已过期且无法重新创建，请刷新页面",
+    "recreating": "尝试重新创建会话...",
+    "cleared": "对话和上下文已清空，新会话已创建",
+    "clearFailed": "清空对话失败"
+  },
+  "actions": {
+    "clearChat": "清空对话",
+    "clearSession": "清空会话",
+    "confirmClear": "确定要清空对话记录和上下文吗？",
+    "messageFailed": "消息发送失败"
+  },
+  "language": {
+    "switch": "切换语言",
+    "en": "English",
+    "zh": "中文"
+  }
+}

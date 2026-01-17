@@ -6,6 +6,7 @@
 import React, { useMemo } from 'react';
 import { marked } from 'marked';
 import { UserOutlined, BulbOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import CicadaLogo from './CicadaLogo';
 import './Message.css';
 
@@ -18,6 +19,7 @@ marked.setOptions({
 });
 
 const Message = ({ message, onAddToFAQ, onFeedback }) => {
+  const { t } = useTranslation();
   const { role, content, timestamp, canFeedback = true, feedbackGiven = false } = message;
 
   // 渲染 Markdown
@@ -58,9 +60,9 @@ const Message = ({ message, onAddToFAQ, onFeedback }) => {
       <div className="message-header">
         <span className="message-role">
           {role === 'user' ? (
-            <><UserOutlined /> 你</>
+            <><UserOutlined /> {t('message.user')}</>
           ) : (
-            <><CicadaLogo size={16} color="#10b981" /> 知了</>
+            <><CicadaLogo size={16} color="#10b981" /> {t('message.assistant')}</>
           )}
         </span>
         {formattedTime && (
@@ -77,24 +79,24 @@ const Message = ({ message, onAddToFAQ, onFeedback }) => {
       {role === 'assistant' && isStandardKnowledgeAnswer && onFeedback && canFeedback && (
         <div className="message-feedback">
           <div className="feedback-hint">
-            <BulbOutlined /> 满意的回答会被加入FAQ列表，用于直接回答同类问题
+            <BulbOutlined /> {t('feedback.hint')}
           </div>
           <div className="feedback-actions">
             <button
               className="btn-feedback btn-satisfied"
               onClick={() => onFeedback(message, true)}
               disabled={feedbackGiven}
-              title={feedbackGiven ? "已反馈" : "对这个回答满意"}
+              title={feedbackGiven ? t('feedback.alreadyGiven') : t('feedback.satisfiedTitle')}
             >
-              <LikeOutlined /> {feedbackGiven ? '已反馈' : '满意'}
+              <LikeOutlined /> {feedbackGiven ? t('feedback.alreadyGiven') : t('feedback.helpful')}
             </button>
             <button
               className="btn-feedback btn-unsatisfied"
               onClick={() => onFeedback(message, false)}
               disabled={feedbackGiven}
-              title={feedbackGiven ? "已反馈" : "对这个回答不满意"}
+              title={feedbackGiven ? t('feedback.alreadyGiven') : t('feedback.unsatisfiedTitle')}
             >
-              <DislikeOutlined /> {feedbackGiven ? '已反馈' : '不满意'}
+              <DislikeOutlined /> {feedbackGiven ? t('feedback.alreadyGiven') : t('feedback.notHelpful')}
             </button>
           </div>
         </div>

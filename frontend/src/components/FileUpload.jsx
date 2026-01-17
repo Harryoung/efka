@@ -1,47 +1,44 @@
 /**
- * FileUpload 文件上传组件
- * 支持拖拽上传、进度显示
+ * FileUpload Component
+ * Supports drag & drop upload with progress display
  */
 
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderOutlined, CloseOutlined } from '@ant-design/icons';
 import apiService from '../services/api';
 import './FileUpload.css';
 
 const FileUpload = ({ onUploadComplete, onUploadError }) => {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const fileInputRef = useRef(null);
 
-  // 处理文件选择
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     setSelectedFiles(files);
   };
 
-  // 处理拖拽进入
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   };
 
-  // 处理拖拽离开
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
 
-  // 处理拖拽悬停
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
-  // 处理文件放下
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -51,10 +48,9 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
     setSelectedFiles(files);
   };
 
-  // 上传文件
   const handleUpload = async () => {
     if (selectedFiles.length === 0) {
-      alert('请先选择文件');
+      alert(t('upload.selectFirst'));
       return;
     }
 
@@ -62,7 +58,6 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
     setUploadProgress(0);
 
     try {
-      // 调用 API 上传文件
       const result = await apiService.uploadFiles(
         selectedFiles,
         (progress) => {
@@ -70,12 +65,10 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
         }
       );
 
-      // 上传成功
       if (onUploadComplete) {
         onUploadComplete(result.files, selectedFiles);
       }
 
-      // 重置状态
       setSelectedFiles([]);
       setUploadProgress(0);
       if (fileInputRef.current) {
@@ -86,20 +79,18 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
       if (onUploadError) {
         onUploadError(error);
       }
-      alert('上传失败: ' + (error.response?.data?.detail || error.message));
+      alert(`${t('upload.failed')}: ${error.response?.data?.detail || error.message}`);
     } finally {
       setIsUploading(false);
     }
   };
 
-  // 移除选中的文件
   const removeFile = (index) => {
     const newFiles = [...selectedFiles];
     newFiles.splice(index, 1);
     setSelectedFiles(newFiles);
   };
 
-  // 格式化文件大小
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -110,7 +101,7 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
 
   return (
     <div className="file-upload-container">
-      {/* 拖拽区域 */}
+      {/* Drop zone */}
       <div
         className={`drop-zone ${isDragging ? 'dragging' : ''}`}
         onDragEnter={handleDragEnter}
@@ -131,19 +122,19 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
           <div className="upload-icon"><FolderOutlined /></div>
           <p className="drop-zone-text">
             {isDragging
-              ? '松开鼠标上传文件'
-              : '点击或拖拽文件到此处上传'}
+              ? t('upload.dropHint')
+              : t('upload.dragHint')}
           </p>
           <p className="drop-zone-hint">
-            支持 PDF、Word、Excel、PowerPoint、Markdown 等格式
+            {t('upload.formatHint')}
           </p>
         </div>
       </div>
 
-      {/* 已选文件列表 */}
+      {/* Selected files list */}
       {selectedFiles.length > 0 && (
         <div className="selected-files">
-          <h4>已选文件 ({selectedFiles.length})</h4>
+          <h4>{t('upload.selectedFiles')} ({selectedFiles.length})</h4>
           <ul className="file-list">
             {selectedFiles.map((file, index) => (
               <li key={index} className="file-item">
@@ -157,7 +148,7 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
                   <button
                     className="btn-remove"
                     onClick={() => removeFile(index)}
-                    title="移除"
+                    title={t('upload.remove')}
                   >
                     <CloseOutlined />
                   </button>
@@ -166,16 +157,16 @@ const FileUpload = ({ onUploadComplete, onUploadError }) => {
             ))}
           </ul>
 
-          {/* 上传按钮 */}
+          {/* Upload button */}
           <button
             className="btn-upload"
             onClick={handleUpload}
             disabled={isUploading}
           >
-            {isUploading ? '上传中...' : '开始上传'}
+            {isUploading ? t('upload.uploading') : t('upload.startUpload')}
           </button>
 
-          {/* 上传进度条 */}
+          {/* Upload progress bar */}
           {isUploading && (
             <div className="upload-progress">
               <div

@@ -1,23 +1,37 @@
 /**
  * App Main Component
  * EFKA - Embed-Free Knowledge Agent Frontend
- * Supports Admin and User modes
+ * Supports Admin and User modes with i18n
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { ConfigProvider } from 'antd';
+import enUS from 'antd/locale/en_US';
+import zhCN from 'antd/locale/zh_CN';
 import ChatView from './components/ChatView';
 import UserChatView from './components/UserChatView';
 import './App.css';
 
-// 根据环境变量决定加载哪个视图
 const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
 
+const antdLocales = {
+  'en': enUS,
+  'zh-CN': zhCN
+};
+
 function App() {
+  const { i18n } = useTranslation();
+  const currentLang = i18n.language?.startsWith('zh') ? 'zh-CN' : 'en';
+  const currentLocale = antdLocales[currentLang] || antdLocales['en'];
+
   return (
-    <div className="app">
-      <div className="app-background"></div>
-      {APP_MODE === 'user' ? <UserChatView /> : <ChatView />}
-    </div>
+    <ConfigProvider locale={currentLocale}>
+      <div className="app">
+        <div className="app-background"></div>
+        {APP_MODE === 'user' ? <UserChatView /> : <ChatView />}
+      </div>
+    </ConfigProvider>
   );
 }
 
