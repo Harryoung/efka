@@ -29,6 +29,7 @@ from backend.services.session_manager import get_session_manager
 from backend.config.settings import get_settings
 from backend.models.session import SessionRole, SessionStatus, MessageSnapshot
 from claude_agent_sdk import AssistantMessage, TextBlock, ResultMessage
+from claude_agent_sdk import ToolUseBlock
 from datetime import datetime
 import re
 import json
@@ -267,6 +268,7 @@ name: {name_display}
         # Collect Agent response and metadata
         agent_response_text = ""
         metadata = None
+        tools_used = []
         message_count = 0
         real_sdk_session_id = None  # Real SDK session ID extracted from ResultMessage
 
@@ -294,6 +296,8 @@ name: {name_display}
                             if "```metadata" in block.text:
                                 metadata = extract_metadata(block.text)
                                 logger.info(f"✅ Metadata extracted from TextBlock")
+                        elif isinstance(block, ToolUseBlock):
+                            tools_used.append((block.name, block.input))
 
                 # Handle ResultMessage - contains session metadata and real SDK session ID
                 elif isinstance(message, ResultMessage):
@@ -345,6 +349,15 @@ name: {name_display}
             logger.error(f"   - Exceeded rate limits")
             logger.error(f"   - API service unavailable")
             return
+
+        # Append tool usage summary
+        if tools_used:
+            tool_lines = []
+            for name, input_data in tools_used:
+                param_str = _format_tool_params(name, input_data)
+                tool_lines.append(f"• {name}: {param_str}")
+            tool_summary = "\n\n---\n📋 **工具调用记录**\n" + "\n".join(tool_lines)
+            agent_response_text += tool_summary
 
         # Step 6: Async update Session summary (new)
         if metadata:
@@ -418,6 +431,22 @@ def extract_metadata(text: str) -> Optional[Dict]:
             return None
     else:
         return None
+
+
+def _format_tool_params(name: str, input_data: dict) -> str:
+    """Format tool parameters for display"""
+    if not isinstance(input_data, dict):
+        return str(input_data)[:80]
+    if name == 'Read':
+        return input_data.get('file_path', '')
+    elif name == 'Bash':
+        return input_data.get('command', input_data.get('description', ''))
+    elif name == 'Grep':
+        return f'"{input_data.get("pattern", "")}" in {input_data.get("path", ".")}'
+    elif name == 'Glob':
+        return input_data.get('pattern', '')
+    else:
+        return str(input_data)[:80]
 
 
 if __name__ == '__main__':

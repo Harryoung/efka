@@ -3,9 +3,9 @@
  * 用于显示单条消息（用户或助手）
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { marked } from 'marked';
-import { UserOutlined, BulbOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
+import { UserOutlined, BulbOutlined, LikeOutlined, DislikeOutlined, ToolOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import CicadaLogo from './CicadaLogo';
 import './Message.css';
@@ -17,6 +17,44 @@ marked.setOptions({
   headerIds: false,
   mangle: false,
 });
+
+// Add ToolCallsPanel component
+const ToolCallsPanel = ({ toolCalls }) => {
+  const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslation();
+
+  const formatToolInput = (tool, input) => {
+    if (!input) return '';
+    switch (tool) {
+      case 'Read': return input.file_path || '';
+      case 'Bash': return input.command || input.description || '';
+      case 'Grep': return `"${input.pattern}" in ${input.path || '.'}`;
+      case 'Glob': return input.pattern || '';
+      case 'Write': return `${input.file_path} ${input.file_text || ''}`;
+      default: return JSON.stringify(input).slice(0, 100);
+    }
+  };
+
+  return (
+    <div className="tool-calls-panel">
+      <button className="tool-calls-toggle" onClick={() => setExpanded(!expanded)}>
+        <ToolOutlined />
+        <span>{t('tools.usedTools', { count: toolCalls.length })}</span>
+        {expanded ? <DownOutlined /> : <RightOutlined />}
+      </button>
+      {expanded && (
+        <div className="tool-calls-list">
+          {toolCalls.map((call, index) => (
+            <div key={call.id || index} className="tool-call-item">
+              <span className="tool-call-name">{call.tool}</span>
+              <span className="tool-call-params">{formatToolInput(call.tool, call.input)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Message = ({ message, onAddToFAQ, onFeedback }) => {
   const { t } = useTranslation();
@@ -74,6 +112,10 @@ const Message = ({ message, onAddToFAQ, onFeedback }) => {
         className="message-content"
         dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
+
+      {message.role === 'assistant' && message.toolCalls?.length > 0 && (
+        <ToolCallsPanel toolCalls={message.toolCalls} />
+      )}
 
       {/* 满意度反馈按钮 - 仅当助手回答符合标准格式且允许反馈时显示 */}
       {role === 'assistant' && isStandardKnowledgeAnswer && onFeedback && canFeedback && (

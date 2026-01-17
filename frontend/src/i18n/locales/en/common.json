@@ -83,5 +83,14 @@
     "switch": "Switch Language",
     "en": "English",
     "zh": "中文"
+  },
+  "tools": {
+    "usedTools": "Used {{count}} tools",
+    "read": "Reading document...",
+    "grep": "Searching content...",
+    "glob": "Finding files...",
+    "write": "Writing file...",
+    "bash": "Running command...",
+    "edit": "Editing file..."
   }
 }

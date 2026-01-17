@@ -202,12 +202,16 @@ async def query_stream(
 
                     # Stream Admin Agent responses (connection pool handles concurrency at service layer)
                     async for msg in admin_service.query(message, sdk_session_id=sdk_session_id):
+                        logger.info(f"[DEBUG] Received message type: {type(msg).__name__}")
                         if isinstance(msg, AssistantMessage):
                             for block in msg.content:
+                                block_type = type(block).__name__
+                                logger.info(f"[DEBUG] Processing block type: {block_type}")
                                 if isinstance(block, TextBlock):
                                     yield sse_message_event(block.text)
                                 elif isinstance(block, ToolUseBlock):
-                                    yield sse_tool_use_event(block.name)
+                                    logger.info(f"Tool use detected: {block.name}, input: {block.input}")
+                                    yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
                             turn_count = msg.num_turns
@@ -262,7 +266,8 @@ async def query_stream(
                                 if isinstance(block, TextBlock):
                                     yield sse_message_event(block.text)
                                 elif isinstance(block, ToolUseBlock):
-                                    yield sse_tool_use_event(block.name)
+                                    logger.info(f"Tool use detected: {block.name}, input: {block.input}")
+                                    yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
                             yield sse_done_event(msg.duration_ms)

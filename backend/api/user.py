@@ -131,10 +131,10 @@ async def user_query_stream(
                                 if isinstance(block, TextBlock):
                                     # Filter metadata, don't show to frontend, but log it
                                     filtered_content, metadata = filter_metadata_from_content(block.text)
-                                    if filtered_content:
-                                        yield sse_message_event(filtered_content)
+                                if filtered_content:
+                                    yield sse_message_event(filtered_content)
                                 elif isinstance(block, ToolUseBlock):
-                                    yield sse_tool_use_event(block.name)
+                                    yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
                             turn_count = msg.num_turns
@@ -189,10 +189,10 @@ async def user_query_stream(
                                 if isinstance(block, TextBlock):
                                     # Filter metadata, don't show to frontend, but log it
                                     filtered_content, metadata = filter_metadata_from_content(block.text)
-                                    if filtered_content:
-                                        yield sse_message_event(filtered_content)
+                                if filtered_content:
+                                    yield sse_message_event(filtered_content)
                                 elif isinstance(block, ToolUseBlock):
-                                    yield sse_tool_use_event(block.name)
+                                    yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
                             yield sse_done_event(msg.duration_ms)

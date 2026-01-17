@@ -105,11 +105,12 @@ class APIService {
       try {
         const data = JSON.parse(event.data);
 
+        // Always pass data to onMessage first (including 'done' event)
+        if (onMessage) onMessage(data);
+
         if (data.type === 'done') {
           eventSource.close();
           if (onComplete) onComplete();
-        } else {
-          if (onMessage) onMessage(data);
         }
       } catch (error) {
         console.error('Failed to parse SSE message:', error);

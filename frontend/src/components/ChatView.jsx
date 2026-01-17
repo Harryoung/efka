@@ -32,12 +32,15 @@ const ChatView = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [error, setError] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [activeTools, setActiveTools] = useState([]);
+  const [pendingToolCalls, setPendingToolCalls] = useState([]);
 
   // refs
   const messagesEndRef = useRef(null);
   const eventSourceRef = useRef(null);
   const inputRef = useRef(null);
   const isInitializedRef = useRef(false);
+  const pendingToolCallsRef = useRef([]);
 
   // Initialize: create session
   useEffect(() => {
@@ -151,6 +154,9 @@ const ChatView = () => {
 
     setIsLoading(true);
     setError(null);
+    setActiveTools([]);
+    setPendingToolCalls([]);
+    pendingToolCallsRef.current = [];
 
     setMessages(prev => prev.map(msg => ({
       ...msg,
@@ -177,10 +183,39 @@ const ChatView = () => {
             updateLastAssistantMessage(data.content);
           } else if (data.type === 'session') {
             console.log('Session info:', data);
+          } else if (data.type === 'tool_use') {
+            setActiveTools(prev => {
+              const filtered = prev.filter(tool => tool.id !== data.id);
+              return [...filtered, { id: data.id, tool: data.tool, input: data.input }].slice(-3);
+            });
+            setPendingToolCalls(prev => {
+              const next = [...prev, { id: data.id, tool: data.tool, input: data.input }];
+              pendingToolCallsRef.current = next;
+              return next;
+            });
+          } else if (data.type === 'done') {
+            const toolCalls = pendingToolCallsRef.current;
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastIndex = newMessages.length - 1;
+              if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
+                newMessages[lastIndex] = {
+                  ...newMessages[lastIndex],
+                  toolCalls,
+                };
+              }
+              return newMessages;
+            });
+            setActiveTools([]);
+            setPendingToolCalls([]);
+            pendingToolCallsRef.current = [];
           } else if (data.type === 'error') {
             console.error('Server error:', data);
             setError(`${t('chat.error')}: ${data.message || t('chat.unknownError')}`);
             setIsLoading(false);
+            setActiveTools([]);
+            setPendingToolCalls([]);
+            pendingToolCallsRef.current = [];
           }
         },
         async (error) => {
@@ -198,6 +233,9 @@ const ChatView = () => {
           }
 
           setIsLoading(false);
+          setActiveTools([]);
+          setPendingToolCalls([]);
+          pendingToolCallsRef.current = [];
         },
         () => {
           setIsLoading(false);
@@ -374,15 +412,28 @@ const ChatView = () => {
           />
         ))}
 
-        {/* Loading indicator */}
+        {/* Loading indicator with tool display */}
         {isLoading && (
           <div className="loading-indicator">
-            <div className="loading-dots">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <p>{t('chat.thinking')}</p>
+            {activeTools.length > 0 ? (
+              <div className="tool-indicator">
+                {activeTools.map((tool, index) => (
+                  <span key={tool.id || index} className="tool-badge">
+                    <span className="tool-dot"></span>
+                    {t(`tools.${(tool.tool || tool).toLowerCase()}`, `Using ${tool.tool || tool}...`)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="loading-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <p>{t('chat.thinking')}</p>
+              </>
+            )}
           </div>
         )}
 

@@ -81,20 +81,34 @@ def sse_message_event(content: str) -> str:
     })
 
 
-def sse_tool_use_event(tool_name: str) -> str:
-    """
-    Generate tool use SSE event
-
-    Args:
-        tool_name: Tool name
-
-    Returns:
-        SSE formatted tool event
-    """
+def sse_tool_use_event(tool_id: str, tool_name: str, tool_input: dict) -> str:
+    """Generate tool use SSE event with full details"""
+    sanitized_input = _sanitize_tool_input(tool_name, tool_input or {})
     return format_sse_event({
         'type': 'tool_use',
-        'tool': tool_name
+        'id': tool_id,
+        'tool': tool_name,
+        'input': sanitized_input
     })
+
+
+def _sanitize_tool_input(tool_name: str, tool_input: dict) -> dict:
+    """Sanitize tool input for frontend display"""
+    result = {}
+    safe_keys = ['file_path', 'pattern', 'command', 'description', 'path', 'type', 'glob']
+    for key, value in tool_input.items():
+        if key in safe_keys:
+            if isinstance(value, str) and len(value) > 200:
+                result[key] = value[:200] + '...'
+            else:
+                if isinstance(value, (str, int, float, bool)) or value is None:
+                    result[key] = value
+                else:
+                    result[key] = str(value)[:200]
+        elif key in ['file_text', 'content']:
+            if isinstance(value, str):
+                result[key] = f"({len(value)} chars)"
+    return result if result else {'_raw': str(tool_input)[:100]}
 
 
 def sse_done_event(duration_ms: Optional[int] = None) -> str:
@@ -155,7 +169,7 @@ async def process_agent_messages(
                     if content:
                         yield sse_message_event(content)
                 elif isinstance(block, ToolUseBlock):
-                    yield sse_tool_use_event(block.name)
+                    yield sse_tool_use_event(block.id, block.name, block.input)
 
         elif isinstance(msg, ResultMessage):
             yield sse_done_event(msg.duration_ms)
