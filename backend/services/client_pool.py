@@ -104,6 +104,7 @@ class SDKClientPool:
             self._total_requests += 1
 
         client = None
+        disconnected = False
         try:
             # Create and connect client in current task
             options = self.options_factory(session_id)
@@ -117,19 +118,21 @@ class SDKClientPool:
         except asyncio.CancelledError:
             # Explicitly catch cancellation, ensure cleanup before re-raising
             logger.warning(f"Client operation cancelled (session={session_id or 'new'})")
+            if client:
+                try:
+                    await client.disconnect()
+                    disconnected = True
+                except Exception as e:
+                    logger.warning("Error disconnecting client after cancellation: %s", e)
             raise
         finally:
             # Disconnect in the same task
-            if client:
+            if client and not disconnected:
                 try:
-                    # Use shield to protect disconnect from cancellation
-                    await asyncio.shield(client.disconnect())
+                    await client.disconnect()
                     logger.debug(f"Client disconnected (session={session_id or 'new'})")
-                except asyncio.CancelledError:
-                    # Cancellation in shield becomes CancelledError, ignore it
-                    logger.warning(f"Client disconnect interrupted but resources released (session={session_id or 'new'})")
                 except Exception as e:
-                    logger.warning(f"Error disconnecting client: {e}")
+                    logger.warning("Error disconnecting client: %s", e)
 
             # Release semaphore (must execute)
             self._semaphore.release()
