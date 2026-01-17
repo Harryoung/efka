@@ -1,18 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-  <!-- Wings -->
-  <path d="M22 25 L12 29 C8 31 6 57 18 63 C24 65 26 43 26 43" />
-  <path d="M42 25 L52 29 C56 31 58 57 46 63 C40 65 38 43 38 43" />
-  <!-- Collar -->
-  <path d="M24 22 L32 28 L40 22" stroke-linecap="butt" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- EFKA Favicon - Cute Cicada Orange -->
+
+  <!-- Wings - 燕尾式，优雅垂在身后 -->
+  <ellipse cx="20" cy="42" rx="6" ry="18" fill="#fdba74" transform="rotate(8 20 42)"/>
+  <ellipse cx="44" cy="42" rx="6" ry="18" fill="#fdba74" transform="rotate(-8 44 42)"/>
+  <ellipse cx="21" cy="44" rx="4" ry="14" fill="#fed7aa" transform="rotate(8 21 44)"/>
+  <ellipse cx="43" cy="44" rx="4" ry="14" fill="#fed7aa" transform="rotate(-8 43 44)"/>
+
   <!-- Body -->
-  <path d="M27 28 L37 28 L32 54 Z" fill="#10b981" stroke="none" />
-  <path d="M27 28 L37 28 L32 54 Z" fill="none" />
+  <ellipse cx="32" cy="40" rx="10" ry="16" fill="#f97316"/>
+  <ellipse cx="32" cy="38" rx="7" ry="10" fill="#fb923c"/>
+
+  <!-- Body segments -->
+  <path d="M25 42 Q32 44 39 42" stroke="#ea580c" stroke-width="1.5" fill="none"/>
+  <path d="M26 48 Q32 50 38 48" stroke="#ea580c" stroke-width="1.5" fill="none"/>
+
   <!-- Head -->
-  <rect x="22" y="8" width="20" height="14" rx="7" fill="white" stroke="#10b981" />
+  <circle cx="32" cy="18" r="14" fill="#f97316"/>
+  <circle cx="32" cy="17" r="12" fill="#fb923c"/>
+
   <!-- Eyes -->
-  <circle cx="27" cy="15" r="4.5" fill="white" stroke="#10b981" />
-  <circle cx="37" cy="15" r="4.5" fill="white" stroke="#10b981" />
-  <!-- Pupils -->
-  <circle cx="27" cy="15" r="2" fill="#10b981" stroke="none" />
-  <circle cx="37" cy="15" r="2" fill="#10b981" stroke="none" />
+  <circle cx="26" cy="17" r="6" fill="white"/>
+  <circle cx="38" cy="17" r="6" fill="white"/>
+  <circle cx="27" cy="16" r="3.5" fill="#431407"/>
+  <circle cx="39" cy="16" r="3.5" fill="#431407"/>
+  <circle cx="28.5" cy="14.5" r="1.5" fill="white"/>
+  <circle cx="40.5" cy="14.5" r="1.5" fill="white"/>
+
+  <!-- Smile -->
+  <path d="M28 23 Q32 26 36 23" stroke="#431407" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+  <!-- Antenna -->
+  <path d="M26 6 Q22 2 20 6" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M38 6 Q42 2 44 6" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <circle cx="20" cy="6" r="2" fill="#f97316"/>
+  <circle cx="44" cy="6" r="2" fill="#f97316"/>
 </svg>
