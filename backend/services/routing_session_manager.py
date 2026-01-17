@@ -1,15 +1,15 @@
 """
-Routing Session Manager - Session Router会话管理器
+Routing Session Manager - Session Router session manager
 
-核心职责：
-1. 管理Session生命周期（创建、查询、更新、过期）
-2. Session摘要并发安全更新（乐观锁CAS机制）
-3. 按时间倒序返回用户Sessions（支持Router语义判断）
-4. 分状态TTL管理（ACTIVE 7天，RESOLVED 24h）
+Core responsibilities:
+1. Manage Session lifecycle (create, query, update, expire)
+2. Concurrent-safe Session summary updates (optimistic lock CAS mechanism)
+3. Return user Sessions in reverse chronological order (supports Router semantic judgment)
+4. State-based TTL management (ACTIVE 7 days, RESOLVED 24h)
 
-与现有session_manager.py的区别：
-- session_manager.py：管理Claude SDK session（user_id → claude_session_id）
-- routing_session_manager.py：管理语义会话路由（支持并发会话）
+Difference from existing session_manager.py:
+- session_manager.py: Manages Claude SDK sessions (user_id → claude_session_id)
+- routing_session_manager.py: Manages semantic session routing (supports concurrent sessions)
 """
 
 import asyncio
@@ -34,16 +34,16 @@ logger = logging.getLogger(__name__)
 
 class RoutingSessionManager:
     """
-    路由Session管理器（支持Redis乐观锁和内存降级）
+    Routing Session Manager (supports Redis optimistic lock and memory fallback)
 
-    Redis Key设计：
+    Redis Key design:
     - session:{session_id} -> Session JSON
     - user_sessions:{user_id} -> Set[session_id]
     - session_history:{session_id} -> List[Message JSON]
 
-    架构说明：
-    - 主存储：Redis（持久化、分布式）
-    - 降级存储：内存（Redis故障时）
+    Architecture notes:
+    - Primary storage: Redis (persistent, distributed)
+    - Fallback storage: Memory (when Redis fails)
     """
 
     def __init__(
@@ -52,27 +52,27 @@ class RoutingSessionManager:
         redis_client=None  # RedisSessionStorage client
     ):
         """
-        初始化Session管理器
+        Initialize Session manager
 
         Args:
-            kb_root: 知识库根目录
-            redis_client: Redis客户端（可选，None时使用内存）
+            kb_root: Knowledge base root directory
+            redis_client: Redis client (optional, uses memory when None)
         """
         self.kb_root = kb_root
         self.redis_client = redis_client
         self._using_fallback = redis_client is None
 
-        # 内存降级存储
+        # Memory fallback storage
         self._memory_sessions: Dict[str, Session] = {}  # session_id -> Session
         self._memory_user_sessions: Dict[str, List[str]] = {}  # user_id -> [session_ids]
 
         logger.info(f"RoutingSessionManager initialized (fallback={self._using_fallback})")
 
     async def initialize(self) -> None:
-        """初始化存储后端"""
+        """Initialize storage backend"""
         if self.redis_client:
             try:
-                # 测试Redis连接
+                # Test Redis connection
                 await self.redis_client.ping()
                 logger.info("✅ RoutingSessionManager Redis storage ready")
                 self._using_fallback = False
@@ -94,23 +94,23 @@ class RoutingSessionManager:
         domain: Optional[str] = None
     ) -> Session:
         """
-        创建新Session
+        Create new Session
 
         Args:
-            user_id: 企业微信userid
-            role: 用户角色
-            original_question: 原始问题
-            session_id: Session ID（可选，默认生成UUID）
-            related_user_id: 关联用户ID（仅role=EXPERT时）
-            domain: 专业领域（仅role=EXPERT时）
+            user_id: WeChat Work (企业微信) userid
+            role: User role
+            original_question: Original question
+            session_id: Session ID (optional, generates UUID by default)
+            related_user_id: Related user ID (only for role=EXPERT)
+            domain: Expert domain (only for role=EXPERT)
 
         Returns:
-            创建的Session对象
+            Created Session object
         """
         if session_id is None:
             session_id = f"sess_{uuid.uuid4().hex[:16]}"
 
-        # 计算过期时间（ACTIVE默认7天）
+        # Calculate expiration time (ACTIVE defaults to 7 days)
         expires_at = datetime.now() + timedelta(days=7)
 
         session = Session(
@@ -135,10 +135,10 @@ class RoutingSessionManager:
             tags=[]
         )
 
-        # 持久化
+        # Persist
         await self._save_session(session, ttl_seconds=7 * 86400)
 
-        # 添加到用户Session集合
+        # Add to user Session set
         await self._add_to_user_sessions(user_id, session_id)
 
         logger.info(f"Created session {session_id} for user {user_id} (role={role.value})")
@@ -146,13 +146,13 @@ class RoutingSessionManager:
 
     async def get_session(self, session_id: str) -> Optional[Session]:
         """
-        获取Session
+        Get Session
 
         Args:
             session_id: Session ID
 
         Returns:
-            Session对象，不存在返回None
+            Session object, None if not found
         """
         if self._using_fallback:
             return self._memory_sessions.get(session_id)
@@ -173,17 +173,17 @@ class RoutingSessionManager:
         max_per_role: int = 10
     ) -> SessionQueryResult:
         """
-        查询用户的所有Sessions（按时间倒序）
+        Query all user Sessions (in reverse chronological order)
 
         Args:
-            user_id: 企业微信userid
-            include_expired: 是否包含过期Session
-            max_per_role: 每种角色最多返回数量
+            user_id: WeChat Work (企业微信) userid
+            include_expired: Whether to include expired Sessions
+            max_per_role: Maximum number to return per role
 
         Returns:
-            SessionQueryResult（as_user和as_expert都按时间倒序）
+            SessionQueryResult (both as_user and as_expert in reverse chronological order)
         """
-        # 获取用户所有session_ids
+        # Get all user session_ids
         session_ids = await self._get_user_session_ids(user_id)
 
         if not session_ids:
@@ -194,25 +194,25 @@ class RoutingSessionManager:
                 total_count=0
             )
 
-        # 批量获取Session对象
+        # Batch get Session objects
         sessions = []
         for sid in session_ids:
             session = await self.get_session(sid)
             if session:
-                # 过滤过期Session
+                # Filter expired Sessions
                 if not include_expired and session.status == SessionStatus.EXPIRED:
                     continue
                 sessions.append(session)
 
-        # 按角色分类
+        # Classify by role
         as_user = [s for s in sessions if s.role in [SessionRole.USER, SessionRole.EXPERT_AS_USER]]
         as_expert = [s for s in sessions if s.role == SessionRole.EXPERT]
 
-        # 关键：按 last_active_at 倒序排序（最新的在前）
+        # Key: Sort by last_active_at in descending order (newest first)
         as_user.sort(key=lambda s: s.last_active_at, reverse=True)
         as_expert.sort(key=lambda s: s.last_active_at, reverse=True)
 
-        # 限制数量
+        # Limit quantity
         as_user = as_user[:max_per_role]
         as_expert = as_expert[:max_per_role]
 
@@ -232,21 +232,21 @@ class RoutingSessionManager:
         max_retries: int = 3
     ) -> bool:
         """
-        更新Session摘要（乐观锁机制）
+        Update Session summary (optimistic lock mechanism)
 
         Args:
             session_id: Session ID
-            new_message: 新消息快照
-            key_points: Agent提取的关键点
-            session_status: 新状态（可选）
-            max_retries: 最大重试次数
+            new_message: New message snapshot
+            key_points: Key points extracted by Agent
+            session_status: New status (optional)
+            max_retries: Maximum retry attempts
 
         Returns:
-            是否更新成功
+            Whether update was successful
         """
         for attempt in range(max_retries):
             try:
-                # 1. 读取当前Session（带版本号）
+                # 1. Read current Session (with version)
                 session = await self.get_session(session_id)
                 if not session:
                     logger.error(f"Session {session_id} not found")
@@ -254,44 +254,44 @@ class RoutingSessionManager:
 
                 current_version = session.summary.version
 
-                # 2. 更新摘要
+                # 2. Update summary
                 if new_message:
                     session.summary.latest_exchange = new_message
 
                 session.summary.last_updated = datetime.now()
                 session.summary.version += 1
 
-                # 3. 追加关键点（去重，最多10个）
+                # 3. Append key points (deduplicate, max 10)
                 if key_points:
                     existing_points = set(session.summary.key_points)
                     for point in key_points:
                         if point not in existing_points:
                             session.summary.key_points.append(point)
                             if len(session.summary.key_points) > 10:
-                                session.summary.key_points.pop(0)  # 移除最旧的
+                                session.summary.key_points.pop(0)  # Remove oldest
 
-                # 4. 更新其他字段
+                # 4. Update other fields
                 session.last_active_at = datetime.now()
                 session.message_count += 1
 
                 if session_status:
                     session.status = session_status
-                    # 状态变更到RESOLVED时，设置24小时TTL
+                    # When transitioning to RESOLVED, set 24h TTL
                     if session_status == SessionStatus.RESOLVED:
                         await self._transition_to_resolved(session)
                         logger.info(f"Session {session_id} marked as RESOLVED (24h TTL)")
                         return True
 
-                # 5. CAS更新（Compare-And-Swap）
+                # 5. CAS update (Compare-And-Swap)
                 success = await self._cas_update_session(session, current_version)
 
                 if success:
                     logger.info(f"Session {session_id} summary updated (v{current_version} -> v{session.summary.version})")
                     return True
                 else:
-                    # 版本冲突，重试
+                    # Version conflict, retry
                     logger.warning(f"Session {session_id} version conflict (attempt {attempt + 1}/{max_retries})")
-                    await asyncio.sleep(0.05 * (2 ** attempt))  # 指数退避
+                    await asyncio.sleep(0.05 * (2 ** attempt))  # Exponential backoff
                     continue
 
             except Exception as e:
@@ -309,21 +309,21 @@ class RoutingSessionManager:
         message: Dict
     ) -> None:
         """
-        追加消息到完整历史（无并发冲突，使用LPUSH）
+        Append message to full history (no concurrency conflicts, uses LPUSH)
 
         Args:
             session_id: Session ID
-            message: 消息字典 {role, content, timestamp}
+            message: Message dict {role, content, timestamp}
         """
         history_key = f"session_history:{session_id}"
 
         if self._using_fallback:
-            # 内存模式暂不实现完整历史
+            # Memory mode does not implement full history yet
             return
 
         try:
             await self.redis_client.lpush(history_key, json.dumps(message, default=str))
-            await self.redis_client.expire(history_key, 7 * 86400)  # 7天过期
+            await self.redis_client.expire(history_key, 7 * 86400)  # 7 days expiry
         except Exception as e:
             logger.error(f"Failed to append message to history {session_id}: {e}")
 
@@ -333,14 +333,14 @@ class RoutingSessionManager:
         limit: int = 50
     ) -> List[Dict]:
         """
-        获取Session完整历史
+        Get Session full history
 
         Args:
             session_id: Session ID
-            limit: 最多返回消息数
+            limit: Maximum number of messages to return
 
         Returns:
-            消息列表
+            Message list
         """
         history_key = f"session_history:{session_id}"
 
@@ -354,10 +354,10 @@ class RoutingSessionManager:
             logger.error(f"Failed to get session history {session_id}: {e}")
             return []
 
-    # ==================== 内部辅助方法 ====================
+    # ==================== Internal helper methods ====================
 
     async def _save_session(self, session: Session, ttl_seconds: int) -> None:
-        """保存Session到存储"""
+        """Save Session to storage"""
         session_key = f"session:{session.session_id}"
 
         if self._using_fallback:
@@ -375,7 +375,7 @@ class RoutingSessionManager:
             self._memory_sessions[session.session_id] = session
 
     async def _add_to_user_sessions(self, user_id: str, session_id: str) -> None:
-        """添加Session到用户Session集合"""
+        """Add Session to user Session set"""
         if self._using_fallback:
             if user_id not in self._memory_user_sessions:
                 self._memory_user_sessions[user_id] = []
@@ -385,12 +385,12 @@ class RoutingSessionManager:
         try:
             user_sessions_key = f"user_sessions:{user_id}"
             await self.redis_client.sadd(user_sessions_key, session_id)
-            await self.redis_client.expire(user_sessions_key, 30 * 86400)  # 30天
+            await self.redis_client.expire(user_sessions_key, 30 * 86400)  # 30 days
         except Exception as e:
             logger.error(f"Failed to add session to user {user_id}: {e}")
 
     async def _get_user_session_ids(self, user_id: str) -> List[str]:
-        """获取用户所有session_ids"""
+        """Get all user session_ids"""
         if self._using_fallback:
             return self._memory_user_sessions.get(user_id, [])
 
@@ -408,22 +408,22 @@ class RoutingSessionManager:
         expected_version: int
     ) -> bool:
         """
-        CAS更新Session（Compare-And-Swap）
+        CAS update Session (Compare-And-Swap)
 
         Args:
-            session: 更新后的Session对象
-            expected_version: 期望的版本号
+            session: Updated Session object
+            expected_version: Expected version number
 
         Returns:
-            是否更新成功
+            Whether update was successful
         """
         if self._using_fallback:
-            # 内存模式：直接更新
+            # Memory mode: direct update
             self._memory_sessions[session.session_id] = session
             return True
 
         try:
-            # Lua脚本实现CAS
+            # Lua script for CAS
             lua_script = """
             local key = KEYS[1]
             local expected_version = tonumber(ARGV[1])
@@ -432,7 +432,7 @@ class RoutingSessionManager:
 
             local current = redis.call('GET', key)
             if not current then
-                return 0  -- Session已被删除
+                return 0  -- Session was deleted
             end
 
             local current_data = cjson.decode(current)
@@ -440,17 +440,17 @@ class RoutingSessionManager:
 
             if current_version == expected_version then
                 redis.call('SETEX', key, ttl_seconds, new_value)
-                return 1  -- 成功
+                return 1  -- Success
             else
-                return -1  -- 版本冲突
+                return -1  -- Version conflict
             end
             """
 
-            # 计算TTL
+            # Calculate TTL
             if session.status == SessionStatus.RESOLVED:
-                ttl_seconds = 24 * 3600  # 24小时
+                ttl_seconds = 24 * 3600  # 24 hours
             else:
-                ttl_seconds = 7 * 86400  # 7天
+                ttl_seconds = 7 * 86400  # 7 days
 
             session_key = f"session:{session.session_id}"
             result = await self.redis_client.eval(
@@ -467,10 +467,10 @@ class RoutingSessionManager:
 
     async def _transition_to_resolved(self, session: Session) -> None:
         """
-        标记Session为已解决（设置24小时TTL）
+        Mark Session as resolved (set 24h TTL)
 
         Args:
-            session: Session对象
+            session: Session object
         """
         session.status = SessionStatus.RESOLVED
         session.last_active_at = datetime.now()
@@ -478,7 +478,7 @@ class RoutingSessionManager:
         await self._save_session(session, ttl_seconds=24 * 3600)
 
 
-# 全局单例
+# Global singleton
 _routing_session_manager: Optional[RoutingSessionManager] = None
 
 
@@ -487,14 +487,14 @@ def get_routing_session_manager(
     redis_client=None
 ) -> RoutingSessionManager:
     """
-    获取RoutingSessionManager单例
+    Get RoutingSessionManager singleton
 
     Args:
-        kb_root: 知识库根目录
-        redis_client: Redis客户端
+        kb_root: Knowledge base root directory
+        redis_client: Redis client
 
     Returns:
-        RoutingSessionManager实例
+        RoutingSessionManager instance
     """
     global _routing_session_manager
 
@@ -512,7 +512,7 @@ def get_routing_session_manager(
     return _routing_session_manager
 
 
-# 导出
+# Export
 __all__ = [
     "RoutingSessionManager",
     "get_routing_session_manager"

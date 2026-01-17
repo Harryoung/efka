@@ -1,6 +1,6 @@
 """
-Storage Base - 存储层抽象接口
-定义会话存储的统一接口，支持多种存储后端（Redis、PostgreSQL 等）
+Storage Base - Storage layer abstract interface
+Defines unified interface for session storage, supporting multiple storage backends (Redis, PostgreSQL, etc.)
 """
 
 from abc import ABC, abstractmethod
@@ -12,48 +12,48 @@ from typing import Optional, Dict
 @dataclass
 class SessionRecord:
     """
-    会话记录数据结构
+    Session record data structure
 
-    表示 user_id → session 的映射关系
+    Represents user_id → session mapping relationship
 
-    字段说明:
-    - internal_session_id: 内部追踪 ID（我们生成的 UUID）
-    - sdk_session_id: SDK 返回的真实 session ID（用于 resume）
-      - None: 新会话，还未收到 SDK 响应
-      - str: SDK 返回的真实 ID，可用于 resume
+    Field descriptions:
+    - internal_session_id: Internal tracking ID (UUID we generate)
+    - sdk_session_id: Real session ID returned by SDK (for resume)
+      - None: New session, SDK response not yet received
+      - str: Real ID returned by SDK, can be used for resume
     """
-    user_id: str                                      # 用户唯一标识
-    internal_session_id: str                          # 内部追踪 ID（我们生成的 UUID）
-    sdk_session_id: Optional[str] = None              # SDK 返回的真实 session ID
+    user_id: str                                      # User unique identifier
+    internal_session_id: str                          # Internal tracking ID (UUID we generate)
+    sdk_session_id: Optional[str] = None              # Real session ID returned by SDK
     created_at: datetime = field(default_factory=datetime.now)
     last_active: datetime = field(default_factory=datetime.now)
-    turn_count: int = 0                               # 对话轮次
-    metadata: Dict = field(default_factory=dict)      # 扩展信息
+    turn_count: int = 0                               # Conversation turn count
+    metadata: Dict = field(default_factory=dict)      # Extension information
 
-    # 兼容性别名（逐步迁移）
+    # Compatibility alias (gradual migration)
     @property
     def claude_session_id(self) -> str:
-        """兼容旧代码，返回 internal_session_id"""
+        """Compatible with old code, returns internal_session_id"""
         return self.internal_session_id
 
     def is_expired(self, ttl_seconds: int = 7 * 86400) -> bool:
         """
-        检查会话是否过期
+        Check if session is expired
 
         Args:
-            ttl_seconds: 超时时间（秒），默认 7 天
+            ttl_seconds: Timeout duration (seconds), default 7 days
 
         Returns:
-            是否过期
+            Whether expired
         """
         return (datetime.now() - self.last_active).total_seconds() > ttl_seconds
 
     def to_dict(self) -> dict:
         """
-        转换为字典（用于序列化）
+        Convert to dictionary (for serialization)
 
         Returns:
-            会话信息字典
+            Session information dictionary
         """
         return {
             "user_id": self.user_id,
@@ -68,73 +68,73 @@ class SessionRecord:
 
 class SessionStorage(ABC):
     """
-    会话存储抽象接口
+    Session storage abstract interface
 
-    定义统一的存储接口，支持多种后端实现：
-    - RedisSessionStorage: 基于 Redis 的高性能存储
-    - PostgreSQLSessionStorage: 基于 PostgreSQL 的持久化存储
-    - MemorySessionStorage: 基于内存的临时存储（降级方案）
+    Defines unified storage interface, supporting multiple backend implementations:
+    - RedisSessionStorage: Redis-based high-performance storage
+    - PostgreSQLSessionStorage: PostgreSQL-based persistent storage
+    - MemorySessionStorage: Memory-based temporary storage (fallback solution)
     """
 
     @abstractmethod
     async def get_active_session(self, user_id: str) -> Optional[SessionRecord]:
         """
-        获取用户的活跃会话
+        Get user's active session
 
         Args:
-            user_id: 用户标识
+            user_id: User identifier
 
         Returns:
-            会话记录，如果不存在返回 None
+            Session record, or None if not exists
         """
         pass
 
     @abstractmethod
     async def save_active_session(self, session: SessionRecord) -> None:
         """
-        保存活跃会话
+        Save active session
 
         Args:
-            session: 会话记录
+            session: Session record
         """
         pass
 
     @abstractmethod
     async def delete_active_session(self, user_id: str) -> bool:
         """
-        删除活跃会话
+        Delete active session
 
         Args:
-            user_id: 用户标识
+            user_id: User identifier
 
         Returns:
-            是否成功删除
+            Whether deletion was successful
         """
         pass
 
     @abstractmethod
     async def get_all_active_sessions(self) -> Dict[str, SessionRecord]:
         """
-        获取所有活跃会话
+        Get all active sessions
 
         Returns:
-            user_id -> SessionRecord 的映射
+            Mapping of user_id -> SessionRecord
         """
         pass
 
     @abstractmethod
     async def health_check(self) -> bool:
         """
-        健康检查
+        Health check
 
         Returns:
-            存储后端是否健康
+            Whether storage backend is healthy
         """
         pass
 
     @abstractmethod
     async def close(self) -> None:
         """
-        关闭存储连接
+        Close storage connection
         """
         pass

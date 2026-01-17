@@ -1,7 +1,7 @@
 """
-User API routes - 用户知识查询接口
-使用 User Agent (kb_qa_agent.py)
-支持基于 user_id 的持久化会话
+User API routes - User knowledge query interface
+Uses User Agent (kb_qa_agent.py)
+Supports user_id-based persistent sessions
 """
 import logging
 import re
@@ -23,8 +23,8 @@ from backend.api.streaming_utils import (
 
 logger = logging.getLogger(__name__)
 
-# 用于过滤 Agent 元数据的正则表达式
-# 匹配 ```metadata\n{...}\n``` 或 ```json\n{...}\n``` 格式的元数据块
+# Regular expression for filtering Agent metadata
+# Matches metadata blocks in ```metadata\n{...}\n``` or ```json\n{...}\n``` format
 METADATA_PATTERN = re.compile(
     r'```(?:metadata|json)\s*\n\s*(\{[^`]*?\})\s*\n```',
     re.DOTALL
@@ -33,21 +33,21 @@ METADATA_PATTERN = re.compile(
 
 def filter_metadata_from_content(content: str) -> tuple[str, dict | None]:
     """
-    从 Agent 输出中过滤元数据块，同时提取元数据供日志记录和会话管理使用
+    Filter metadata blocks from Agent output, and extract metadata for logging and session management
 
-    设计说明：
-    - 企微场景：Agent 通过 MCP 直接发送消息，元数据供脚手架层解析
-    - Web 前端场景：元数据不应展示给用户，但需记录日志以便调试
+    Design notes:
+    - WeCom scenario: Agent sends messages directly via MCP, metadata parsed by scaffolding layer
+    - Web frontend scenario: Metadata should not be shown to users, but logged for debugging
 
     Args:
-        content: Agent 输出的原始内容
+        content: Raw content output by Agent
 
     Returns:
-        (过滤后的内容, 提取的元数据字典或None)
+        (filtered content, extracted metadata dict or None)
     """
     metadata = None
 
-    # 查找元数据块
+    # Find metadata block
     match = METADATA_PATTERN.search(content)
     if match:
         json_str = match.group(1)
@@ -57,7 +57,7 @@ def filter_metadata_from_content(content: str) -> tuple[str, dict | None]:
         except json.JSONDecodeError as e:
             logger.warning(f"[Metadata] Failed to parse JSON: {e}, raw: {json_str[:100]}...")
 
-        # 从内容中移除元数据块（前端不展示）
+        # Remove metadata block from content (not shown on frontend)
         content = METADATA_PATTERN.sub('', content).strip()
 
     return content, metadata
@@ -66,7 +66,7 @@ router = APIRouter(prefix="/api/user", tags=["user"])
 
 
 class UserQueryRequest(BaseModel):
-    """用户查询请求"""
+    """User query request"""
     session_id: Optional[str] = None
     message: str
     user_id: Optional[str] = None
@@ -79,21 +79,21 @@ async def user_query_stream(
     user_id: Optional[str] = None
 ):
     """
-    用户知识查询接口（SSE 流式）
+    User knowledge query interface (SSE streaming)
 
-    核心逻辑：
-    1. 使用 User Agent (kb_qa_agent.py) 处理查询
-    2. 仅支持知识查询功能，不支持文档上传和管理
-    3. 使用 Server-Sent Events (SSE) 流式返回响应
-    4. 支持基于 user_id 的持久化会话
+    Core logic:
+    1. Use User Agent (kb_qa_agent.py) to process query
+    2. Only supports knowledge query function, does not support document upload and management
+    3. Use Server-Sent Events (SSE) to stream responses
+    4. Supports user_id-based persistent sessions
     """
     try:
         user_service = get_user_service()
         session_manager = get_session_manager()
 
-        # 基于 user_id 的持久化会话
+        # user_id-based persistent sessions
         if user_id:
-            # 获取 SDK session ID（用于 resume，如果是新会话则为 None）
+            # Get SDK session ID (for resume, None if new session)
             sdk_session_id = await session_manager.get_or_create_user_session(user_id)
             is_new_session = sdk_session_id is None
             logger.info(
@@ -101,35 +101,35 @@ async def user_query_stream(
                 f"(sdk_session: {sdk_session_id or 'new'}, is_new: {is_new_session})"
             )
 
-            # 确保 User Service 已初始化
+            # Ensure User Service is initialized
             if not user_service.is_initialized:
                 await user_service.initialize()
 
-            # 定义 SSE 生成器
+            # Define SSE generator
             async def event_generator():
                 """
-                SSE 事件生成器（基于 user_id）
+                SSE event generator (based on user_id)
 
-                并发支持：使用 SDKClientPool 实现真正并发
-                每个请求独占一个 Client，无需用户锁
+                Concurrency support: use SDKClientPool for true concurrency
+                Each request has exclusive Client, no user locks needed
 
-                重要：从 ResultMessage 中提取真实的 SDK session ID 并保存
+                Important: extract real SDK session ID from ResultMessage and save
                 """
                 try:
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
-                    # 发送会话状态信息
+                    # Send session status information
                     yield sse_session_event(sdk_session_id, is_new=is_new_session)
 
                     turn_count = None
                     real_sdk_session_id = None
 
-                    # 流式接收 User Agent 响应（连接池已在 service 层处理并发）
+                    # Stream User Agent responses (connection pool handles concurrency at service layer)
                     async for msg in user_service.query(message, sdk_session_id=sdk_session_id, user_id=user_id):
                         if isinstance(msg, AssistantMessage):
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
-                                    # 过滤元数据，不展示给前端，但记录日志
+                                    # Filter metadata, don't show to frontend, but log it
                                     filtered_content, metadata = filter_metadata_from_content(block.text)
                                     if filtered_content:
                                         yield sse_message_event(filtered_content)
@@ -142,12 +142,12 @@ async def user_query_stream(
                             logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
                             yield sse_done_event(msg.duration_ms)
 
-                    # 保存真实的 SDK session ID（用于下次 resume）
+                    # Save real SDK session ID (for next resume)
                     if real_sdk_session_id:
                         await session_manager.save_sdk_session_id(user_id, real_sdk_session_id)
                         logger.info(f"Saved SDK session ID for user {user_id}: {real_sdk_session_id}")
 
-                    # 更新会话活跃度
+                    # Update session activity
                     if turn_count is not None:
                         await session_manager.update_session_activity(user_id, turn_count=turn_count)
 
@@ -157,37 +157,37 @@ async def user_query_stream(
 
             return create_sse_response(event_generator())
 
-        # 基于 session_id 的会话（向后兼容，不使用 resume）
+        # session_id-based sessions (backward compatible, no resume)
         else:
             if session_id:
                 session = session_manager.get_session(session_id)
                 if not session:
-                    raise HTTPException(status_code=404, detail="会话不存在")
+                    raise HTTPException(status_code=404, detail="Session not found")
                 session.update_activity()
             else:
                 session = session_manager.create_session(user_id=None)
 
             logger.info(f"Processing user query for session {session.session_id} (legacy mode, no resume)")
 
-            # 确保 User Service 已初始化
+            # Ensure User Service is initialized
             if not user_service.is_initialized:
                 await user_service.initialize()
 
-            # 定义 SSE 生成器
+            # Define SSE generator
             async def event_generator():
-                """SSE 事件生成器（基于 session_id，旧模式不使用 resume）"""
+                """SSE event generator (based on session_id, legacy mode without resume)"""
                 try:
                     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 
-                    # 发送会话 ID
+                    # Send session ID
                     yield sse_session_event(session.session_id)
 
-                    # 流式接收 User Agent 响应（旧模式：不传 sdk_session_id）
+                    # Stream User Agent responses (old mode: no sdk_session_id)
                     async for msg in user_service.query(message, sdk_session_id=None, user_id=None):
                         if isinstance(msg, AssistantMessage):
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
-                                    # 过滤元数据，不展示给前端，但记录日志
+                                    # Filter metadata, don't show to frontend, but log it
                                     filtered_content, metadata = filter_metadata_from_content(block.text)
                                     if filtered_content:
                                         yield sse_message_event(filtered_content)

@@ -1,16 +1,16 @@
 """
-Claude SDK 客户端连接池
+Claude SDK Client Connection Pool
 
-设计原则：
-1. 使用信号量控制并发数量（而非预创建客户端）
-2. 每次请求时在同一个 task 中 connect/disconnect
-3. 支持通过 resume 参数恢复用户 session
-4. 支持真正并发，每个请求独占一个 Client
+Design principles:
+1. Use semaphore to control concurrency (not pre-create clients)
+2. Connect/disconnect in the same task for each request
+3. Support resume user session via resume parameter
+4. Support true concurrency, each request gets exclusive use of a Client
 
-重要：ClaudeSDKClient 使用 anyio TaskGroup，必须在同一个 asyncio task 中
-     完成 connect/disconnect。因此不能预先创建客户端池。
+Important: ClaudeSDKClient uses anyio TaskGroup, must complete
+          connect/disconnect in the same asyncio task. Therefore cannot pre-create client pool.
 
-使用方式：
+Usage:
     async with pool.acquire(session_id=user_session_id) as client:
         await client.query(...)
 """
@@ -27,13 +27,13 @@ logger = logging.getLogger(__name__)
 
 class SDKClientPool:
     """
-    Claude SDK 客户端连接池
+    Claude SDK Client Connection Pool
 
-    关键特性：
-    - 使用信号量控制并发数量
-    - 每次请求时创建新客户端（避免跨 task 问题）
-    - 通过 resume 参数动态恢复用户 session
-    - 支持并发，每个请求独占一个 Client
+    Key features:
+    - Use semaphore to control concurrency
+    - Create new client for each request (avoid cross-task issues)
+    - Dynamically resume user session via resume parameter
+    - Support concurrency, each request gets exclusive use of a Client
     """
 
     def __init__(
@@ -43,53 +43,53 @@ class SDKClientPool:
         max_wait_time: float = 30.0
     ):
         """
-        初始化连接池
+        Initialize connection pool
 
         Args:
-            pool_size: 最大并发客户端数量
-            options_factory: 创建 ClaudeAgentOptions 的工厂函数
-                            (参数: session_id 或 None)
-            max_wait_time: 获取客户端最大等待时间（秒）
+            pool_size: Maximum concurrent client count
+            options_factory: Factory function to create ClaudeAgentOptions
+                            (parameter: session_id or None)
+            max_wait_time: Maximum wait time to acquire client (seconds)
         """
         self.pool_size = pool_size
         self.options_factory = options_factory
         self.max_wait_time = max_wait_time
 
-        # 使用信号量控制并发
+        # Use semaphore to control concurrency
         self._semaphore = asyncio.Semaphore(pool_size)
 
-        # 统计信息
+        # Statistics
         self._active_count = 0
         self._total_requests = 0
         self._lock = asyncio.Lock()
 
-        # 池是否已初始化
-        self.is_initialized = True  # 使用信号量，无需初始化
+        # Is pool initialized
+        self.is_initialized = True  # Using semaphore, no initialization needed
 
         logger.info(f"SDKClientPool created (max_concurrency={pool_size})")
 
     async def initialize(self):
-        """初始化连接池（使用信号量方案，无需预创建客户端）"""
+        """Initialize connection pool (using semaphore approach, no need to pre-create clients)"""
         logger.info(f"SDKClientPool ready (max_concurrency={self.pool_size})")
         self.is_initialized = True
 
     async def shutdown(self):
-        """关闭连接池"""
+        """Shutdown connection pool"""
         logger.info("SDKClientPool shutdown complete")
         self.is_initialized = False
 
     @asynccontextmanager
     async def acquire(self, session_id: Optional[str] = None):
         """
-        获取客户端（上下文管理器）
+        Acquire client (context manager)
 
-        在同一个 task 中完成 connect 和 disconnect，
-        避免 anyio TaskGroup 跨 task 问题。
+        Complete connect and disconnect in the same task,
+        avoiding anyio TaskGroup cross-task issues.
 
         Args:
-            session_id: 要恢复的 session ID（可选）
+            session_id: Session ID to resume (optional)
         """
-        # 等待信号量（带超时）
+        # Wait for semaphore (with timeout)
         try:
             acquired = await asyncio.wait_for(
                 self._semaphore.acquire(),
@@ -105,7 +105,7 @@ class SDKClientPool:
 
         client = None
         try:
-            # 在当前 task 中创建并连接客户端
+            # Create and connect client in current task
             options = self.options_factory(session_id)
             client = ClaudeSDKClient(options=options)
             await client.connect()
@@ -115,23 +115,23 @@ class SDKClientPool:
             yield client
 
         except asyncio.CancelledError:
-            # 显式捕获取消，确保清理后重新抛出
+            # Explicitly catch cancellation, ensure cleanup before re-raising
             logger.warning(f"Client operation cancelled (session={session_id or 'new'})")
             raise
         finally:
-            # 在同一个 task 中断开连接
+            # Disconnect in the same task
             if client:
                 try:
-                    # 使用 shield 保护 disconnect 不被取消
+                    # Use shield to protect disconnect from cancellation
                     await asyncio.shield(client.disconnect())
                     logger.debug(f"Client disconnected (session={session_id or 'new'})")
                 except asyncio.CancelledError:
-                    # shield 中的取消会变成 CancelledError，忽略它
+                    # Cancellation in shield becomes CancelledError, ignore it
                     logger.warning(f"Client disconnect interrupted but resources released (session={session_id or 'new'})")
                 except Exception as e:
                     logger.warning(f"Error disconnecting client: {e}")
 
-            # 释放信号量（必须执行）
+            # Release semaphore (must execute)
             self._semaphore.release()
             logger.debug(f"Semaphore released (session={session_id or 'new'})")
 
@@ -139,7 +139,7 @@ class SDKClientPool:
                 self._active_count -= 1
 
     def get_stats(self) -> dict:
-        """获取连接池统计信息"""
+        """Get connection pool statistics"""
         return {
             "max_concurrency": self.pool_size,
             "active_clients": self._active_count,
@@ -149,9 +149,9 @@ class SDKClientPool:
         }
 
 
-# 单例管理器
+# Singleton manager
 class PoolManager:
-    """连接池管理器（单例）"""
+    """Connection pool manager (singleton)"""
 
     _instance = None
     _pools = {}
@@ -169,7 +169,7 @@ class PoolManager:
         options_factory: Callable[[Optional[str]], ClaudeAgentOptions],
         max_wait_time: float = 30.0
     ) -> SDKClientPool:
-        """注册一个连接池"""
+        """Register a connection pool"""
         if name in cls._pools:
             logger.warning(f"Pool '{name}' already registered")
             return cls._pools[name]
@@ -181,12 +181,12 @@ class PoolManager:
 
     @classmethod
     def get_pool(cls, name: str) -> Optional[SDKClientPool]:
-        """获取连接池"""
+        """Get connection pool"""
         return cls._pools.get(name)
 
     @classmethod
     async def initialize_all(cls):
-        """初始化所有连接池"""
+        """Initialize all connection pools"""
         logger.info(f"Initializing {len(cls._pools)} pools...")
         for name, pool in cls._pools.items():
             try:
@@ -198,7 +198,7 @@ class PoolManager:
 
     @classmethod
     async def shutdown_all(cls):
-        """关闭所有连接池"""
+        """Shutdown all connection pools"""
         logger.info(f"Shutting down {len(cls._pools)} pools...")
         for name, pool in cls._pools.items():
             try:
@@ -211,11 +211,11 @@ class PoolManager:
 
     @classmethod
     def get_all_stats(cls) -> dict:
-        """获取所有连接池统计信息"""
+        """Get all connection pool statistics"""
         return {name: pool.get_stats() for name, pool in cls._pools.items()}
 
 
-# 便捷函数
+# Convenience function
 def get_pool_manager() -> PoolManager:
-    """获取连接池管理器单例"""
+    """Get connection pool manager singleton"""
     return PoolManager()

@@ -1,8 +1,8 @@
 """
-Session Router Service - Session路由服务
+Session Router Service - Session routing service
 
-封装Session Router Agent的调用逻辑
-提供route_to_session方法供wework_callback使用
+Encapsulates Session Router Agent invocation logic
+Provides route_to_session method for wework_callback usage
 """
 
 import logging
@@ -27,18 +27,18 @@ logger = logging.getLogger(__name__)
 
 class SessionRouterService:
     """
-    Session路由服务
+    Session routing service
 
-    职责：
-    - 调用Session Router Agent判断消息归属
-    - 脚手架层直接传入结构化JSON（候选sessions已查询）
-    - 返回路由决策（session_id或NEW_SESSION）
+    Responsibilities:
+    - Call Session Router Agent to determine message attribution
+    - Scaffold layer directly passes structured JSON (candidate sessions already queried)
+    - Return routing decision (session_id or NEW_SESSION)
 
-    注：不再使用内嵌工具，所有数据通过JSON传入Agent
+    Note: No longer uses embedded tools, all data passed to Agent via JSON
     """
 
     def __init__(self):
-        """初始化Session Router服务"""
+        """Initialize Session Router service"""
         self.settings = get_settings()
         self.client: Optional[ClaudeSDKClient] = None
         self.is_initialized = False
@@ -48,21 +48,21 @@ class SessionRouterService:
 
     async def initialize(self, redis_client=None):
         """
-        初始化Session Router Agent SDK客户端
+        Initialize Session Router Agent SDK client
 
         Args:
-            redis_client: Redis客户端（可选）
+            redis_client: Redis client (optional)
         """
         if self.is_initialized:
             logger.warning("Session Router service already initialized")
             return
 
         try:
-            # 检查认证
+            # Check authentication
             if not self.settings.CLAUDE_API_KEY and not self.settings.ANTHROPIC_AUTH_TOKEN:
                 raise ValueError("Missing authentication: CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN")
 
-            # 初始化RoutingSessionManager
+            # Initialize RoutingSessionManager
             kb_path = Path(self.settings.KB_ROOT_PATH)
             self.routing_session_manager = get_routing_session_manager(
                 kb_root=kb_path,
@@ -70,7 +70,7 @@ class SessionRouterService:
             )
             await self.routing_session_manager.initialize()
 
-            # 准备环境变量
+            # Prepare environment variables
             env_vars = {
                 "KB_ROOT_PATH": str(kb_path),
             }
@@ -82,33 +82,33 @@ class SessionRouterService:
                 if self.settings.ANTHROPIC_BASE_URL:
                     env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
-            # 获取Session Router Agent定义
+            # Get Session Router Agent definition
             router_agent_def = get_session_router_agent_definition()
 
-            # 配置内嵌工具（已废弃：脚手架层直接传入结构化JSON，无需工具）
+            # Configure embedded tools (deprecated: scaffold layer passes structured JSON directly, no tools needed)
             # custom_tools = self._configure_custom_tools()
 
-            # 创建Claude Agent Options
+            # Create Claude Agent Options
             options = ClaudeAgentOptions(
                 system_prompt={
                     "type": "preset",
                     "preset": "claude_code",
                     "append": f"\n\n{router_agent_def.prompt}"
                 },
-                agents=None,  # 单一Agent架构
-                mcp_servers={},  # 不使用MCP服务器
-                allowed_tools=[],  # 不需要工具：所有数据由脚手架层通过JSON传入
-                # 已废弃的工具（保留代码但不注册）：
-                #   - query_user_sessions: 脚手架层已在route_to_session中查询
-                #   - get_session_history: Agent只需要summary，不需要完整历史
-                # custom_tools 不是 ClaudeAgentOptions 的有效参数，已移除
-                cwd=str(kb_path.parent),  # 项目根目录
+                agents=None,  # Single Agent architecture
+                mcp_servers={},  # No MCP servers
+                allowed_tools=[],  # No tools needed: all data passed via JSON by scaffold layer
+                # Deprecated tools (code retained but not registered):
+                #   - query_user_sessions: scaffold layer already queries in route_to_session
+                #   - get_session_history: Agent only needs summary, not full history
+                # custom_tools is not a valid ClaudeAgentOptions parameter, removed
+                cwd=str(kb_path.parent),  # Project root directory
                 permission_mode="acceptEdits",
                 env=env_vars,
                 setting_sources=None
             )
 
-            # 创建客户端
+            # Create client
             self.client = ClaudeSDKClient(options=options)
             await self.client.connect()
 
@@ -122,36 +122,36 @@ class SessionRouterService:
 
     def _configure_custom_tools(self) -> Dict:
         """
-        配置内嵌工具
+        Configure embedded tools
 
-        ⚠️ 已废弃（保留代码但不再使用）
-        原因：脚手架层（route_to_session）已直接查询候选sessions并通过JSON传入Agent
-        Agent不再需要这些工具来查询数据
+        ⚠️ Deprecated (code retained but no longer used)
+        Reason: Scaffold layer (route_to_session) already queries candidate sessions and passes via JSON to Agent
+        Agent no longer needs these tools to query data
 
         Returns:
-            工具字典 {tool_name: async_function}
+            Tool dictionary {tool_name: async_function}
         """
         async def query_user_sessions(
             user_id: str,
             include_expired: bool = False
         ) -> Dict:
             """
-            查询用户的所有Sessions（内嵌工具）
+            Query all user Sessions (embedded tool)
 
             Args:
-                user_id: 企业微信userid
-                include_expired: 是否包含过期Session
+                user_id: WeChat Work (企业微信) userid
+                include_expired: Whether to include expired Sessions
 
             Returns:
-                SessionQueryResult字典
+                SessionQueryResult dict
             """
             result = await self.routing_session_manager.query_user_sessions(
                 user_id=user_id,
                 include_expired=include_expired,
-                max_per_role=10  # 限制数量
+                max_per_role=10  # Limit quantity
             )
 
-            # 转换为dict（Session对象需要序列化）
+            # Convert to dict (Session objects need serialization)
             return {
                 "user_id": result.user_id,
                 "as_user": [s.dict() for s in result.as_user],
@@ -164,14 +164,14 @@ class SessionRouterService:
             limit: int = 50
         ) -> Dict:
             """
-            获取Session完整历史（内嵌工具）
+            Get Session full history (embedded tool)
 
             Args:
                 session_id: Session ID
-                limit: 最多返回消息数
+                limit: Maximum number of messages to return
 
             Returns:
-                历史消息字典
+                Historical message dict
             """
             messages = await self.routing_session_manager.get_session_history(
                 session_id=session_id,
@@ -196,15 +196,15 @@ class SessionRouterService:
         user_info: Dict
     ) -> Dict:
         """
-        调用Session Router Agent判断消息归属
+        Call Session Router Agent to determine message attribution
 
         Args:
-            user_id: 企业微信userid
-            new_message: 新消息内容
-            user_info: 用户信息 {"is_expert": bool, "expert_domains": []}
+            user_id: WeChat Work (企业微信) userid
+            new_message: New message content
+            user_info: User info {"is_expert": bool, "expert_domains": []}
 
         Returns:
-            路由决策 {
+            Routing decision {
                 "decision": str,  # session_id or "NEW_SESSION"
                 "confidence": float,
                 "reasoning": str,
@@ -214,29 +214,29 @@ class SessionRouterService:
         if not self.is_initialized:
             await self.initialize()
 
-        # 查询候选Sessions
+        # Query candidate Sessions
         sessions = await self.routing_session_manager.query_user_sessions(
             user_id=user_id,
             include_expired=False,
             max_per_role=10
         )
 
-        # 快捷路径：如果没有候选sessions，直接创建新session
+        # Fast path: if no candidate sessions, create new session directly
         if sessions.total_count == 0:
             logger.info(f"  No candidate sessions found, creating new session directly (fast path)")
             return {
                 "decision": "NEW_SESSION",
                 "confidence": 1.0,
-                "reasoning": "新用户，无历史Session",
+                "reasoning": "New user, no historical Sessions",
                 "matched_role": None
             }
 
-        # 构造Router输入
+        # Construct Router input
         from datetime import datetime
         router_input = {
             "user_id": user_id,
             "new_message": new_message,
-            "current_time": datetime.now().isoformat(),  # 当前时间戳，用于时间窗口判断
+            "current_time": datetime.now().isoformat(),  # Current timestamp for time window judgment
             "user_info": user_info,
             "candidate_sessions": {
                 "as_user": [s.dict() for s in sessions.as_user],
@@ -248,37 +248,37 @@ class SessionRouterService:
         logger.info(f"  Candidate sessions: {sessions.total_count} ({len(sessions.as_user)} user, {len(sessions.as_expert)} expert)")
 
         try:
-            # 调用Router Agent
-            # 将输入作为JSON字符串发送
-            prompt = f"""请根据以下信息判断新消息应该归属到哪个Session：
+            # Call Router Agent
+            # Send input as JSON string
+            prompt = f"""Please determine which Session the new message should belong to based on the following information:
 
 {json.dumps(router_input, ensure_ascii=False, indent=2)}
 
-请严格按照JSON格式返回你的决策。"""
+Please return your decision in strict JSON format."""
 
             response_text = ""
             async for message in self.client.send_message(
                 message=prompt,
-                session_id=f"router_{user_id}"  # Router自己的session
+                session_id=f"router_{user_id}"  # Router's own session
             ):
-                # 处理 AssistantMessage - 包含实际响应内容
+                # Handle AssistantMessage - contains actual response content
                 if isinstance(message, AssistantMessage):
                     for block in message.content:
                         if isinstance(block, TextBlock):
                             response_text += block.text
 
-            # 解析结果
+            # Parse result
             try:
-                # 提取JSON（可能夹杂在其他文本中）
+                # Extract JSON (may be mixed with other text)
                 import re
                 json_match = re.search(r'\{[^\}]*"decision"[^\}]*\}', response_text, re.DOTALL)
                 if json_match:
                     decision = json.loads(json_match.group(0))
                 else:
-                    # 尝试直接解析
+                    # Try to parse directly
                     decision = json.loads(response_text)
 
-                # 验证必需字段
+                # Validate required fields
                 assert 'decision' in decision
                 assert 'confidence' in decision
                 assert decision['decision'] == 'NEW_SESSION' or decision['decision'].startswith('sess')
@@ -289,7 +289,7 @@ class SessionRouterService:
             except Exception as e:
                 logger.error(f"Failed to parse router decision: {e}")
                 logger.error(f"Response text: {response_text}")
-                # 降级：创建新Session
+                # Fallback: create new Session
                 return {
                     "decision": "NEW_SESSION",
                     "confidence": 0.0,
@@ -299,7 +299,7 @@ class SessionRouterService:
 
         except Exception as e:
             logger.error(f"Session Router failed: {e}")
-            # 降级：创建新Session
+            # Fallback: create new Session
             return {
                 "decision": "NEW_SESSION",
                 "confidence": 0.0,
@@ -308,19 +308,19 @@ class SessionRouterService:
             }
 
 
-# 全局单例
+# Global singleton
 _session_router_service: Optional[SessionRouterService] = None
 
 
 def get_session_router_service(redis_client=None) -> SessionRouterService:
     """
-    获取SessionRouterService单例
+    Get SessionRouterService singleton
 
     Args:
-        redis_client: Redis客户端
+        redis_client: Redis client
 
     Returns:
-        SessionRouterService实例
+        SessionRouterService instance
     """
     global _session_router_service
 
@@ -330,7 +330,7 @@ def get_session_router_service(redis_client=None) -> SessionRouterService:
     return _session_router_service
 
 
-# 导出
+# Export
 __all__ = [
     "SessionRouterService",
     "get_session_router_service"

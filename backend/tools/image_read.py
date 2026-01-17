@@ -1,13 +1,13 @@
 """
-Image Read Tool - 图像内容读取工具
+Image Read Tool - Image content reading tool
 
-使用多模态大模型读取图像内容，智能体可以指定关注点或问题，
-让模型有针对性地返回图像中的信息。
+Uses multimodal LLM to read image content, agents can specify focus points or questions,
+allowing the model to return targeted information from the image.
 
-设计原则：
-- 保持通用性，支持多种多模态模型提供商（火山引擎 Doubao、OpenAI GPT-4V、Anthropic Claude 3 等）
-- 通过环境变量配置模型端点和认证信息
-- 返回清晰、结构化的文本描述供智能体使用
+Design principles:
+- Keep it generic, support multiple multimodal model providers (Volcengine Doubao, OpenAI GPT-4V, Anthropic Claude 3, etc.)
+- Configure model endpoints and authentication via environment variables
+- Return clear, structured text descriptions for agent use
 """
 
 import os
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class ImageReadError(Exception):
-    """图像读取工具异常"""
+    """Image read tool exception"""
     pass
 
 
@@ -37,16 +37,16 @@ async def _call_doubao_vision(
     context: str | None = None
 ) -> str:
     """
-    调用火山引擎 Doubao Vision API (兼容 OpenAI 格式)。
+    Call Volcengine Doubao Vision API (OpenAI-compatible format).
 
-    API 文档: https://www.volcengine.com/docs/82379/1298454
+    API docs: https://www.volcengine.com/docs/82379/1298454
     """
-    # 构造 prompt
+    # Construct prompt
     prompt = question
     if context:
-        prompt = f"上下文信息：{context}\n\n问题：{question}"
+        prompt = f"Context information: {context}\n\nQuestion: {question}"
 
-    # 构造请求
+    # Construct request
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -95,16 +95,16 @@ async def _call_openai_vision(
     context: str | None = None
 ) -> str:
     """
-    调用 OpenAI GPT-4V API。
+    Call OpenAI GPT-4V API.
 
-    API 文档: https://platform.openai.com/docs/guides/vision
+    API docs: https://platform.openai.com/docs/guides/vision
     """
-    # 构造 prompt
+    # Construct prompt
     prompt = question
     if context:
         prompt = f"Context: {context}\n\nQuestion: {question}"
 
-    # 构造请求
+    # Construct request
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -154,16 +154,16 @@ async def _call_anthropic_vision(
     context: str | None = None
 ) -> str:
     """
-    调用 Anthropic Claude 3 Vision API。
+    Call Anthropic Claude 3 Vision API.
 
-    API 文档: https://docs.anthropic.com/claude/docs/vision
+    API docs: https://docs.anthropic.com/claude/docs/vision
     """
-    # 构造 prompt
+    # Construct prompt
     prompt = question
     if context:
         prompt = f"Context: {context}\n\nQuestion: {question}"
 
-    # 构造请求
+    # Construct request
     headers = {
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
@@ -208,7 +208,7 @@ async def _call_anthropic_vision(
 
 @tool(
     name="image_read",
-    description="读取图像内容并根据指定的关注点返回分析结果",
+    description="Read image content and return analysis results based on specified focus points",
     input_schema={
         "image_path": str,
         "question": str,
@@ -217,23 +217,23 @@ async def _call_anthropic_vision(
 )
 async def image_read_handler(args: Dict[str, Any]) -> Dict[str, Any]:
     """
-    读取图像内容并根据指定的关注点返回分析结果。
+    Read image content and return analysis results based on specified focus points.
 
     Args:
-        args: 包含以下字段的字典
-            - image_path: 图像文件路径（支持绝对路径或相对于 KB_ROOT_PATH 的路径）
-            - question: 需要从图像中获取的信息，例如：
-                       - "描述图中的架构图逻辑"
-                       - "提取图中的操作步骤"
-                       - "识别图中的文字内容"
-                       - "分析图中的数据表格"
-            - context: 可选的上下文信息，帮助模型更好地理解问题
+        args: Dictionary containing the following fields
+            - image_path: Image file path (supports absolute path or path relative to KB_ROOT_PATH)
+            - question: Information to extract from the image, for example:
+                       - "Describe the architecture diagram logic"
+                       - "Extract operation steps from the image"
+                       - "Recognize text content in the image"
+                       - "Analyze data table in the image"
+            - context: Optional context information to help model better understand the question
 
     Returns:
-        包含分析结果的字典，格式：
+        Dictionary containing analysis results, format:
         {
-            "content": [{"type": "text", "text": "分析结果"}],
-            "is_error": False  # 可选，仅在错误时返回 True
+            "content": [{"type": "text", "text": "analysis result"}],
+            "is_error": False  # Optional, only returns True on error
         }
     """
     try:
@@ -242,24 +242,24 @@ async def image_read_handler(args: Dict[str, Any]) -> Dict[str, Any]:
         context = args.get("context")
 
         if not image_path:
-            raise ImageReadError("缺少必需参数: image_path")
+            raise ImageReadError("Missing required parameter: image_path")
         if not question:
-            raise ImageReadError("缺少必需参数: question")
+            raise ImageReadError("Missing required parameter: question")
 
-        # 1. 解析图像路径
+        # 1. Parse image path
         image_file = Path(image_path)
         if not image_file.is_absolute():
             kb_root = os.getenv("KB_ROOT_PATH", "./knowledge_base")
             image_file = Path(kb_root) / image_path
 
         if not image_file.exists():
-            raise ImageReadError(f"图像文件不存在: {image_file}")
+            raise ImageReadError(f"Image file does not exist: {image_file}")
 
-        # 2. 读取并编码图像
+        # 2. Read and encode image
         with open(image_file, "rb") as f:
             image_data = f.read()
 
-        # 获取图像格式
+        # Get image format
         suffix = image_file.suffix.lower()
         mime_type_map = {
             ".jpg": "image/jpeg",
@@ -271,10 +271,10 @@ async def image_read_handler(args: Dict[str, Any]) -> Dict[str, Any]:
         }
         mime_type = mime_type_map.get(suffix, "image/jpeg")
 
-        # Base64 编码
+        # Base64 encode
         image_base64 = base64.b64encode(image_data).decode("utf-8")
 
-        # 3. 获取多模态模型配置
+        # 3. Get multimodal model configuration
         provider = os.getenv("VISION_MODEL_PROVIDER", "doubao").lower()
         api_key = os.getenv("VISION_MODEL_API_KEY")
         base_url = os.getenv("VISION_MODEL_BASE_URL")
@@ -282,17 +282,17 @@ async def image_read_handler(args: Dict[str, Any]) -> Dict[str, Any]:
 
         if not api_key:
             raise ImageReadError(
-                "未配置 VISION_MODEL_API_KEY 环境变量。"
-                "请在 .env 文件中配置多模态模型的认证信息。"
+                "VISION_MODEL_API_KEY environment variable not configured. "
+                "Please configure multimodal model authentication in .env file."
             )
 
-        # 4. 根据不同提供商调用 API
+        # 4. Call API based on provider
         if provider == "doubao":
-            # 火山引擎 Doubao Vision (兼容 OpenAI 格式)
+            # Volcengine Doubao Vision (OpenAI-compatible format)
             result = await _call_doubao_vision(
                 api_key=api_key,
                 base_url=base_url or "https://ark.cn-beijing.volces.com/api/v3",
-                model=model_name or "ep-20250122183949-wz66v",  # 默认 endpoint
+                model=model_name or "ep-20250122183949-wz66v",  # Default endpoint
                 image_base64=image_base64,
                 mime_type=mime_type,
                 question=question,
@@ -321,9 +321,9 @@ async def image_read_handler(args: Dict[str, Any]) -> Dict[str, Any]:
                 context=context
             )
         else:
-            raise ImageReadError(f"不支持的 VISION_MODEL_PROVIDER: {provider}")
+            raise ImageReadError(f"Unsupported VISION_MODEL_PROVIDER: {provider}")
 
-        logger.info(f"成功读取图像 {image_path}，问题: {question}")
+        logger.info(f"Successfully read image {image_path}, question: {question}")
 
         return {
             "content": [{
@@ -333,11 +333,11 @@ async def image_read_handler(args: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error(f"图像读取失败: {e}")
+        logger.error(f"Image read failed: {e}")
         return {
             "content": [{
                 "type": "text",
-                "text": f"图像读取失败: {str(e)}"
+                "text": f"Image read failed: {str(e)}"
             }],
             "is_error": True
         }

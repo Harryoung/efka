@@ -1,17 +1,17 @@
 """
 Main application entry point for EFKA - Embed-Free Knowledge Agent.
 """
-# ⚠️ 必须在导入任何模块之前先设置环境变量
-# 这样可以确保子 Agent 也能获得认证信息
+# ⚠️ Must set environment variables before importing any modules
+# This ensures that sub-Agents can also obtain authentication information
 import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 加载 .env 文件
+# Load .env file
 load_dotenv()
 
-# 解析 --mode 参数（必须在其他导入之前）
+# Parse --mode argument (must be before other imports)
 from backend.config.run_mode import set_cli_mode, get_run_mode, get_im_channel
 
 for i, arg in enumerate(sys.argv):
@@ -24,8 +24,8 @@ for i, arg in enumerate(sys.argv):
             sys.exit(1)
         break
 
-# 立即导出认证环境变量到进程环境
-# 这样所有子进程（包括子 Agent）都能访问
+# Immediately export authentication environment variables to process environment
+# This allows all subprocesses (including sub-Agents) to access them
 if os.getenv("ANTHROPIC_AUTH_TOKEN"):
     os.environ["ANTHROPIC_AUTH_TOKEN"] = os.getenv("ANTHROPIC_AUTH_TOKEN")
     print(f"✅ ANTHROPIC_AUTH_TOKEN loaded (ends with: ...{os.getenv('ANTHROPIC_AUTH_TOKEN')[-4:]})")
@@ -38,7 +38,7 @@ if os.getenv("CLAUDE_API_KEY"):
     os.environ["ANTHROPIC_API_KEY"] = os.getenv("CLAUDE_API_KEY")
     print(f"✅ ANTHROPIC_API_KEY loaded (ends with: ...{os.getenv('CLAUDE_API_KEY')[-4:]})")
 
-# 现在可以安全地导入其他模块
+# Now it's safe to import other modules
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -49,7 +49,7 @@ from backend.services.kb_service_factory import get_admin_service, get_user_serv
 from backend.services.session_manager import get_session_manager
 from backend.storage.redis_storage import RedisSessionStorage
 
-# 配置日志
+# Configure logging
 logging.basicConfig(
     level=settings.LOG_LEVEL,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -63,12 +63,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    # 启动时初始化
+    """Application lifecycle management"""
+    # Initialize on startup
     run_mode = get_run_mode()
     im_channel = get_im_channel()
 
-    logger.info("Starting EFKA (知了) - Embed-Free Knowledge Agent...")
+    logger.info("Starting EFKA (Zhiliao/知了) - Embed-Free Knowledge Agent...")
     logger.info(f"Run mode: {run_mode.value}")
 
     if run_mode.value == "standalone":
@@ -76,13 +76,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.info(f"IM mode: {im_channel} channel enabled")
 
-    # 初始化 Redis 存储（如果配置了 REDIS_URL）
+    # Initialize Redis storage (if REDIS_URL is configured)
     redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
     redis_username = os.getenv("REDIS_USERNAME")
     redis_password = os.getenv("REDIS_PASSWORD")
     if redis_password:
         logger.info(
-            "Redis 认证已启用（用户名: %s）",
+            "Redis authentication enabled (username: %s)",
             redis_username or "<default>"
         )
     redis_storage = RedisSessionStorage(
@@ -91,28 +91,28 @@ async def lifespan(app: FastAPI):
         password=redis_password
     )
 
-    # 初始化 SessionManager 并注入 Redis 存储
+    # Initialize SessionManager and inject Redis storage
     session_manager = get_session_manager()
     session_manager.storage = redis_storage
 
     try:
         await session_manager.initialize_storage()
-        logger.info(f"✅ Redis 存储初始化成功: {redis_url}")
+        logger.info(f"✅ Redis storage initialized successfully: {redis_url}")
     except Exception as e:
-        logger.warning(f"⚠️  Redis 存储初始化失败: {e}, 将使用内存存储")
-        logger.info("✅ 内存存储初始化成功")
+        logger.warning(f"⚠️  Redis storage initialization failed: {e}, will use in-memory storage")
+        logger.info("✅ In-memory storage initialized successfully")
 
-    # 初始化 Admin Service（双 Agent 架构）
+    # Initialize Admin Service (dual Agent architecture)
     admin_service = get_admin_service()
     await admin_service.initialize()
     logger.info("Admin Service initialized (kb_admin_agent.py)")
 
-    # 初始化 User Service（双 Agent 架构）
+    # Initialize User Service (dual Agent architecture)
     user_service = get_user_service()
     await user_service.initialize()
     logger.info("User Service initialized (kb_qa_agent.py)")
 
-    # 启动 SessionManager 清理任务
+    # Start SessionManager cleanup task
     await session_manager.start_cleanup_task()
     logger.info("SessionManager cleanup task started")
 
@@ -120,21 +120,21 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # 关闭时清理
+    # Cleanup on shutdown
     logger.info("Shutting down...")
     await session_manager.stop_cleanup_task()
     logger.info("Application shutdown complete")
 
 
-# 创建FastAPI应用
+# Create FastAPI application
 app = FastAPI(
-    title="EFKA 知了",
+    title="EFKA Zhiliao (知了)",
     version="3.0.0",
-    description="Embed-Free Knowledge Agent - 无需向量数据库，让 Agent 直接阅读你的文件",
+    description="Embed-Free Knowledge Agent - No vector database needed, let the Agent read your files directly",
     lifespan=lifespan
 )
 
-# 配置CORS
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -143,7 +143,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
+# Register routes
 from backend.api.query import router as query_router
 from backend.api.upload import router as upload_router
 from backend.api.user import router as user_router
@@ -153,7 +153,7 @@ app.include_router(upload_router)
 app.include_router(user_router)
 
 
-# 全局异常处理
+# Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception: {exc}", exc_info=True)
@@ -163,22 +163,22 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# 健康检查端点
+# Health check endpoint
 @app.get("/health")
 async def health_check():
-    """系统健康检查端点"""
+    """System health check endpoint"""
     return {
         "status": "healthy",
         "version": "3.0.0",
-        "service": "EFKA 知了",
+        "service": "EFKA Zhiliao (知了)",
         "run_mode": get_run_mode().value
     }
 
 
-# 系统信息端点
+# System information endpoint
 @app.get("/info")
 async def system_info():
-    """返回系统配置信息"""
+    """Return system configuration information"""
     return {
         "run_mode": get_run_mode().value,
         "im_channel": get_im_channel(),
@@ -190,12 +190,12 @@ async def system_info():
     }
 
 
-# 根路径
+# Root path
 @app.get("/")
 async def root():
-    """根路径"""
+    """Root path"""
     return {
-        "message": "Welcome to EFKA 知了 - Embed-Free Knowledge Agent",
+        "message": "Welcome to EFKA Zhiliao (知了) - Embed-Free Knowledge Agent",
         "version": "3.0.0",
         "run_mode": get_run_mode().value,
         "docs": "/docs"

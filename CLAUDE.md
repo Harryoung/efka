@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**EFKA 知了** (Embed-Free Knowledge Agent) - 无需向量数据库，让 Agent 直接阅读你的文件。基于 Claude Agent SDK 构建。
+**EFKA Cicada** (Embed-Free Knowledge Agent) - No vector database needed, let Agent read your files directly. Built with Claude Agent SDK.
 
 ## Core Architecture
 
@@ -40,9 +40,9 @@ RUN_MODE=wework ./scripts/start.sh  # via env var
 
 ## Modules
 
-模块详情见各目录下的 CLAUDE.md:
-- [`backend/CLAUDE.md`](backend/CLAUDE.md) - 后端服务、API、设计模式
-- [`frontend/CLAUDE.md`](frontend/CLAUDE.md) - 前端组件
+See CLAUDE.md in each directory for module details:
+- [`backend/CLAUDE.md`](backend/CLAUDE.md) - Backend services, API, design patterns
+- [`frontend/CLAUDE.md`](frontend/CLAUDE.md) - Frontend components
 - [`skills/CLAUDE.md`](skills/CLAUDE.md) - Agent Skills
 
 ## Development Commands

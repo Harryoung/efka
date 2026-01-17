@@ -1,12 +1,12 @@
 """
-企业微信渠道适配器
+WeChat Work (企业微信) Channel Adapter
 
-实现BaseChannelAdapter接口,提供:
-1. 消息解析(XML解密 → ChannelMessage)
-2. 消息发送(ChannelMessage → 企微API)
-3. 签名验证
-4. 配置检测
-5. 用户信息查询
+Implements BaseChannelAdapter interface, providing:
+1. Message parsing (XML decryption → ChannelMessage)
+2. Message sending (ChannelMessage → WeChat Work API)
+3. Signature verification
+4. Configuration detection
+5. User information query
 """
 
 import os
@@ -32,25 +32,25 @@ logger = logging.getLogger(__name__)
 
 
 class WeWorkAdapter(BaseChannelAdapter):
-    """企业微信渠道适配器"""
+    """WeChat Work channel adapter"""
 
     def __init__(self):
-        """初始化适配器"""
+        """Initialize adapter"""
         super().__init__(ChannelType.WEWORK)
 
-        # 从环境变量加载配置
+        # Load configuration from environment variables
         self.corp_id = os.getenv("WEWORK_CORP_ID", "")
         self.corp_secret = os.getenv("WEWORK_CORP_SECRET", "")
         self.agent_id = int(os.getenv("WEWORK_AGENT_ID", "0"))
         self.token = os.getenv("WEWORK_TOKEN", "")
         self.encoding_aes_key = os.getenv("WEWORK_ENCODING_AES_KEY", "")
 
-        # 初始化API客户端(延迟到真正需要时)
+        # Initialize API client (lazy loading)
         self._client: Optional[WeWorkClient] = None
 
     @property
     def client(self) -> WeWorkClient:
-        """获取API客户端(懒加载)"""
+        """Get API client (lazy loading)"""
         if self._client is None:
             if not self.is_configured():
                 raise ChannelNotConfiguredError(
@@ -68,7 +68,7 @@ class WeWorkAdapter(BaseChannelAdapter):
         return self._client
 
     def is_configured(self) -> bool:
-        """检查是否已配置"""
+        """Check if configured"""
         return bool(
             self.corp_id and
             self.corp_secret and
@@ -78,7 +78,7 @@ class WeWorkAdapter(BaseChannelAdapter):
         )
 
     def get_required_env_vars(self) -> List[str]:
-        """获取必需的环境变量列表"""
+        """Get list of required environment variables"""
         return [
             "WEWORK_CORP_ID",
             "WEWORK_CORP_SECRET",
@@ -95,13 +95,13 @@ class WeWorkAdapter(BaseChannelAdapter):
         **kwargs
     ) -> ChannelResponse:
         """
-        发送消息到企微
+        Send message to WeChat Work
 
         Args:
-            user_id: 企微userid
-            content: 消息内容
-            msg_type: 消息类型(TEXT/MARKDOWN/IMAGE/FILE)
-            **kwargs: 平台特定参数(如safe, media_id等)
+            user_id: WeChat Work userid
+            content: Message content
+            msg_type: Message type (TEXT/MARKDOWN/IMAGE/FILE)
+            **kwargs: Platform-specific parameters (e.g., safe, media_id, etc.)
 
         Returns:
             ChannelResponse
@@ -165,44 +165,44 @@ class WeWorkAdapter(BaseChannelAdapter):
 
     async def parse_message(self, request_data: Dict[str, Any]) -> ChannelMessage:
         """
-        解析企微回调消息
+        Parse WeChat Work callback message
 
         Args:
-            request_data: 包含以下字段:
-                - xml_content: XML字符串
-                - msg_signature: 签名(可选,用于验证)
-                - timestamp: 时间戳(可选)
-                - nonce: 随机数(可选)
+            request_data: Contains the following fields:
+                - xml_content: XML string
+                - msg_signature: Signature (optional, for verification)
+                - timestamp: Timestamp (optional)
+                - nonce: Random number (optional)
 
         Returns:
             ChannelMessage
 
         Raises:
-            ChannelMessageError: 消息解析失败
+            ChannelMessageError: Message parsing failed
         """
         try:
             xml_content = request_data.get("xml_content")
             if not xml_content:
                 raise ValueError("xml_content is required")
 
-            # 解析XML获取加密内容
+            # Parse XML to get encrypted content
             root = ET.fromstring(xml_content)
             encrypt_element = root.find('Encrypt')
             if encrypt_element is None:
                 raise ValueError("Missing <Encrypt> element in XML")
             encrypt_str = encrypt_element.text
 
-            # 解密消息
+            # Decrypt message
             decrypted_xml = decrypt_message(
                 encrypt_str,
                 self.encoding_aes_key,
                 self.corp_id
             )
 
-            # 解析为字典
+            # Parse to dictionary
             message_dict = parse_message(decrypted_xml)
 
-            # 转换为ChannelMessage
+            # Convert to ChannelMessage
             return self._dict_to_channel_message(message_dict)
 
         except Exception as e:
@@ -211,10 +211,10 @@ class WeWorkAdapter(BaseChannelAdapter):
 
     def _dict_to_channel_message(self, message_dict: Dict[str, Any]) -> ChannelMessage:
         """
-        将企微消息字典转换为ChannelMessage
+        Convert WeChat Work message dictionary to ChannelMessage
 
         Args:
-            message_dict: 解密后的消息字典
+            message_dict: Decrypted message dictionary
 
         Returns:
             ChannelMessage
@@ -225,7 +225,7 @@ class WeWorkAdapter(BaseChannelAdapter):
         message_id = message_dict.get("MsgId", "")
         timestamp = int(message_dict.get("CreateTime", 0))
 
-        # 映射消息类型
+        # Map message type
         msg_type_map = {
             "text": MessageType.TEXT,
             "image": MessageType.IMAGE,
@@ -234,14 +234,14 @@ class WeWorkAdapter(BaseChannelAdapter):
         }
         msg_type = msg_type_map.get(msg_type_str, MessageType.TEXT)
 
-        # 创建用户对象(仅包含userid,详细信息通过get_user_info获取)
+        # Create user object (contains only userid, detailed info via get_user_info)
         user = ChannelUser(
             user_id=sender_userid,
             channel=ChannelType.WEWORK,
             raw_data={}
         )
 
-        # 构造ChannelMessage
+        # Construct ChannelMessage
         channel_msg = ChannelMessage(
             message_id=str(message_id),
             user=user,
@@ -251,7 +251,7 @@ class WeWorkAdapter(BaseChannelAdapter):
             raw_data=message_dict
         )
 
-        # 处理附件(图片/文件)
+        # Handle attachments (images/files)
         if msg_type == MessageType.IMAGE:
             pic_url = message_dict.get("PicUrl")
             media_id = message_dict.get("MediaId")
@@ -274,18 +274,18 @@ class WeWorkAdapter(BaseChannelAdapter):
 
     async def verify_signature(self, request_data: Dict[str, Any]) -> bool:
         """
-        验证回调签名
+        Verify callback signature
 
         Args:
-            request_data: 包含以下字段:
-                - msg_signature: 签名
-                - timestamp: 时间戳
-                - nonce: 随机数
-                - echo_str: 回显字符串(URL验证时)
-                - encrypt_msg: 加密消息(消息回调时)
+            request_data: Contains the following fields:
+                - msg_signature: Signature
+                - timestamp: Timestamp
+                - nonce: Random number
+                - echo_str: Echo string (for URL verification)
+                - encrypt_msg: Encrypted message (for message callback)
 
         Returns:
-            bool: 签名是否有效
+            bool: Whether the signature is valid
         """
         try:
             from backend.utils.wework_crypto import verify_signature
@@ -294,7 +294,7 @@ class WeWorkAdapter(BaseChannelAdapter):
             timestamp = request_data.get("timestamp", "")
             nonce = request_data.get("nonce", "")
 
-            # URL验证(GET请求)
+            # URL verification (GET request)
             if "echo_str" in request_data:
                 echo_str = request_data["echo_str"]
                 return verify_signature(
@@ -305,7 +305,7 @@ class WeWorkAdapter(BaseChannelAdapter):
                     self.token
                 )
 
-            # 消息回调(POST请求)
+            # Message callback (POST request)
             elif "encrypt_msg" in request_data:
                 encrypt_msg = request_data["encrypt_msg"]
                 return verify_signature(
@@ -326,10 +326,10 @@ class WeWorkAdapter(BaseChannelAdapter):
 
     async def get_user_info(self, user_id: str) -> ChannelUser:
         """
-        获取用户详细信息
+        Get detailed user information
 
         Args:
-            user_id: 企微userid
+            user_id: WeChat Work userid
 
         Returns:
             ChannelUser
@@ -341,14 +341,14 @@ class WeWorkAdapter(BaseChannelAdapter):
                 user_id=user_id,
                 username=user_data.get("name"),
                 email=user_data.get("email"),
-                department=user_data.get("department"),  # 可能需要进一步处理
+                department=user_data.get("department"),  # May need further processing
                 channel=ChannelType.WEWORK,
                 raw_data=user_data
             )
 
         except WeWorkAPIError as e:
             logger.error(f"Failed to get user info: {e}")
-            # 返回基本用户对象
+            # Return basic user object
             return ChannelUser(
                 user_id=user_id,
                 channel=ChannelType.WEWORK,
@@ -363,32 +363,32 @@ class WeWorkAdapter(BaseChannelAdapter):
         **kwargs
     ) -> List[ChannelResponse]:
         """
-        批量发送消息(企微支持一次发送给多个用户)
+        Send batch messages (WeChat Work supports sending to multiple users at once)
 
         Args:
-            user_ids: 用户ID列表
-            content: 消息内容
-            msg_type: 消息类型
-            **kwargs: 平台特定参数
+            user_ids: List of user IDs
+            content: Message content
+            msg_type: Message type
+            **kwargs: Platform-specific parameters
 
         Returns:
-            List[ChannelResponse]: 发送结果列表(企微API返回单个结果)
+            List[ChannelResponse]: List of sending results (WeChat Work API returns single result)
         """
-        # 企微支持touser参数用'|'分隔多个用户
+        # WeChat Work supports touser parameter with '|' separating multiple users
         touser_str = "|".join(user_ids)
 
         result = await self.send_message(touser_str, content, msg_type, **kwargs)
 
-        # 返回相同结果给所有用户(企微API不区分单个用户的发送状态)
+        # Return same result to all users (WeChat Work API doesn't distinguish individual user status)
         return [result] * len(user_ids)
 
     async def upload_media(self, file_path: str, media_type: str) -> str:
         """
-        上传媒体文件
+        Upload media file
 
         Args:
-            file_path: 文件路径
-            media_type: 媒体类型(image/voice/video/file)
+            file_path: File path
+            media_type: Media type (image/voice/video/file)
 
         Returns:
             media_id
@@ -403,18 +403,18 @@ class WeWorkAdapter(BaseChannelAdapter):
 
     async def handle_event(self, event_data: Dict[str, Any]) -> Optional[ChannelResponse]:
         """
-        处理企微事件(如加入群聊、@提及等)
+        Handle WeChat Work events (e.g., join group, mentions, etc.)
 
         Args:
-            event_data: 事件数据
+            event_data: Event data
 
         Returns:
-            Optional[ChannelResponse]: 事件处理结果
+            Optional[ChannelResponse]: Event handling result
         """
         event_type = event_data.get("Event")
         logger.info(f"Received WeWork event: {event_type}")
 
-        # 目前不处理事件,仅记录日志
-        # 未来可以扩展处理特定事件(如subscribe/unsubscribe)
+        # Currently not handling events, only logging
+        # Can be extended in the future to handle specific events (e.g., subscribe/unsubscribe)
 
         return None

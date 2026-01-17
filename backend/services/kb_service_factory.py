@@ -1,13 +1,13 @@
 """
-KB Service Factory - 知识库服务工厂
+KB Service Factory - Knowledge Base Service Factory
 
-管理User Agent和Admin Agent两个独立的Agent SDK客户端
-支持未来拆分为微服务（仅需修改此文件的实现）
+Manages two independent Agent SDK clients for User Agent and Admin Agent
+Supports future microservices split (only need to modify this file's implementation)
 
-并发支持：使用 SDKClientPool 实现多用户真正并发
-- 每个请求独占一个 Client
-- 通过 resume 参数恢复用户 session
-- 使用后归还到池中
+Concurrency support: Use SDKClientPool to achieve true multi-user concurrency
+- Each request gets exclusive use of a Client
+- Resume user session via resume parameter
+- Return to pool after use
 """
 
 import logging
@@ -35,31 +35,31 @@ logger = logging.getLogger(__name__)
 
 class KBUserService:
     """
-    用户端知识库服务
+    User-side Knowledge Base Service
 
-    职责:
-    - 知识查询(6阶段检索)
-    - 满意度反馈
-    - 领域专家路由
-    - 异步多轮对话管理
+    Responsibilities:
+    - Knowledge query (6-stage retrieval)
+    - Satisfaction feedback
+    - Domain expert routing
+    - Asynchronous multi-turn conversation management
 
-    特点:
-    - 轻量级(无文档转换功能)
-    - 企业微信MCP集成
+    Features:
+    - Lightweight (no document conversion)
+    - WeChat Work MCP integration
 
-    并发支持:
-    - 使用 SDKClientPool 实现真正并发
-    - 每个请求独占一个 Client
-    - 通过 resume 参数恢复用户 session
+    Concurrency support:
+    - Use SDKClientPool for true concurrency
+    - Each request gets exclusive use of a Client
+    - Resume user session via resume parameter
     """
 
     def __init__(self):
-        """初始化用户端服务"""
+        """Initialize user-side service"""
         self.settings = get_settings()
         self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
 
-        # 缓存 MCP servers 配置（在 initialize 中设置）
+        # Cache MCP servers configuration (set in initialize)
         self._mcp_servers = None
         self._env_vars = None
         self._user_agent_def = None
@@ -67,7 +67,7 @@ class KBUserService:
         logger.info("KBUserService instance created")
 
     def _get_allowed_tools(self) -> list:
-        """根据运行模式获取允许的工具列表"""
+        """Get allowed tools list based on run mode"""
         tools = [
             "Read",
             "Grep",
@@ -79,7 +79,7 @@ class KBUserService:
             "mcp__image_vision__image_read",
         ]
 
-        # IM 模式下添加对应渠道的工具
+        # Add channel-specific tools in IM mode
         im_channel = get_im_channel()
         if im_channel:
             tools.extend([
@@ -93,7 +93,7 @@ class KBUserService:
         return tools
 
     def _get_im_mcp_command(self, channel: str) -> str:
-        """获取 IM MCP 命令路径"""
+        """Get IM MCP command path"""
         import sys
         import shutil
 
@@ -111,15 +111,15 @@ class KBUserService:
 
     def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
         """
-        创建 ClaudeAgentOptions（Options Factory）
+        Create ClaudeAgentOptions (Options Factory)
 
         Args:
-            sdk_session_id: SDK 返回的真实 session ID（可选）
-                           - None: 新会话，不设置 resume
-                           - str: 已有会话，设置 resume 恢复会话
+            sdk_session_id: Real session ID returned by SDK (optional)
+                           - None: New session, don't set resume
+                           - str: Existing session, set resume to restore session
 
         Returns:
-            配置好的 ClaudeAgentOptions
+            Configured ClaudeAgentOptions
         """
         kb_path = Path(self.settings.KB_ROOT_PATH)
 
@@ -129,18 +129,18 @@ class KBUserService:
                 "preset": "claude_code",
                 "append": f"\n\n{self._user_agent_def.prompt}"
             },
-            agents=None,  # 单一Agent架构
+            agents=None,  # Single Agent architecture
             mcp_servers=self._mcp_servers,
             allowed_tools=self._get_allowed_tools(),
-            cwd=str(kb_path),  # 知识库目录作为 Agent 工作目录
+            cwd=str(kb_path),  # Knowledge base directory as Agent working directory
             permission_mode="acceptEdits",
             env=self._env_vars,
-            setting_sources=["project"],  # 启用项目级 Skills，从 .claude/skills/ 加载
-            # 禁用 extended thinking（第三方 API 代理不兼容 thinking mode）
+            setting_sources=["project"],  # Enable project-level Skills, load from .claude/skills/
+            # Disable extended thinking (third-party API proxy incompatible with thinking mode)
             max_thinking_tokens=0
         )
 
-        # 如果提供了 SDK session ID，设置 resume 参数恢复会话
+        # If SDK session ID provided, set resume parameter to restore session
         if sdk_session_id:
             options.resume = sdk_session_id
             logger.debug(f"Setting resume to SDK session: {sdk_session_id}")
@@ -148,22 +148,22 @@ class KBUserService:
         return options
 
     async def initialize(self):
-        """初始化User Agent连接池"""
+        """Initialize User Agent connection pool"""
         if self.is_initialized:
             logger.warning("User service already initialized")
             return
 
         try:
-            # 检查认证
+            # Check authentication
             if not self.settings.CLAUDE_API_KEY and not self.settings.ANTHROPIC_AUTH_TOKEN:
                 raise ValueError("Missing authentication: CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN")
 
-            # 知识库路径
+            # Knowledge base path
             kb_path = Path(self.settings.KB_ROOT_PATH)
             if not kb_path.exists():
                 kb_path.mkdir(parents=True, exist_ok=True)
 
-            # 准备环境变量（缓存供 _create_options 使用）
+            # Prepare environment variables (cached for _create_options)
             self._env_vars = {
                 "KB_ROOT_PATH": str(kb_path),
             }
@@ -175,7 +175,7 @@ class KBUserService:
                 if self.settings.ANTHROPIC_BASE_URL:
                     self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
-            # 获取User Agent定义（缓存供 _create_options 使用）
+            # Get User Agent definition (cached for _create_options)
             run_mode = get_run_mode()
             self._user_agent_def = get_user_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
@@ -184,8 +184,8 @@ class KBUserService:
             )
             logger.info(f"User Agent definition created with run_mode={run_mode.value}")
 
-            # 配置MCP servers（缓存供 _create_options 使用）
-            # 创建 SDK MCP server for image_read tool
+            # Configure MCP servers (cached for _create_options)
+            # Create SDK MCP server for image_read tool
             image_vision_server = create_sdk_mcp_server(
                 name="image_vision",
                 version="1.0.0",
@@ -196,13 +196,13 @@ class KBUserService:
                 "image_vision": image_vision_server
             }
 
-            # IM 模式下添加对应渠道的 MCP 服务器
+            # Add corresponding channel's MCP server in IM mode
             im_channel = get_im_channel()
             if im_channel:
                 mcp_path = self._get_im_mcp_command(im_channel)
                 logger.info(f"Using {im_channel}-mcp at: {mcp_path}")
 
-                # 获取对应渠道的环境变量
+                # Get environment variables for the corresponding channel
                 channel_upper = im_channel.upper()
                 self._mcp_servers[im_channel] = {
                     "type": "stdio",
@@ -217,7 +217,7 @@ class KBUserService:
             else:
                 logger.info("Standalone mode: No IM MCP server loaded")
 
-            # 创建连接池
+            # Create connection pool
             pool_size = self.settings.USER_CLIENT_POOL_SIZE
             max_wait = self.settings.CLIENT_POOL_MAX_WAIT
 
@@ -227,7 +227,7 @@ class KBUserService:
                 max_wait_time=float(max_wait)
             )
 
-            # 初始化连接池
+            # Initialize connection pool
             logger.info(f"Initializing User client pool (size={pool_size})...")
             await self.client_pool.initialize()
 
@@ -247,17 +247,17 @@ class KBUserService:
         user_id: Optional[str] = None
     ) -> AsyncIterator[Message]:
         """
-        处理用户查询（使用连接池支持并发）
+        Process user query (using connection pool to support concurrency)
 
         Args:
-            user_message: 用户消息
-            sdk_session_id: SDK session ID（用于 resume 恢复会话）
-                           - None: 新会话
-                           - str: 已有会话，恢复上下文
-            user_id: 用户WeChat Work UserID (可选)
+            user_message: User message
+            sdk_session_id: SDK session ID (for resume to restore session)
+                           - None: New session
+                           - str: Existing session, restore context
+            user_id: User WeChat Work UserID (optional)
 
         Yields:
-            Message流（包含 ResultMessage，其中有真实的 session_id）
+            Message stream (includes ResultMessage with real session_id)
         """
         if not self.is_initialized:
             await self.initialize()
@@ -267,17 +267,17 @@ class KBUserService:
         try:
             message_count = 0
 
-            # 从连接池获取客户端（支持 session 恢复）
+            # Acquire client from pool (supports session resume)
             is_resume = sdk_session_id is not None
             logger.info(f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})...")
             async with self.client_pool.acquire(session_id=sdk_session_id) as client:
                 logger.info(f"✅ Client acquired, sending query...")
 
-                # 发送查询（不再传递 session_id，由 ClaudeAgentOptions.resume 控制）
+                # Send query (no longer pass session_id, controlled by ClaudeAgentOptions.resume)
                 await client.query(user_message)
                 logger.info(f"✅ Query sent successfully, waiting for response...")
 
-                # 接收响应
+                # Receive response
                 logger.info(f"🔄 Starting to receive response stream...")
                 async for message in client.receive_response():
                     message_count += 1
@@ -287,13 +287,13 @@ class KBUserService:
             logger.info(f"✅ Response stream completed, total messages: {message_count}")
             logger.info(f"✅ Client released")
 
-            # 检查是否收到响应
+            # Check if response received
             if message_count == 0:
                 logger.error("❌ No response from Claude API")
                 logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
                 logger.error(f"   User ID: {user_id}")
                 logger.error(f"   This may indicate:")
-                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - API account insufficient balance")
                 logger.error(f"   - API rate limit exceeded")
                 logger.error(f"   - Network timeout")
             else:
@@ -322,7 +322,7 @@ class KBUserService:
             raise
 
     def get_pool_stats(self) -> dict:
-        """获取连接池统计信息"""
+        """Get connection pool statistics"""
         if self.client_pool:
             return self.client_pool.get_stats()
         return {"status": "not_initialized"}
@@ -330,30 +330,30 @@ class KBUserService:
 
 class KBAdminService:
     """
-    管理员端知识库服务
+    Admin-side Knowledge Base Service
 
-    职责:
-    - 文档入库(5阶段处理)
-    - 知识库管理
-    - 批量员工通知
+    Responsibilities:
+    - Document ingestion (5-stage processing)
+    - Knowledge base management
+    - Batch employee notifications
 
-    特点:
-    - 完整功能(smart_convert.py文档转换 + wework MCP)
-    - SSE流式响应支持
+    Features:
+    - Full functionality (smart_convert.py document conversion + wework MCP)
+    - SSE streaming response support
 
-    并发支持:
-    - 使用 SDKClientPool 实现真正并发
-    - 每个请求独占一个 Client
-    - 通过 resume 参数恢复用户 session
+    Concurrency support:
+    - Use SDKClientPool for true concurrency
+    - Each request gets exclusive use of a Client
+    - Resume user session via resume parameter
     """
 
     def __init__(self):
-        """初始化管理员端服务"""
+        """Initialize admin-side service"""
         self.settings = get_settings()
         self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
 
-        # 缓存配置（在 initialize 中设置）
+        # Cache configuration (set in initialize)
         self._mcp_servers = None
         self._env_vars = None
         self._admin_agent_def = None
@@ -361,7 +361,7 @@ class KBAdminService:
         logger.info("KBAdminService instance created")
 
     def _get_allowed_tools(self) -> list:
-        """根据运行模式获取允许的工具列表"""
+        """Get allowed tools list based on run mode"""
         tools = [
             "Read",
             "Write",
@@ -373,7 +373,7 @@ class KBAdminService:
             "mcp__image_vision__image_read",
         ]
 
-        # IM 模式下添加对应渠道的工具
+        # Add channel-specific tools in IM mode
         im_channel = get_im_channel()
         if im_channel:
             tools.extend([
@@ -387,7 +387,7 @@ class KBAdminService:
         return tools
 
     def _get_im_mcp_command(self, channel: str) -> str:
-        """获取 IM MCP 命令路径"""
+        """Get IM MCP command path"""
         import sys
         import shutil
 
@@ -405,15 +405,15 @@ class KBAdminService:
 
     def _create_options(self, sdk_session_id: Optional[str] = None) -> ClaudeAgentOptions:
         """
-        创建 ClaudeAgentOptions（Options Factory）
+        Create ClaudeAgentOptions (Options Factory)
 
         Args:
-            sdk_session_id: SDK 返回的真实 session ID（可选）
-                           - None: 新会话，不设置 resume
-                           - str: 已有会话，设置 resume 恢复会话
+            sdk_session_id: Real session ID returned by SDK (optional)
+                           - None: New session, don't set resume
+                           - str: Existing session, set resume to restore session
 
         Returns:
-            配置好的 ClaudeAgentOptions
+            Configured ClaudeAgentOptions
         """
         kb_path = Path(self.settings.KB_ROOT_PATH)
 
@@ -423,18 +423,18 @@ class KBAdminService:
                 "preset": "claude_code",
                 "append": f"\n\n{self._admin_agent_def.prompt}"
             },
-            agents=None,  # 单一Agent架构
+            agents=None,  # Single Agent architecture
             mcp_servers=self._mcp_servers,
             allowed_tools=self._get_allowed_tools(),
-            cwd=str(kb_path),  # 知识库目录作为 Agent 工作目录
+            cwd=str(kb_path),  # Knowledge base directory as Agent working directory
             permission_mode="acceptEdits",
             env=self._env_vars,
-            setting_sources=["project"],  # 启用项目级 Skills，从 .claude/skills/ 加载
-            # 禁用 extended thinking（第三方 API 代理不兼容 thinking mode）
+            setting_sources=["project"],  # Enable project-level Skills, load from .claude/skills/
+            # Disable extended thinking (third-party API proxy incompatible with thinking mode)
             max_thinking_tokens=0
         )
 
-        # 如果提供了 SDK session ID，设置 resume 参数恢复会话
+        # If SDK session ID provided, set resume parameter to restore session
         if sdk_session_id:
             options.resume = sdk_session_id
             logger.debug(f"Setting resume to SDK session: {sdk_session_id}")
@@ -442,22 +442,22 @@ class KBAdminService:
         return options
 
     async def initialize(self):
-        """初始化Admin Agent连接池"""
+        """Initialize Admin Agent connection pool"""
         if self.is_initialized:
             logger.warning("Admin service already initialized")
             return
 
         try:
-            # 检查认证
+            # Check authentication
             if not self.settings.CLAUDE_API_KEY and not self.settings.ANTHROPIC_AUTH_TOKEN:
                 raise ValueError("Missing authentication: CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN")
 
-            # 知识库路径
+            # Knowledge base path
             kb_path = Path(self.settings.KB_ROOT_PATH)
             if not kb_path.exists():
                 kb_path.mkdir(parents=True, exist_ok=True)
 
-            # 准备环境变量（缓存供 _create_options 使用）
+            # Prepare environment variables (cached for _create_options)
             self._env_vars = {
                 "KB_ROOT_PATH": str(kb_path),
             }
@@ -469,7 +469,7 @@ class KBAdminService:
                 if self.settings.ANTHROPIC_BASE_URL:
                     self._env_vars["ANTHROPIC_BASE_URL"] = self.settings.ANTHROPIC_BASE_URL
 
-            # 获取Admin Agent定义（缓存供 _create_options 使用）
+            # Get Admin Agent definition (cached for _create_options)
             run_mode = get_run_mode()
             self._admin_agent_def = get_admin_agent_definition(
                 small_file_threshold_kb=self.settings.SMALL_FILE_KB_THRESHOLD,
@@ -478,8 +478,8 @@ class KBAdminService:
             )
             logger.info(f"Admin Agent definition created with run_mode={run_mode.value}")
 
-            # 配置MCP servers（缓存供 _create_options 使用）
-            # 创建 SDK MCP server for image_read tool
+            # Configure MCP servers (cached for _create_options)
+            # Create SDK MCP server for image_read tool
             image_vision_server = create_sdk_mcp_server(
                 name="image_vision",
                 version="1.0.0",
@@ -490,13 +490,13 @@ class KBAdminService:
                 "image_vision": image_vision_server
             }
 
-            # IM 模式下添加对应渠道的 MCP 服务器
+            # Add corresponding channel's MCP server in IM mode
             im_channel = get_im_channel()
             if im_channel:
                 mcp_path = self._get_im_mcp_command(im_channel)
                 logger.info(f"Using {im_channel}-mcp at: {mcp_path}")
 
-                # 获取对应渠道的环境变量
+                # Get environment variables for the corresponding channel
                 channel_upper = im_channel.upper()
                 self._mcp_servers[im_channel] = {
                     "type": "stdio",
@@ -511,7 +511,7 @@ class KBAdminService:
             else:
                 logger.info("Standalone mode: No IM MCP server loaded")
 
-            # 创建连接池
+            # Create connection pool
             pool_size = self.settings.ADMIN_CLIENT_POOL_SIZE
             max_wait = self.settings.CLIENT_POOL_MAX_WAIT
 
@@ -521,7 +521,7 @@ class KBAdminService:
                 max_wait_time=float(max_wait)
             )
 
-            # 初始化连接池
+            # Initialize connection pool
             logger.info(f"Initializing Admin client pool (size={pool_size})...")
             await self.client_pool.initialize()
 
@@ -540,16 +540,16 @@ class KBAdminService:
         sdk_session_id: Optional[str] = None
     ) -> AsyncIterator[Message]:
         """
-        处理管理员查询（使用连接池支持并发）
+        Process admin query (using connection pool to support concurrency)
 
         Args:
-            user_message: 用户消息
-            sdk_session_id: SDK session ID（用于 resume 恢复会话）
-                           - None: 新会话
-                           - str: 已有会话，恢复上下文
+            user_message: User message
+            sdk_session_id: SDK session ID (for resume to restore session)
+                           - None: New session
+                           - str: Existing session, restore context
 
         Yields:
-            Message流（包含 ResultMessage，其中有真实的 session_id）
+            Message stream (includes ResultMessage with real session_id)
         """
         if not self.is_initialized:
             await self.initialize()
@@ -559,28 +559,28 @@ class KBAdminService:
         try:
             message_count = 0
 
-            # 从连接池获取客户端（支持 session 恢复）
+            # Acquire client from pool (supports session resume)
             is_resume = sdk_session_id is not None
             logger.info(f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})...")
             async with self.client_pool.acquire(session_id=sdk_session_id) as client:
                 logger.info(f"✅ Client acquired, sending query...")
 
-                # 发送查询（不再传递 session_id，由 ClaudeAgentOptions.resume 控制）
+                # Send query (no longer pass session_id, controlled by ClaudeAgentOptions.resume)
                 await client.query(user_message)
 
-                # 接收响应
+                # Receive response
                 async for message in client.receive_response():
                     message_count += 1
                     yield message
 
             logger.info(f"✅ Response completed, client released")
 
-            # 检查是否收到响应
+            # Check if response received
             if message_count == 0:
                 logger.error("❌ No response from Claude API")
                 logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
                 logger.error(f"   This may indicate:")
-                logger.error(f"   - API account insufficent balance (欠费)")
+                logger.error(f"   - API account insufficient balance")
                 logger.error(f"   - API rate limit exceeded")
                 logger.error(f"   - Network timeout")
             else:
@@ -607,7 +607,7 @@ class KBAdminService:
             raise
 
     def get_pool_stats(self) -> dict:
-        """获取连接池统计信息"""
+        """Get connection pool statistics"""
         if self.client_pool:
             return self.client_pool.get_stats()
         return {"status": "not_initialized"}
@@ -615,14 +615,14 @@ class KBAdminService:
 
 class KBServiceFactory:
     """
-    知识库服务工厂
+    Knowledge Base Service Factory
 
-    管理User和Admin两个独立的Agent服务
-    采用单例模式,预留未来拆分为微服务的扩展点
+    Manages two independent Agent services: User and Admin
+    Uses singleton pattern, reserved extension point for future microservices split
 
-    未来演进路径:
-    - 当前: 单一进程,两个Agent客户端
-    - 未来: 可改为HTTP客户端,调用独立的微服务
+    Future evolution path:
+    - Current: Single process, two Agent clients
+    - Future: Can be changed to HTTP client, calling independent microservices
     """
 
     _user_service: Optional[KBUserService] = None
@@ -631,10 +631,10 @@ class KBServiceFactory:
     @classmethod
     def get_user_service(cls) -> KBUserService:
         """
-        获取用户端服务单例
+        Get user-side service singleton
 
         Returns:
-            KBUserService实例
+            KBUserService instance
         """
         if cls._user_service is None:
             cls._user_service = KBUserService()
@@ -645,10 +645,10 @@ class KBServiceFactory:
     @classmethod
     def get_admin_service(cls) -> KBAdminService:
         """
-        获取管理员端服务单例
+        Get admin-side service singleton
 
         Returns:
-            KBAdminService实例
+            KBAdminService instance
         """
         if cls._admin_service is None:
             cls._admin_service = KBAdminService()
@@ -658,7 +658,7 @@ class KBServiceFactory:
 
     @classmethod
     async def initialize_all(cls):
-        """初始化所有服务"""
+        """Initialize all services"""
         user = cls.get_user_service()
         admin = cls.get_admin_service()
 
@@ -668,14 +668,14 @@ class KBServiceFactory:
         logger.info("✅ All KB services initialized")
 
 
-# 便捷函数(向后兼容)
+# Convenience functions (backward compatibility)
 def get_user_service() -> KBUserService:
-    """获取用户端服务"""
+    """Get user-side service"""
     return KBServiceFactory.get_user_service()
 
 
 def get_admin_service() -> KBAdminService:
-    """获取管理员端服务"""
+    """Get admin-side service"""
     return KBServiceFactory.get_admin_service()
 
 

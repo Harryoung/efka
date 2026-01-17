@@ -1,53 +1,53 @@
 # Backend
 
-FastAPI 后端服务，端口 8000。双 Agent 架构：Admin Agent + User Agent。
+FastAPI backend service on port 8000. Dual Agent architecture: Admin Agent + User Agent.
 
 ## Code Structure
 
 ```
 agents/
-├── kb_admin_agent.py      # Admin Agent 定义
-├── kb_qa_agent.py         # User Agent 定义
+├── kb_admin_agent.py      # Admin Agent definition
+├── kb_qa_agent.py         # User Agent definition
 └── prompts/               # Agent prompts
 
 services/
-├── kb_service_factory.py  # 主服务工厂
-├── client_pool.py         # SDK 客户端池 (并发)
-├── session_manager.py     # 会话管理 (Redis)
-├── conversation_state_manager.py  # 多轮对话状态
-├── domain_expert_router.py        # 专家路由
-└── shared_kb_access.py           # 文件锁
+├── kb_service_factory.py  # Main service factory
+├── client_pool.py         # SDK client pool (concurrency)
+├── session_manager.py     # Session management (Redis)
+├── conversation_state_manager.py  # Multi-turn conversation state
+├── domain_expert_router.py        # Expert routing
+└── shared_kb_access.py           # File locks
 
 api/
 ├── query.py              # /api/query (Admin)
 ├── user.py               # /api/user/query (User)
-└── streaming_utils.py    # SSE 流式响应
+└── streaming_utils.py    # SSE streaming response
 
 channels/
-├── base.py               # Channel 抽象基类
-└── wework/               # 企业微信适配器
+├── base.py               # Channel abstract base class
+└── wework/               # WeChat Work adapter
 
 tools/
-└── image_read.py         # 图像识别工具 (SDK MCP Tool)
+└── image_read.py         # Image recognition tool (SDK MCP Tool)
 
 utils/
-└── logging_config.py     # 日志配置
+└── logging_config.py     # Logging configuration
 ```
 
 ## Key Design Patterns
 
-1. **Env vars before SDK import**: `main.py` 先加载 dotenv，再导入 Agent SDK
-2. **Singleton pattern**: 使用 `get_admin_service()`, `get_user_service()` 获取服务
-3. **SSE streaming**: 知识问答使用 Server-Sent Events 实时响应
-4. **File locks**: `SharedKBAccess` 防止并发写冲突 (FAQ.md, BADCASE.md)
-5. **permission_mode="acceptEdits"**: Agent 可自动执行文件编辑
+1. **Env vars before SDK import**: `main.py` loads dotenv first, then imports Agent SDK
+2. **Singleton pattern**: Use `get_admin_service()`, `get_user_service()` to get services
+3. **SSE streaming**: Knowledge Q&A uses Server-Sent Events for real-time response
+4. **File locks**: `SharedKBAccess` prevents concurrent write conflicts (FAQ.md, BADCASE.md)
+5. **permission_mode="acceptEdits"**: Agent can auto-execute file edits
 
 ## Extending Channels
 
-实现 `BaseChannelAdapter`:
-1. 创建 `channels/<name>/`
-2. 参考 WeWork 实现
-3. 添加到 `channel_config.py`
+Implement `BaseChannelAdapter`:
+1. Create `channels/<name>/`
+2. Reference WeWork implementation
+3. Add to `channel_config.py`
 
 ## Manual Start
 

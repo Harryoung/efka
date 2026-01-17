@@ -9,28 +9,28 @@ from pydantic import model_validator
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Claude API配置
-    # 支持三种方式：CLAUDE_API_KEY 或 ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL
+    # Claude API configuration
+    # Supports three methods: CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL
     CLAUDE_API_KEY: Optional[str] = None
     ANTHROPIC_AUTH_TOKEN: Optional[str] = None
     ANTHROPIC_BASE_URL: Optional[str] = None
 
-    # 知识库配置
+    # Knowledge base configuration
     KB_ROOT_PATH: str = "./knowledge_base"
     SMALL_FILE_KB_THRESHOLD: int = 30  # KB
     FAQ_MAX_ENTRIES: int = 50
 
-    # 服务配置
+    # Service configuration
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     LOG_LEVEL: str = "INFO"
-    DEBUG: bool = False  # 调试模式
+    DEBUG: bool = False  # Debug mode
 
-    # 会话配置
-    SESSION_TIMEOUT: int = 1800  # 30分钟
+    # Session configuration
+    SESSION_TIMEOUT: int = 1800  # 30 minutes
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
 
-    # Redis 配置
+    # Redis configuration
     REDIS_URL: str = "redis://127.0.0.1:6379/0"
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
@@ -38,50 +38,50 @@ class Settings(BaseSettings):
     REDIS_USERNAME: Optional[str] = None
     REDIS_PASSWORD: Optional[str] = None
 
-    # 企业微信配置（可选）
+    # WeChat Work (企业微信) configuration (optional)
     WEWORK_CORP_ID: Optional[str] = None
     WEWORK_CORP_SECRET: Optional[str] = None
     WEWORK_AGENT_ID: Optional[str] = None
     WEWORK_TOKEN: Optional[str] = None
     WEWORK_ENCODING_AES_KEY: Optional[str] = None
-    WEWORK_PORT: int = 8081  # WeWork回调服务端口
+    WEWORK_PORT: int = 8081  # WeWork callback service port
 
-    # 会话状态配置
-    CONVERSATION_STATE_TTL: int = 86400  # 24小时
-    EXPERT_REPLY_TIMEOUT: int = 86400  # 24小时
-    FILE_LOCK_TIMEOUT: int = 5  # 5秒
+    # Conversation state configuration
+    CONVERSATION_STATE_TTL: int = 86400  # 24 hours
+    EXPERT_REPLY_TIMEOUT: int = 86400  # 24 hours
+    FILE_LOCK_TIMEOUT: int = 5  # 5 seconds
 
-    # CORS配置
+    # CORS configuration
     ALLOWED_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001", "http://localhost"]
 
-    # Vision Model配置（用于image_read工具）
+    # Vision Model configuration (for image_read tool)
     VISION_MODEL_PROVIDER: Optional[str] = None  # doubao, openai, anthropic
     VISION_MODEL_API_KEY: Optional[str] = None
     VISION_MODEL_BASE_URL: Optional[str] = None
     VISION_MODEL_NAME: Optional[str] = None
 
-    # PaddleOCR配置（用于smart_convert.py）
+    # PaddleOCR configuration (for smart_convert.py)
     PADDLE_OCR_TOKEN: Optional[str] = None
 
-    # 客户端连接池配置
-    USER_CLIENT_POOL_SIZE: int = 3  # 用户服务池大小（高频查询）
-    ADMIN_CLIENT_POOL_SIZE: int = 2     # 管理员服务池大小（低频操作）
-    CLIENT_POOL_MAX_WAIT: int = 30      # 获取客户端最大等待时间（秒）
+    # Client connection pool configuration
+    USER_CLIENT_POOL_SIZE: int = 3  # User service pool size (high-frequency queries)
+    ADMIN_CLIENT_POOL_SIZE: int = 2     # Admin service pool size (low-frequency operations)
+    CLIENT_POOL_MAX_WAIT: int = 30      # Maximum wait time to acquire client (seconds)
 
-    # 飞书配置
+    # Feishu (飞书) configuration
     FEISHU_APP_ID: Optional[str] = None
     FEISHU_APP_SECRET: Optional[str] = None
     FEISHU_VERIFICATION_TOKEN: Optional[str] = None
     FEISHU_ENCRYPT_KEY: Optional[str] = None
     FEISHU_PORT: int = 8082
 
-    # 钉钉配置
+    # DingTalk (钉钉) configuration
     DINGTALK_CORP_ID: Optional[str] = None
     DINGTALK_APP_KEY: Optional[str] = None
     DINGTALK_APP_SECRET: Optional[str] = None
     DINGTALK_PORT: int = 8083
 
-    # Slack 配置
+    # Slack configuration
     SLACK_BOT_TOKEN: Optional[str] = None
     SLACK_SIGNING_SECRET: Optional[str] = None
     SLACK_APP_TOKEN: Optional[str] = None
@@ -93,10 +93,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode='after')
     def validate_api_key(self):
-        """验证至少配置了一种认证方式"""
+        """Validate that at least one authentication method is configured"""
         if not self.CLAUDE_API_KEY and not self.ANTHROPIC_AUTH_TOKEN:
             raise ValueError(
-                "必须配置 CLAUDE_API_KEY 或 ANTHROPIC_AUTH_TOKEN 之一"
+                "Either CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN must be configured"
             )
         return self
 
@@ -105,15 +105,15 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-# 创建全局settings实例
+# Create global settings instance
 settings = Settings()
 
 
 def get_settings() -> Settings:
     """
-    获取设置实例
+    Get the settings instance
 
     Returns:
-        Settings 实例
+        Settings instance
     """
     return settings

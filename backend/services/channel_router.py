@@ -1,11 +1,11 @@
 """
-渠道消息路由器
+Channel Message Router
 
-统一管理所有IM渠道适配器,负责:
-1. 自动发现并注册已配置的渠道
-2. 路由IM消息到User Agent
-3. 将Agent响应发送回用户(通过适配器)
-4. 提供渠道状态查询
+Unified management of all IM channel adapters, responsible for:
+1. Auto-discovery and registration of configured channels
+2. Routing IM messages to User Agent
+3. Sending Agent responses back to users (via adapters)
+4. Providing channel status queries
 """
 
 import logging
@@ -24,31 +24,31 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelMessageRouter:
-    """渠道消息路由器"""
+    """Channel Message Router"""
 
     def __init__(self):
-        """初始化路由器"""
+        """Initialize router"""
         self.adapters: Dict[str, BaseChannelAdapter] = {}
         self._initialized = False
 
     async def initialize(self):
-        """初始化路由器:发现并注册已配置的渠道"""
+        """Initialize router: discover and register configured channels"""
         if self._initialized:
             logger.warning("ChannelMessageRouter already initialized")
             return
 
         logger.info("Initializing ChannelMessageRouter...")
 
-        # 自动发现并注册适配器
+        # Auto-discover and register adapters
         await self._discover_adapters()
 
         self._initialized = True
         logger.info(f"✅ ChannelMessageRouter initialized with {len(self.adapters)} channels: {list(self.adapters.keys())}")
 
     async def _discover_adapters(self):
-        """自动发现并注册已配置的适配器"""
+        """Auto-discover and register configured adapters"""
 
-        # 尝试导入并注册各个渠道适配器
+        # Try to import and register channel adapters
         adapter_classes = []
 
         # WeWork
@@ -58,33 +58,33 @@ class ChannelMessageRouter:
         except ImportError as e:
             logger.warning(f"WeWork adapter not available: {e}")
 
-        # Feishu(未来实现)
+        # Feishu (Lark) - to be implemented
         try:
             from backend.channels.feishu import FeishuAdapter
             adapter_classes.append(FeishuAdapter)
         except ImportError:
-            pass  # Feishu尚未实现
+            pass  # Feishu not yet implemented
 
-        # DingTalk(未来实现)
+        # DingTalk - to be implemented
         try:
             from backend.channels.dingtalk import DingTalkAdapter
             adapter_classes.append(DingTalkAdapter)
         except ImportError:
             pass
 
-        # Slack(未来实现)
+        # Slack - to be implemented
         try:
             from backend.channels.slack import SlackAdapter
             adapter_classes.append(SlackAdapter)
         except ImportError:
             pass
 
-        # 注册已配置的适配器
+        # Register configured adapters
         for AdapterClass in adapter_classes:
             try:
                 adapter = AdapterClass()
 
-                # 检查是否已配置
+                # Check if configured
                 if adapter.is_configured():
                     await adapter.initialize()
                     self.adapters[adapter.channel_name] = adapter
@@ -98,22 +98,22 @@ class ChannelMessageRouter:
 
     def get_adapter(self, channel: str) -> Optional[BaseChannelAdapter]:
         """
-        获取指定渠道的适配器
+        Get adapter for specified channel
 
         Args:
-            channel: 渠道名称(wework/feishu/dingtalk/slack)
+            channel: Channel name (wework/feishu/dingtalk/slack)
 
         Returns:
-            BaseChannelAdapter或None
+            BaseChannelAdapter or None
         """
         return self.adapters.get(channel)
 
     def get_active_channels(self) -> List[str]:
         """
-        获取已激活的渠道列表
+        Get list of active channels
 
         Returns:
-            List[str]: 渠道名称列表
+            List[str]: Channel name list
         """
         return list(self.adapters.keys())
 
@@ -124,51 +124,51 @@ class ChannelMessageRouter:
         user_service = None
     ) -> str:
         """
-        路由IM消息到User Agent并返回响应
+        Route IM message to User Agent and return response
 
-        流程:
-        1. 验证渠道是否存在
-        2. 调用User Service处理消息
-        3. 收集Agent响应
-        4. 通过适配器发送回用户
+        Flow:
+        1. Verify channel exists
+        2. Call User Service to process message
+        3. Collect Agent response
+        4. Send back to user via adapter
 
         Args:
-            channel: 渠道名称
-            message: ChannelMessage对象
-            user_service: User Service实例(可选,用于依赖注入)
+            channel: Channel name
+            message: ChannelMessage object
+            user_service: User Service instance (optional, for dependency injection)
 
         Returns:
-            str: Agent响应文本
+            str: Agent response text
 
         Raises:
-            ValueError: 渠道未配置或消息路由失败
+            ValueError: Channel not configured or message routing failed
         """
-        # 验证渠道
+        # Verify channel
         adapter = self.get_adapter(channel)
         if not adapter:
             raise ValueError(f"Channel not configured: {channel}")
 
         logger.info(f"Routing message from {channel}:{message.user.user_id} → User Agent")
 
-        # 获取User Service
+        # Get User Service
         if user_service is None:
             from backend.services.kb_service_factory import get_user_service
             user_service = get_user_service()
 
-        # 确保service已初始化
+        # Ensure service is initialized
         if not user_service.is_initialized:
             await user_service.initialize()
             logger.info("User service initialized")
 
-        # 构造消息(包含用户信息)
-        formatted_message = f"""[用户信息]
+        # Construct message (including user info)
+        formatted_message = f"""[User Info]
 user_id: {message.user.user_id}
 channel: {channel}
 
-[用户消息]
+[User Message]
 {message.content}"""
 
-        # 调用User Agent
+        # Call User Agent
         agent_response_text = ""
         message_count = 0
 
@@ -188,13 +188,13 @@ channel: {channel}
 
             if message_count == 0:
                 logger.error(f"No response from User Agent for {message.user.user_id}")
-                agent_response_text = "抱歉,服务暂时不可用,请稍后重试。"
+                agent_response_text = "Sorry, the service is temporarily unavailable. Please try again later."
 
         except Exception as e:
             logger.error(f"User Agent call failed: {type(e).__name__}: {str(e)}", exc_info=True)
-            agent_response_text = f"抱歉,处理消息时出现错误: {str(e)}"
+            agent_response_text = f"Sorry, an error occurred while processing the message: {str(e)}"
 
-        # 发送响应(通过适配器)
+        # Send response (via adapter)
         await self.send_response(
             channel=channel,
             user_id=message.user.user_id,
@@ -212,14 +212,14 @@ channel: {channel}
         **kwargs
     ):
         """
-        通过指定渠道发送响应消息
+        Send response message via specified channel
 
         Args:
-            channel: 渠道名称
-            user_id: 目标用户ID
-            content: 消息内容
-            msg_type: 消息类型
-            **kwargs: 平台特定参数
+            channel: Channel name
+            user_id: Target user ID
+            content: Message content
+            msg_type: Message type
+            **kwargs: Platform-specific parameters
         """
         adapter = self.get_adapter(channel)
         if not adapter:
@@ -242,14 +242,14 @@ channel: {channel}
         **kwargs
     ):
         """
-        批量发送消息
+        Send messages in batch
 
         Args:
-            channel: 渠道名称
-            user_ids: 目标用户ID列表
-            content: 消息内容
-            msg_type: 消息类型
-            **kwargs: 平台特定参数
+            channel: Channel name
+            user_ids: Target user ID list
+            content: Message content
+            msg_type: Message type
+            **kwargs: Platform-specific parameters
         """
         adapter = self.get_adapter(channel)
         if not adapter:
@@ -266,10 +266,10 @@ channel: {channel}
 
     def get_channel_status(self) -> Dict[str, Dict]:
         """
-        获取所有渠道的状态
+        Get status of all channels
 
         Returns:
-            Dict[str, Dict]: 渠道状态字典
+            Dict[str, Dict]: Channel status dictionary
         """
         status = {}
         for channel_name, adapter in self.adapters.items():
@@ -281,13 +281,13 @@ channel: {channel}
         return status
 
 
-# 单例模式
+# Singleton pattern
 _router_instance: Optional[ChannelMessageRouter] = None
 
 
 def get_channel_router() -> ChannelMessageRouter:
     """
-    获取渠道路由器单例
+    Get channel router singleton
 
     Returns:
         ChannelMessageRouter
@@ -300,7 +300,7 @@ def get_channel_router() -> ChannelMessageRouter:
 
 async def initialize_channel_router() -> ChannelMessageRouter:
     """
-    初始化渠道路由器(确保已初始化)
+    Initialize channel router (ensure initialized)
 
     Returns:
         ChannelMessageRouter

@@ -1,7 +1,7 @@
 """
-Upload API routes - 纯文件接收服务
-核心原则：此端点只负责接收文件和保存到临时目录，不做任何业务逻辑！
-所有业务处理（格式转换、入库、冲突检测）由 Agent 通过 /api/query 自主完成。
+Upload API routes - Pure file receiving service
+Core principle: This endpoint only handles receiving files and saving to temp directory, no business logic!
+All business processing (format conversion, storage, conflict detection) is autonomously handled by Agent via /api/query.
 """
 import logging
 import os
@@ -20,48 +20,48 @@ router = APIRouter(prefix="/api", tags=["upload"])
 @router.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
     """
-    纯文件接收服务
+    Pure file receiving service
 
-    职责：
-    1. 接收文件
-    2. 验证文件大小
-    3. 保存到临时目录
-    4. 返回文件路径信息
+    Responsibilities:
+    1. Receive files
+    2. Validate file size
+    3. Save to temporary directory
+    4. Return file path information
 
-    不做任何业务逻辑！
+    No business logic!
 
-    使用方式：
-    1. 前端调用此端点上传文件，获取文件路径
-    2. 前端通过 /api/query 发送消息告诉 Coordinator Agent 处理这些文件
-    3. Agent 自主决定如何处理（格式转换、入库、冲突检测等）
+    Usage:
+    1. Frontend calls this endpoint to upload files and get file paths
+    2. Frontend sends message via /api/query to tell Coordinator Agent to process these files
+    3. Agent autonomously decides how to process (format conversion, storage, conflict detection, etc.)
 
-    示例：
+    Example:
     ```python
-    # 1. 上传文件
+    # 1. Upload files
     result = await upload_files(files)
 
-    # 2. 告诉 Agent 处理
+    # 2. Tell Agent to process
     await query({
-        "message": f"请将以下文件添加到知识库：\\n{result['files'][0]['temp_path']}"
+        "message": f"Please add the following files to knowledge base:\\n{result['files'][0]['temp_path']}"
     })
     ```
     """
     try:
-        # 验证文件数量
+        # Validate file count
         if len(files) > 10:
-            raise HTTPException(status_code=400, detail="一次最多上传10个文件")
+            raise HTTPException(status_code=400, detail="Maximum 10 files can be uploaded at once")
 
         uploaded_files = []
         temp_paths = []
 
         for file in files:
-            # 读取文件内容
+            # Read file content
             content = await file.read()
             file_size = len(content)
 
-            # 验证文件大小
+            # Validate file size
             if file_size > settings.MAX_UPLOAD_SIZE:
-                # 清理已上传的临时文件
+                # Clean up already uploaded temp files
                 for temp_path in temp_paths:
                     try:
                         os.unlink(temp_path)
@@ -70,10 +70,10 @@ async def upload_files(files: List[UploadFile] = File(...)):
 
                 raise HTTPException(
                     status_code=413,
-                    detail=f"文件 {file.filename} 大小 {file_size / 1024 / 1024:.2f}MB 超过限制 {settings.MAX_UPLOAD_SIZE / 1024 / 1024:.0f}MB"
+                    detail=f"File {file.filename} size {file_size / 1024 / 1024:.2f}MB exceeds limit {settings.MAX_UPLOAD_SIZE / 1024 / 1024:.0f}MB"
                 )
 
-            # 保存到临时目录
+            # Save to temporary directory
             suffix = os.path.splitext(file.filename)[1] if file.filename else ""
             temp_file = tempfile.NamedTemporaryFile(
                 delete=False,
@@ -101,14 +101,14 @@ async def upload_files(files: List[UploadFile] = File(...)):
         return {
             "status": "success",
             "files": uploaded_files,
-            "message": f"成功接收 {len(uploaded_files)} 个文件",
-            "note": "请通过 /api/query 告诉 Agent 如何处理这些文件"
+            "message": f"Successfully received {len(uploaded_files)} file(s)",
+            "note": "Please tell Agent how to process these files via /api/query"
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        # 清理临时文件
+        # Clean up temporary files
         for temp_path in temp_paths:
             try:
                 os.unlink(temp_path)

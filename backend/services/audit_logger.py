@@ -1,10 +1,10 @@
 """
-审计日志系统
+Audit Logging System
 
-职责：
-- 记录低置信度路由决策
-- JSON Lines格式存储
-- 提供人工复核接口（预留）
+Responsibilities:
+- Record low-confidence routing decisions
+- JSON Lines format storage
+- Provide human review interface (reserved)
 """
 
 import logging
@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 class AuditLogger:
-    """审计日志（用于人工复核）"""
+    """Audit logging (for human review)"""
 
     def __init__(self, log_dir: Path):
         """
-        初始化审计日志
+        Initialize audit logger
 
         Args:
-            log_dir: 日志目录
+            log_dir: Log directory
         """
         self.log_dir = log_dir
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -42,19 +42,19 @@ class AuditLogger:
         audit_required: bool = False
     ):
         """
-        记录低置信度路由决策
+        Record low-confidence routing decision
 
         Args:
-            user_id: 用户ID
-            message: 用户消息
-            result: Router返回结果
-            audit_required: 是否需要人工审核
+            user_id: User ID
+            message: User message
+            result: Router returned result
+            audit_required: Whether human review is required
         """
         log_entry = {
             "timestamp": datetime.now().isoformat(),
             "event_type": "low_confidence_routing",
             "user_id": user_id,
-            "message_preview": message[:100],  # 截断敏感信息
+            "message_preview": message[:100],  # Truncate sensitive information
             "decision": result['decision'],
             "confidence": result['confidence'],
             "reasoning": result['reasoning'],
@@ -64,16 +64,16 @@ class AuditLogger:
         }
 
         try:
-            # 写入审计日志文件（JSON Lines格式）
+            # Write to audit log file (JSON Lines format)
             async with aiofiles.open(self.routing_audit_file, 'a', encoding='utf-8') as f:
                 await f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
 
             logger.info(f"Logged low confidence routing: {user_id} -> {result['decision']} (conf={result['confidence']})")
 
-            # 如果置信度极低（<0.5），发送告警（可选）
+            # If confidence is extremely low (<0.5), send alert (optional)
             if result['confidence'] < 0.5:
                 await self._send_alert(
-                    f"极低置信度路由：user={user_id}, confidence={result['confidence']}"
+                    f"Extremely low confidence routing: user={user_id}, confidence={result['confidence']}"
                 )
 
         except Exception as e:
@@ -81,28 +81,28 @@ class AuditLogger:
 
     async def _send_alert(self, message: str):
         """
-        发送告警（预留接口）
+        Send alert (reserved interface)
 
         Args:
-            message: 告警消息
+            message: Alert message
         """
-        # TODO: 集成企微告警或其他通知渠道
+        # TODO: Integrate WeChat Work (企业微信) alerts or other notification channels
         logger.warning(f"ALERT: {message}")
 
 
-# 全局单例
+# Global singleton
 _audit_logger: Optional[AuditLogger] = None
 
 
 def get_audit_logger(log_dir: Optional[Path] = None) -> AuditLogger:
     """
-    获取AuditLogger单例
+    Get AuditLogger singleton
 
     Args:
-        log_dir: 日志目录
+        log_dir: Log directory
 
     Returns:
-        AuditLogger实例
+        AuditLogger instance
     """
     global _audit_logger
 
@@ -115,7 +115,7 @@ def get_audit_logger(log_dir: Optional[Path] = None) -> AuditLogger:
     return _audit_logger
 
 
-# 导出
+# Export
 __all__ = [
     "AuditLogger",
     "get_audit_logger"

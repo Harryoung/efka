@@ -8,17 +8,17 @@ echo "🛑 EFKA - Stopping Services"
 echo "=========================================="
 echo ""
 
-# 颜色定义
+# Color definitions
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# 获取项目根目录
+# Get project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# 从.env文件读取WeWork端口配置（如果未设置则使用默认值8081）
+# Read WeWork port configuration from .env (default 8081 if not set)
 if [ -f ".env" ]; then
     set -a
     source .env
@@ -26,56 +26,56 @@ if [ -f ".env" ]; then
 fi
 WEWORK_PORT=${WEWORK_PORT:-8081}
 
-# 读取进程 ID
-# 停止 FastAPI 主服务（端口8000）
+# Read process IDs
+# Stop FastAPI main service (port 8000)
 if [ -f "logs/backend.pid" ]; then
     BACKEND_PID=$(cat logs/backend.pid)
-    echo "停止 FastAPI 主服务 (PID: $BACKEND_PID)..."
+    echo "Stopping FastAPI main service (PID: $BACKEND_PID)..."
 
     if kill $BACKEND_PID 2>/dev/null; then
-        echo -e "${GREEN}✅ FastAPI 主服务已停止${NC}"
+        echo -e "${GREEN}✅ FastAPI main service stopped${NC}"
     else
-        echo -e "${YELLOW}⚠️  FastAPI 主服务进程不存在或已停止${NC}"
+        echo -e "${YELLOW}⚠️  FastAPI main service process not found or already stopped${NC}"
     fi
 
     rm logs/backend.pid
 else
-    echo -e "${YELLOW}⚠️  未找到 backend.pid 文件${NC}"
+    echo -e "${YELLOW}⚠️  backend.pid file not found${NC}"
 
-    # 尝试通过端口查找并停止
+    # Try to find and stop by port
     BACKEND_PID=$(lsof -ti :8000)
     if [ ! -z "$BACKEND_PID" ]; then
-        echo "发现 FastAPI 主服务进程 (PID: $BACKEND_PID)，正在停止..."
+        echo "Found FastAPI main service process (PID: $BACKEND_PID), stopping..."
         kill $BACKEND_PID
-        echo -e "${GREEN}✅ FastAPI 主服务已停止${NC}"
+        echo -e "${GREEN}✅ FastAPI main service stopped${NC}"
     fi
 fi
 
-# 停止 Flask 企微回调服务（使用配置的端口）
+# Stop Flask WeWork callback service (using configured port)
 if [ -f "logs/wework.pid" ]; then
     WEWORK_PID=$(cat logs/wework.pid)
-    echo "停止 Flask 企微回调服务 (PID: $WEWORK_PID)..."
+    echo "Stopping Flask WeWork callback service (PID: $WEWORK_PID)..."
 
     if kill $WEWORK_PID 2>/dev/null; then
-        echo -e "${GREEN}✅ Flask 企微回调服务已停止${NC}"
+        echo -e "${GREEN}✅ Flask WeWork callback service stopped${NC}"
     else
-        echo -e "${YELLOW}⚠️  Flask 企微回调服务进程不存在或已停止${NC}"
+        echo -e "${YELLOW}⚠️  Flask WeWork callback service process not found or already stopped${NC}"
     fi
 
     rm logs/wework.pid
 else
-    echo -e "${YELLOW}⚠️  未找到 wework.pid 文件${NC}"
+    echo -e "${YELLOW}⚠️  wework.pid file not found${NC}"
 
-    # 尝试通过端口查找并停止
+    # Try to find and stop by port
     WEWORK_PID=$(lsof -ti :$WEWORK_PORT)
     if [ ! -z "$WEWORK_PID" ]; then
-        echo "发现 Flask 企微回调服务进程 (PID: $WEWORK_PID)，正在停止..."
+        echo "Found Flask WeWork callback service process (PID: $WEWORK_PID), stopping..."
         kill $WEWORK_PID
-        echo -e "${GREEN}✅ Flask 企微回调服务已停止${NC}"
+        echo -e "${GREEN}✅ Flask WeWork callback service stopped${NC}"
     fi
 fi
 
-# 停止UI服务的函数（处理 npm -> node -> vite 的进程链）
+# Function to stop UI services (handles npm -> node -> vite process chain)
 stop_ui_service() {
     local main_pid=$1
     local port=$2
@@ -83,30 +83,30 @@ stop_ui_service() {
     local stopped=false
 
     if [ ! -z "$main_pid" ]; then
-        echo "停止 $service_name 主进程 (PID: $main_pid)..."
+        echo "Stopping $service_name main process (PID: $main_pid)..."
 
-        # 查找所有子进程（递归）
+        # Find all child processes (recursive)
         local child_pids=$(pgrep -P $main_pid)
 
-        # 先尝试优雅停止主进程
+        # Try graceful stop first
         if kill $main_pid 2>/dev/null; then
             sleep 0.5
 
-            # 检查主进程是否退出
+            # Check if main process exited
             if ! kill -0 $main_pid 2>/dev/null; then
                 stopped=true
             else
-                # 主进程未退出，强制杀死
+                # Main process didn't exit, force kill
                 kill -9 $main_pid 2>/dev/null
                 stopped=true
             fi
         fi
 
-        # 清理所有子进程
+        # Clean up all child processes
         if [ ! -z "$child_pids" ]; then
-            echo "清理 $service_name 子进程: $child_pids"
+            echo "Cleaning up $service_name child processes: $child_pids"
             for pid in $child_pids; do
-                # 递归清理子进程的子进程
+                # Recursively clean up grandchild processes
                 local grandchild_pids=$(pgrep -P $pid)
                 if [ ! -z "$grandchild_pids" ]; then
                     kill -9 $grandchild_pids 2>/dev/null
@@ -116,89 +116,89 @@ stop_ui_service() {
         fi
     fi
 
-    # 最终清理：通过端口查找并杀死所有占用指定端口的进程
+    # Final cleanup: find and kill all processes using the specified port
     local port_pids=$(lsof -ti :$port 2>/dev/null)
     if [ ! -z "$port_pids" ]; then
-        echo "清理占用端口 $port 的进程: $port_pids"
+        echo "Cleaning up processes on port $port: $port_pids"
         kill -9 $port_pids 2>/dev/null
         stopped=true
     fi
 
     if [ "$stopped" = true ]; then
-        echo -e "${GREEN}✅ $service_name 已停止${NC}"
+        echo -e "${GREEN}✅ $service_name stopped${NC}"
     else
-        echo -e "${YELLOW}⚠️  $service_name 未运行${NC}"
+        echo -e "${YELLOW}⚠️  $service_name not running${NC}"
     fi
 }
 
-# 停止前端服务 (Admin UI, 端口3000)
+# Stop frontend service (Admin UI, port 3000)
 stop_frontend() {
     stop_ui_service "$1" 3000 "Admin UI"
 }
 
-# 停止用户前端服务 (User UI, 端口3001)
+# Stop user frontend service (User UI, port 3001)
 stop_user_ui() {
     local port=${USER_UI_PORT:-3001}
     stop_ui_service "$1" $port "User UI"
 }
 
-# 停止前端服务
+# Stop frontend service
 if [ -f "logs/frontend.pid" ]; then
     FRONTEND_PID=$(cat logs/frontend.pid)
     stop_frontend $FRONTEND_PID
     rm logs/frontend.pid
 else
-    echo -e "${YELLOW}⚠️  未找到 frontend.pid 文件${NC}"
-    # 直接通过端口查找
+    echo -e "${YELLOW}⚠️  frontend.pid file not found${NC}"
+    # Find directly by port
     FRONTEND_PID=$(lsof -ti :3000 2>/dev/null | head -1)
     stop_frontend $FRONTEND_PID
 fi
 
-# 停止 User UI 服务
+# Stop User UI service
 if [ -f "logs/frontend-user.pid" ]; then
     USER_UI_PID=$(cat logs/frontend-user.pid)
     stop_user_ui $USER_UI_PID
     rm logs/frontend-user.pid
 else
-    echo -e "${YELLOW}⚠️  未找到 frontend-user.pid 文件${NC}"
-    # 直接通过端口查找
+    echo -e "${YELLOW}⚠️  frontend-user.pid file not found${NC}"
+    # Find directly by port
     USER_UI_PORT=${USER_UI_PORT:-3001}
     USER_UI_PID=$(lsof -ti :$USER_UI_PORT 2>/dev/null | head -1)
     stop_user_ui $USER_UI_PID
 fi
 
-# 停止 wework-mcp 服务
-echo "停止 wework-mcp 服务..."
+# Stop wework-mcp service
+echo "Stopping wework-mcp service..."
 WEWORK_MCP_PIDS=$(pgrep -f wework-mcp)
 if [ ! -z "$WEWORK_MCP_PIDS" ]; then
-    echo "发现 wework-mcp 进程 (PIDs: $WEWORK_MCP_PIDS)，正在停止..."
+    echo "Found wework-mcp processes (PIDs: $WEWORK_MCP_PIDS), stopping..."
     kill $WEWORK_MCP_PIDS 2>/dev/null
     sleep 1
-    # 检查是否还有残留进程
+    # Check for remaining processes
     STILL_RUNNING=$(pgrep -f wework-mcp)
     if [ ! -z "$STILL_RUNNING" ]; then
-        echo "强制停止 wework-mcp 进程..."
+        echo "Force stopping wework-mcp processes..."
         kill -9 $STILL_RUNNING 2>/dev/null
     fi
-    echo -e "${GREEN}✅ wework-mcp 服务已停止${NC}"
+    echo -e "${GREEN}✅ wework-mcp service stopped${NC}"
 else
-    echo -e "${YELLOW}⚠️  未找到 wework-mcp 进程${NC}"
+    echo -e "${YELLOW}⚠️  wework-mcp process not found${NC}"
 fi
 
-# 停止其他IM渠道服务 (feishu, dingtalk, slack)
+# Stop other IM channel services (feishu, dingtalk, slack)
 for channel in feishu dingtalk slack; do
     pid_file="logs/${channel}.pid"
     if [ -f "$pid_file" ]; then
         CHANNEL_PID=$(cat "$pid_file")
-        echo "停止 $channel 渠道服务 (PID: $CHANNEL_PID)..."
+        echo "Stopping $channel channel service (PID: $CHANNEL_PID)..."
         if kill $CHANNEL_PID 2>/dev/null; then
-            echo -e "${GREEN}✅ $channel 渠道服务已停止${NC}"
+            echo -e "${GREEN}✅ $channel channel service stopped${NC}"
         else
-            echo -e "${YELLOW}⚠️  $channel 渠道服务进程不存在或已停止${NC}"
+            echo -e "${YELLOW}⚠️  $channel channel service process not found or already stopped${NC}"
         fi
         rm "$pid_file"
     else
-        # 尝试通过端口查找并停止
+        # Try to find and stop by port
         channel_upper=$(echo "$channel" | tr '[:lower:]' '[:upper:]')
         port_var="${channel_upper}_PORT"
         port=${!port_var}
@@ -212,18 +212,18 @@ for channel in feishu dingtalk slack; do
         fi
         CHANNEL_PID=$(lsof -ti :$port 2>/dev/null)
         if [ ! -z "$CHANNEL_PID" ]; then
-            echo "发现 $channel 渠道服务进程 (PID: $CHANNEL_PID)，正在停止..."
+            echo "Found $channel channel service process (PID: $CHANNEL_PID), stopping..."
             kill $CHANNEL_PID
-            echo -e "${GREEN}✅ $channel 渠道服务已停止${NC}"
+            echo -e "${GREEN}✅ $channel channel service stopped${NC}"
         fi
     fi
 done
 
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✅ 所有服务已停止${NC}"
+echo -e "${GREEN}✅ All services stopped${NC}"
 echo "=========================================="
 echo ""
-echo "📝 日志文件保留在 logs/ 目录"
-echo "💡 重新启动: ./scripts/start.sh"
+echo "📝 Log files retained in logs/ directory"
+echo "💡 Restart: ./scripts/start.sh"
 echo ""

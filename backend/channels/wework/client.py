@@ -1,11 +1,11 @@
 """
-企业微信 API 客户端
+WeWork (企业微信) API Client
 
-封装企业微信API调用,负责:
-1. Access Token管理
-2. 消息发送(文本/Markdown/图片/文件)
-3. 媒体文件上传
-4. 用户信息查询
+Encapsulates WeWork API calls, responsible for:
+1. Access Token management
+2. Message sending (text/Markdown/image/file)
+3. Media file upload
+4. User information query
 """
 
 import logging
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class WeWorkAPIError(Exception):
-    """企业微信 API 错误"""
+    """WeWork (企业微信) API Error"""
 
     def __init__(self, errcode: int, errmsg: str):
         self.errcode = errcode
@@ -28,7 +28,7 @@ class WeWorkAPIError(Exception):
 
 
 class AccessTokenManager:
-    """Access Token管理器"""
+    """Access Token Manager"""
 
     def __init__(
         self,
@@ -43,15 +43,15 @@ class AccessTokenManager:
         self._expires_at: Optional[datetime] = None
 
     def get_token(self) -> str:
-        """获取有效的access_token(自动刷新)"""
+        """Get valid access_token (auto-refresh)"""
         if self._token and self._expires_at and datetime.now() < self._expires_at:
             return self._token
 
-        # Token过期或不存在,重新获取
+        # Token expired or doesn't exist, fetch new one
         return self._fetch_token()
 
     def _fetch_token(self) -> str:
-        """从企微API获取access_token"""
+        """Fetch access_token from WeWork API"""
         url = f"{self.api_base_url}/gettoken"
         params = {
             "corpid": self.corp_id,
@@ -70,7 +70,7 @@ class AccessTokenManager:
 
             self._token = data["access_token"]
             expires_in = data["expires_in"]
-            # 提前5分钟过期,避免临界情况
+            # Expire 5 minutes early to avoid edge cases
             self._expires_at = datetime.now() + timedelta(seconds=expires_in - 300)
 
             logger.info(f"Access token refreshed, expires in {expires_in}s")
@@ -81,14 +81,14 @@ class AccessTokenManager:
             raise Exception(f"Failed to fetch access token: {e}")
 
     def invalidate_token(self):
-        """使token失效,强制下次重新获取"""
+        """Invalidate token, force re-fetch on next use"""
         self._token = None
         self._expires_at = None
         logger.info("Access token invalidated")
 
 
 class WeWorkClient:
-    """企业微信 API 客户端"""
+    """WeWork (企业微信) API Client"""
 
     def __init__(
         self,
@@ -100,15 +100,15 @@ class WeWorkClient:
         request_timeout: int = 30
     ):
         """
-        初始化企微客户端
+        Initialize WeWork client
 
         Args:
-            corp_id: 企业ID
-            corp_secret: 应用Secret
-            agent_id: 应用AgentID
-            api_base_url: API基础URL
-            max_retries: 最大重试次数
-            request_timeout: 请求超时时间(秒)
+            corp_id: Corporate ID
+            corp_secret: Application Secret
+            agent_id: Application AgentID
+            api_base_url: API base URL
+            max_retries: Maximum retry attempts
+            request_timeout: Request timeout (seconds)
         """
         self.corp_id = corp_id
         self.agent_id = agent_id
@@ -125,9 +125,9 @@ class WeWorkClient:
         **kwargs
     ) -> Dict[str, Any]:
         """
-        带重试的HTTP请求
+        HTTP request with retry
 
-        处理token过期等错误,自动重试
+        Handles token expiration and other errors, auto-retry
         """
         last_exception = None
 
@@ -144,46 +144,46 @@ class WeWorkClient:
 
                 errcode = data.get("errcode", 0)
 
-                # 成功
+                # Success
                 if errcode == 0:
                     return data
 
-                # access_token过期或无效,刷新后重试
+                # access_token expired or invalid, refresh and retry
                 if errcode in [40014, 42001]:
                     logger.warning(f"Access token expired (errcode={errcode}), refreshing...")
                     self.token_manager.invalidate_token()
-                    # 更新URL中的token
+                    # Update token in URL
                     if "params" in kwargs:
                         kwargs["params"]["access_token"] = self.token_manager.get_token()
                     continue
 
-                # 其他错误,抛出异常
+                # Other errors, raise exception
                 raise WeWorkAPIError(errcode, data.get("errmsg", "Unknown error"))
 
             except requests.RequestException as e:
                 last_exception = e
                 logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
                 if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)  # 指数退避
+                    time.sleep(2 ** attempt)  # Exponential backoff
                 continue
 
-        # 所有重试都失败
+        # All retries failed
         raise Exception(f"Request failed after {self.max_retries} attempts: {last_exception}")
 
     def send_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        发送消息通用接口
+        Generic message sending interface
 
         Args:
-            message_data: 消息数据(符合企微API格式)
+            message_data: Message data (conforming to WeWork API format)
 
         Returns:
-            API响应数据
+            API response data
 
         Raises:
-            WeWorkAPIError: API返回错误
+            WeWorkAPIError: API returned error
         """
-        # 自动添加agentid
+        # Auto-add agentid
         if "agentid" not in message_data:
             message_data["agentid"] = self.agent_id
 
@@ -209,7 +209,7 @@ class WeWorkClient:
         safe: int = 0,
         enable_duplicate_check: int = 0,
     ) -> Dict[str, Any]:
-        """发送文本消息"""
+        """Send text message"""
         message_data = {
             "touser": touser,
             "msgtype": "text",
@@ -225,7 +225,7 @@ class WeWorkClient:
         content: str,
         enable_duplicate_check: int = 0,
     ) -> Dict[str, Any]:
-        """发送Markdown消息"""
+        """Send Markdown message"""
         message_data = {
             "touser": touser,
             "msgtype": "markdown",
@@ -240,7 +240,7 @@ class WeWorkClient:
         media_id: str,
         safe: int = 0,
     ) -> Dict[str, Any]:
-        """发送图片消息"""
+        """Send image message"""
         message_data = {
             "touser": touser,
             "msgtype": "image",
@@ -255,7 +255,7 @@ class WeWorkClient:
         media_id: str,
         safe: int = 0,
     ) -> Dict[str, Any]:
-        """发送文件消息"""
+        """Send file message"""
         message_data = {
             "touser": touser,
             "msgtype": "file",
@@ -270,11 +270,11 @@ class WeWorkClient:
         file_path: str,
     ) -> str:
         """
-        上传临时素材
+        Upload temporary media
 
         Args:
-            media_type: 媒体文件类型(image/voice/video/file)
-            file_path: 文件路径
+            media_type: Media file type (image/voice/video/file)
+            file_path: File path
 
         Returns:
             media_id
@@ -302,13 +302,13 @@ class WeWorkClient:
 
     def get_user_info(self, userid: str) -> Dict[str, Any]:
         """
-        获取用户详细信息
+        Get user detailed information
 
         Args:
-            userid: 用户ID
+            userid: User ID
 
         Returns:
-            用户信息字典
+            User information dictionary
         """
         access_token = self.token_manager.get_token()
         url = f"{self.api_base_url}/user/get"

@@ -1,29 +1,29 @@
-# Web 框架
+# Web Framework
 fastapi==0.121.1
 uvicorn[standard]==0.38.0
 starlette==0.49.3
 
-# 异步和网络
+# Async and Network
 anyio==4.11.0
 websockets==15.0.1
 aiofiles==23.2.1
 httpx==0.28.1
 
-# 配置和数据验证
+# Configuration and Data Validation
 python-dotenv==1.2.1
 pydantic==2.12.4
 pydantic-core==2.41.5
 pydantic-settings==2.12.0
 python-multipart==0.0.20
 
-# Flask (用于企微和其他IM平台回调服务)
+# Flask (for WeChat Work and other IM platform callbacks)
 flask==3.0.0
 Werkzeug==3.1.3
 
-# 加密 (用于企微消息解密)
+# Encryption (for WeChat Work message decryption)
 cryptography>=42.0.0
 
-# Redis (用于会话持久化)
+# Redis (for session persistence)
 redis==7.0.1
 
 # Claude Agent SDK
@@ -32,21 +32,21 @@ claude-agent-sdk==0.1.6
 # MCP Servers
 mcp==1.8.1
 
-# 文档转换 (smart_convert.py) - 替代markitdown-mcp
+# Document Conversion (smart_convert.py) - replaces markitdown-mcp
 PyMuPDF>=1.24.2
 pymupdf4llm>=0.0.5
 pypandoc>=1.13
 requests>=2.31.0
 pptx2md>=2.0.0
 
-# 日志和监控
+# Logging and Monitoring
 python-json-logger==2.0.7
 
-# Excel 处理 (用于领域专家映射表)
+# Excel Processing (for domain expert mapping table)
 pandas>=2.2.0
 openpyxl==3.1.2
 numpy>=2.1.0
 
-# 测试依赖
+# Test Dependencies
 pytest==7.4.3
 pytest-asyncio==0.21.1

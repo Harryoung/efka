@@ -43,7 +43,7 @@ class ConversationContext:
         state: Current conversation state
         user_id: User's platform-specific user ID
         user_question: Original question from user (None if IDLE)
-        domain: Identified work domain (e.g., "薪酬福利", "考勤管理")
+        domain: Identified work domain (e.g., "Compensation and Benefits", "Attendance Management")
         expert_userid: Domain expert's platform-specific user ID
         expert_name: Domain expert's display name (for user-friendly messages)
         contacted_at: Timestamp when expert was contacted

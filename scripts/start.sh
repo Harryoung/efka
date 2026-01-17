@@ -7,14 +7,14 @@
 
 set -e  # Exit on error
 
-# 颜色定义
+# Color definitions
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 解析命令行参数
+# Parse command line arguments
 MODE=""
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -52,44 +52,44 @@ echo "🚀 EFKA v3.0 - Embed-Free Knowledge Agent"
 echo "=========================================="
 echo ""
 
-# 获取项目根目录
+# Get project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# 检查端口是否被占用
+# Check if port is in use
 check_port() {
     local port=$1
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 ; then
-        echo -e "${YELLOW}⚠️  端口 $port 已被占用${NC}"
+        echo -e "${YELLOW}⚠️  Port $port is already in use${NC}"
         return 1
     else
-        echo -e "${GREEN}✅ 端口 $port 可用${NC}"
+        echo -e "${GREEN}✅ Port $port is available${NC}"
         return 0
     fi
 }
 
-# 检查命令是否存在
+# Check if command exists
 check_command() {
     if ! command -v $1 &> /dev/null; then
-        echo -e "${RED}❌ $1 未安装${NC}"
+        echo -e "${RED}❌ $1 is not installed${NC}"
         return 1
     else
-        echo -e "${GREEN}✅ $1 已安装${NC}"
+        echo -e "${GREEN}✅ $1 is installed${NC}"
         return 0
     fi
 }
 
-# 检查 Node.js 版本 (需要 >= 20.19.0)
+# Check Node.js version (requires >= 20.19.0)
 check_node_version() {
     local node_version=$(node --version 2>/dev/null | sed 's/v//')
     local required_version="20.19.0"
 
     if [ -z "$node_version" ]; then
-        echo -e "${RED}❌ 无法获取 Node.js 版本${NC}"
+        echo -e "${RED}❌ Cannot get Node.js version${NC}"
         return 1
     fi
 
-    # 比较版本号
+    # Compare version numbers
     local node_major=$(echo "$node_version" | cut -d. -f1)
     local node_minor=$(echo "$node_version" | cut -d. -f2)
     local req_major=$(echo "$required_version" | cut -d. -f1)
@@ -97,21 +97,21 @@ check_node_version() {
 
     if [ "$node_major" -gt "$req_major" ] || \
        ([ "$node_major" -eq "$req_major" ] && [ "$node_minor" -ge "$req_minor" ]); then
-        echo -e "${GREEN}✅ Node.js 版本: v$node_version (满足 >= $required_version)${NC}"
+        echo -e "${GREEN}✅ Node.js version: v$node_version (satisfies >= $required_version)${NC}"
         return 0
     else
-        echo -e "${RED}❌ Node.js 版本过低: v$node_version${NC}"
-        echo -e "${YELLOW}   需要 Node.js >= $required_version (Vite 7.x 要求)${NC}"
-        echo -e "${YELLOW}   升级方法:${NC}"
-        echo -e "${YELLOW}   1. 使用 n: npm install -g n && n 22${NC}"
-        echo -e "${YELLOW}   2. 使用 nvm: nvm install 22 && nvm use 22${NC}"
-        echo -e "${YELLOW}   3. 直接下载: https://nodejs.org/${NC}"
+        echo -e "${RED}❌ Node.js version too low: v$node_version${NC}"
+        echo -e "${YELLOW}   Requires Node.js >= $required_version (Vite 7.x requirement)${NC}"
+        echo -e "${YELLOW}   Upgrade methods:${NC}"
+        echo -e "${YELLOW}   1. Using n: npm install -g n && n 22${NC}"
+        echo -e "${YELLOW}   2. Using nvm: nvm install 22 && nvm use 22${NC}"
+        echo -e "${YELLOW}   3. Direct download: https://nodejs.org/${NC}"
         return 1
     fi
 }
 
-# 步骤 1: 环境检查
-echo "📋 步骤 1/5: 环境检查"
+# Step 1: Environment check
+echo "📋 Step 1/5: Environment Check"
 echo "----------------------------------------"
 
 check_command python3 || exit 1
@@ -119,46 +119,46 @@ check_command node || exit 1
 check_node_version || exit 1
 check_command npm || exit 1
 
-# 检查环境变量文件
+# Check environment file
 if [ ! -f ".env" ]; then
-    echo -e "${RED}❌ .env 文件不存在${NC}"
-    echo "请复制 .env.example 并配置环境变量"
+    echo -e "${RED}❌ .env file does not exist${NC}"
+    echo "Please copy .env.example and configure environment variables"
     exit 1
 else
-    echo -e "${GREEN}✅ .env 文件存在${NC}"
+    echo -e "${GREEN}✅ .env file exists${NC}"
 fi
 
-# 检查并激活虚拟环境
+# Check and activate virtual environment
 if [ -d "venv" ]; then
-    echo -e "${GREEN}✅ 检测到虚拟环境，正在激活...${NC}"
+    echo -e "${GREEN}✅ Virtual environment detected, activating...${NC}"
     source venv/bin/activate
 else
-    echo -e "${YELLOW}⚠️  未检测到虚拟环境，正在创建...${NC}"
+    echo -e "${YELLOW}⚠️  No virtual environment detected, creating...${NC}"
     python3 -m venv venv
     source venv/bin/activate
-    # 新建 venv 需要重新安装依赖，删除旧标记
+    # New venv needs to reinstall dependencies, remove old marker
     rm -f backend/.venv_installed
-    echo -e "${GREEN}✅ 虚拟环境已创建并激活${NC}"
+    echo -e "${GREEN}✅ Virtual environment created and activated${NC}"
 fi
 PYTHON_CMD="python"
 
-# 加载环境变量
+# Load environment variables
 echo ""
-echo "加载环境变量..."
+echo "Loading environment variables..."
 if [ -f ".env" ]; then
     set -a
     source .env
     set +a
-    echo -e "${GREEN}✅ 环境变量已加载${NC}"
+    echo -e "${GREEN}✅ Environment variables loaded${NC}"
 fi
 
 echo ""
 
-# 步骤 2: 确定运行模式
-echo "🔍 步骤 2/5: 确定运行模式"
+# Step 2: Determine run mode
+echo "🔍 Step 2/5: Determine Run Mode"
 echo "----------------------------------------"
 
-# 确定运行模式（CLI > ENV > default）
+# Determine run mode (CLI > ENV > default)
 if [ -n "$MODE" ]; then
     RUN_MODE="$MODE"
 elif [ -z "$RUN_MODE" ]; then
@@ -166,60 +166,60 @@ elif [ -z "$RUN_MODE" ]; then
 fi
 export RUN_MODE
 
-# 验证模式并设置 IM 标志
+# Validate mode and set IM flag
 case $RUN_MODE in
     standalone)
         IM_ENABLED=false
-        echo -e "${GREEN}✅ 运行模式: standalone (纯 Web)${NC}"
+        echo -e "${GREEN}✅ Run mode: standalone (Pure Web)${NC}"
         ;;
     wework|feishu|dingtalk|slack)
         IM_ENABLED=true
         IM_CHANNEL=$RUN_MODE
         ENABLED_CHANNELS=$RUN_MODE
-        echo -e "${GREEN}✅ 运行模式: $RUN_MODE (IM 集成)${NC}"
+        echo -e "${GREEN}✅ Run mode: $RUN_MODE (IM Integration)${NC}"
         ;;
     *)
-        echo -e "${RED}❌ 无效模式: $RUN_MODE${NC}"
-        echo "有效模式: standalone, wework, feishu, dingtalk, slack"
+        echo -e "${RED}❌ Invalid mode: $RUN_MODE${NC}"
+        echo "Valid modes: standalone, wework, feishu, dingtalk, slack"
         exit 1
         ;;
 esac
 
-# 检测User Web UI配置
+# Detect User Web UI configuration
 USER_UI_ENABLED=${USER_UI_ENABLED:-true}
 USER_UI_PORT=${USER_UI_PORT:-3001}
 
 if [ "$USER_UI_ENABLED" = "true" ]; then
-    echo -e "${GREEN}✅ User Web UI 已启用 (端口: $USER_UI_PORT)${NC}"
+    echo -e "${GREEN}✅ User Web UI enabled (port: $USER_UI_PORT)${NC}"
 else
-    echo -e "${YELLOW}⏭️  User Web UI 未启用${NC}"
+    echo -e "${YELLOW}⏭️  User Web UI not enabled${NC}"
 fi
 
 echo ""
 
-# 步骤 3: 检查端口
-echo "🔌 步骤 3/5: 检查端口"
+# Step 3: Check ports
+echo "🔌 Step 3/5: Check Ports"
 echo "----------------------------------------"
 
-# 检查主服务端口
+# Check main service port
 check_port 8000 || exit 1
 
-# 检查Admin UI端口
+# Check Admin UI port
 check_port 3000 || exit 1
 
-# 检查User UI端口(如果启用)
+# Check User UI port (if enabled)
 if [ "$USER_UI_ENABLED" = "true" ]; then
     check_port $USER_UI_PORT || exit 1
 fi
 
-# 检查各渠道端口
+# Check channel ports
 for channel in $ENABLED_CHANNELS; do
     channel_upper=$(echo "$channel" | tr '[:lower:]' '[:upper:]')
     port_var="${channel_upper}_PORT"
     port=${!port_var}
 
     if [ -z "$port" ]; then
-        # 使用默认端口
+        # Use default port
         case $channel in
             wework) port=8081 ;;
             feishu) port=8082 ;;
@@ -234,53 +234,53 @@ done
 
 echo ""
 
-# 步骤 4: 启动后端服务
-echo "🔧 步骤 4/5: 启动后端服务"
+# Step 4: Start backend services
+echo "🔧 Step 4/5: Start Backend Services"
 echo "----------------------------------------"
 
-# 检查后端依赖
-# 使用 .venv_installed 文件标记依赖安装状态
-# 注意：如果 requirements.txt 更新了，需要手动删除此文件重新安装
+# Check backend dependencies
+# Use .venv_installed file to mark dependency installation status
+# Note: If requirements.txt is updated, manually delete this file to reinstall
 if [ ! -f "backend/.venv_installed" ]; then
-    echo "⚠️  后端依赖未安装，正在安装..."
+    echo "⚠️  Backend dependencies not installed, installing..."
     pip3 install -r backend/requirements.txt
     touch backend/.venv_installed
-    echo "✅  后端依赖安装完成"
+    echo "✅  Backend dependencies installed"
 else
-    echo "✅  后端依赖已安装（如需更新依赖，请删除 backend/.venv_installed 文件）"
+    echo "✅  Backend dependencies already installed (to update, delete backend/.venv_installed)"
 fi
 
 mkdir -p logs
 
-# 创建 knowledge_base 目录并复制 skills 文件（Agent 安全边界要求）
-echo "📁 创建知识库目录结构..."
+# Create knowledge_base directory and copy skills (Agent security boundary requirement)
+echo "📁 Creating knowledge base directory structure..."
 mkdir -p "$PROJECT_ROOT/knowledge_base/.claude"
 if [ -d "$PROJECT_ROOT/skills" ]; then
-    echo "📋 复制 skills 到知识库..."
+    echo "📋 Copying skills to knowledge base..."
     cp -r "$PROJECT_ROOT/skills" "$PROJECT_ROOT/knowledge_base/.claude/" 2>/dev/null || true
-    echo -e "${GREEN}✅ skills 目录已复制到 knowledge_base/.claude/skills/${NC}"
+    echo -e "${GREEN}✅ Skills directory copied to knowledge_base/.claude/skills/${NC}"
 fi
 
 echo ""
 echo "=========================================="
-echo "启动后端服务"
+echo "Starting Backend Services"
 echo "=========================================="
 
-# 启动 FastAPI 主服务（Admin API，端口8000）
-echo "🚀 启动 FastAPI 主服务（Admin API + User API）..."
-echo "   运行模式: $RUN_MODE"
+# Start FastAPI main service (Admin API, port 8000)
+echo "🚀 Starting FastAPI main service (Admin API + User API)..."
+echo "   Run mode: $RUN_MODE"
 $PYTHON_CMD -m backend.main --mode $RUN_MODE > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > logs/backend.pid
 echo -e "${GREEN}   PID: $BACKEND_PID${NC}"
-echo "   运行在: http://localhost:8000"
-echo "   健康检查: http://localhost:8000/health"
+echo "   Running at: http://localhost:8000"
+echo "   Health check: http://localhost:8000/health"
 
-# 等待主服务启动
-echo "   等待服务初始化..."
+# Wait for main service to start
+echo "   Waiting for service initialization..."
 sleep 8
 
-# 健康检查
+# Health check
 MAX_RETRIES=5
 RETRY_COUNT=0
 SERVICE_STARTED=false
@@ -291,24 +291,24 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         break
     fi
     RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo "   健康检查失败，重试 $RETRY_COUNT/$MAX_RETRIES..."
+    echo "   Health check failed, retry $RETRY_COUNT/$MAX_RETRIES..."
     sleep 2
 done
 
 if [ "$SERVICE_STARTED" = true ]; then
-    echo -e "${GREEN}✅ FastAPI 主服务启动成功${NC}"
+    echo -e "${GREEN}✅ FastAPI main service started successfully${NC}"
 else
-    echo -e "${RED}❌ FastAPI 主服务启动失败${NC}"
-    echo "请查看日志: cat logs/backend.log"
+    echo -e "${RED}❌ FastAPI main service failed to start${NC}"
+    echo "Please check logs: cat logs/backend.log"
     exit 1
 fi
 
 echo ""
 
-# 启动IM渠道服务(如果已启用)
+# Start IM channel services (if enabled)
 if [ "$IM_ENABLED" = true ]; then
     echo "=========================================="
-    echo "启动IM渠道服务"
+    echo "Starting IM Channel Services"
     echo "=========================================="
 
     for channel in $ENABLED_CHANNELS; do
@@ -316,7 +316,7 @@ if [ "$IM_ENABLED" = true ]; then
         port_var="${channel_upper}_PORT"
         port=${!port_var}
 
-        # 使用默认端口
+        # Use default port
         if [ -z "$port" ]; then
             case $channel in
                 wework) port=8081 ;;
@@ -328,10 +328,10 @@ if [ "$IM_ENABLED" = true ]; then
         fi
 
         echo ""
-        echo "🚀 启动 $channel 渠道服务..."
-        echo "   端口: $port"
+        echo "🚀 Starting $channel channel service..."
+        echo "   Port: $port"
 
-        # 根据渠道类型启动相应服务
+        # Start corresponding service based on channel type
         case $channel in
             wework)
                 $PYTHON_CMD -m backend.channels.wework.server > logs/wework.log 2>&1 &
@@ -354,41 +354,41 @@ if [ "$IM_ENABLED" = true ]; then
                 echo $CHANNEL_PID > logs/slack.pid
                 ;;
             *)
-                echo -e "${RED}   ❌ 未知渠道: $channel${NC}"
+                echo -e "${RED}   ❌ Unknown channel: $channel${NC}"
                 continue
                 ;;
         esac
 
         echo -e "${GREEN}   PID: $CHANNEL_PID${NC}"
-        echo "   运行在: http://localhost:$port"
+        echo "   Running at: http://localhost:$port"
 
-        # 等待服务启动
+        # Wait for service to start
         sleep 6
 
-        # 检查端口是否监听
+        # Check if port is listening
         if lsof -i:$port > /dev/null 2>&1; then
-            echo -e "${GREEN}✅ $channel 渠道服务启动成功${NC}"
+            echo -e "${GREEN}✅ $channel channel service started successfully${NC}"
         else
-            echo -e "${YELLOW}⚠️  $channel 渠道服务可能未启动${NC}"
-            echo "请查看日志: cat logs/${channel}.log"
+            echo -e "${YELLOW}⚠️  $channel channel service may not have started${NC}"
+            echo "Please check logs: cat logs/${channel}.log"
         fi
     done
 else
-    echo -e "${BLUE}ℹ️  跳过IM渠道服务（未配置）${NC}"
+    echo -e "${BLUE}ℹ️  Skipping IM channel services (not configured)${NC}"
 fi
 
 echo ""
 
-# 步骤 5: 启动前端服务
-echo "🎨 步骤 5/5: 启动前端服务"
+# Step 5: Start frontend services
+echo "🎨 Step 5/5: Start Frontend Services"
 echo "----------------------------------------"
 
-# 启动 Admin UI (端口3000)
-echo "🚀 启动 Admin UI (端口3000)..."
+# Start Admin UI (port 3000)
+echo "🚀 Starting Admin UI (port 3000)..."
 cd frontend
 
 if [ ! -d "node_modules" ]; then
-    echo "⚠️  前端依赖未安装，正在安装..."
+    echo "⚠️  Frontend dependencies not installed, installing..."
     npm install
 fi
 
@@ -396,78 +396,78 @@ npm run dev > ../logs/frontend.log 2>&1 &
 ADMIN_UI_PID=$!
 echo $ADMIN_UI_PID > ../logs/frontend.pid
 echo -e "${GREEN}   PID: $ADMIN_UI_PID${NC}"
-echo "   运行在: http://localhost:3000"
+echo "   Running at: http://localhost:3000"
 
 cd ..
 
-# 等待Admin UI启动
+# Wait for Admin UI to start
 sleep 5
 
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Admin UI 启动成功${NC}"
+    echo -e "${GREEN}✅ Admin UI started successfully${NC}"
 else
-    echo -e "${RED}❌ Admin UI 启动失败${NC}"
-    echo "请查看日志: cat logs/frontend.log"
+    echo -e "${RED}❌ Admin UI failed to start${NC}"
+    echo "Please check logs: cat logs/frontend.log"
 fi
 
 echo ""
 
-# 启动 User UI (如果启用) - 使用同一前端项目的 user 模式
+# Start User UI (if enabled) - uses same frontend project in user mode
 if [ "$USER_UI_ENABLED" = "true" ]; then
-    echo "🚀 启动 User UI (端口$USER_UI_PORT)..."
+    echo "🚀 Starting User UI (port $USER_UI_PORT)..."
     cd frontend
 
-    # 使用 VITE_APP_MODE=user 启动第二个实例
+    # Start second instance with VITE_APP_MODE=user
     VITE_APP_MODE=user npm run dev -- --port $USER_UI_PORT > ../logs/frontend-user.log 2>&1 &
     USER_UI_PID=$!
     echo $USER_UI_PID > ../logs/frontend-user.pid
     echo -e "${GREEN}   PID: $USER_UI_PID${NC}"
-    echo "   运行在: http://localhost:$USER_UI_PORT"
+    echo "   Running at: http://localhost:$USER_UI_PORT"
 
     cd ..
 
-    # 等待User UI启动
+    # Wait for User UI to start
     sleep 5
 
     if curl -s http://localhost:$USER_UI_PORT > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ User UI 启动成功${NC}"
+        echo -e "${GREEN}✅ User UI started successfully${NC}"
     else
-        echo -e "${RED}❌ User UI 启动失败${NC}"
-        echo "请查看日志: cat logs/frontend-user.log"
+        echo -e "${RED}❌ User UI failed to start${NC}"
+        echo "Please check logs: cat logs/frontend-user.log"
     fi
 fi
 
 echo ""
 
-# 完成
+# Complete
 echo "=========================================="
-echo -e "${GREEN}🎉 所有服务启动完成！${NC}"
+echo -e "${GREEN}🎉 All services started successfully!${NC}"
 echo "=========================================="
 echo ""
-echo "📱 访问地址:"
+echo "📱 Access URLs:"
 echo "   Admin UI: http://localhost:3000"
 if [ "$USER_UI_ENABLED" = "true" ]; then
     echo "   User UI: http://localhost:$USER_UI_PORT"
 fi
-echo "   FastAPI 主服务: http://localhost:8000"
+echo "   FastAPI Main Service: http://localhost:8000"
 if [ "$IM_ENABLED" = true ]; then
     for channel in $ENABLED_CHANNELS; do
         channel_upper=$(echo "$channel" | tr '[:lower:]' '[:upper:]')
         port_var="${channel_upper}_PORT"
         port=${!port_var:-8081}
-        echo "   $channel 渠道服务: http://localhost:$port"
+        echo "   $channel Channel Service: http://localhost:$port"
     done
 fi
-echo "   API 文档: http://localhost:8000/docs"
+echo "   API Docs: http://localhost:8000/docs"
 echo ""
-echo "🛑 停止服务:"
+echo "🛑 Stop services:"
 echo "   ./scripts/stop.sh"
 echo ""
-echo "📝 日志文件:"
-echo "   FastAPI 主服务: logs/backend.log"
+echo "📝 Log files:"
+echo "   FastAPI Main Service: logs/backend.log"
 if [ "$IM_ENABLED" = true ]; then
     for channel in $ENABLED_CHANNELS; do
-        echo "   $channel 渠道服务: logs/${channel}.log"
+        echo "   $channel Channel Service: logs/${channel}.log"
     done
 fi
 echo "   Admin UI: logs/frontend.log"
@@ -477,9 +477,9 @@ fi
 echo ""
 echo "=========================================="
 
-# 自动打开浏览器
+# Auto-open browser
 if command -v open &> /dev/null; then
-    echo "3 秒后自动打开浏览器..."
+    echo "Opening browser in 3 seconds..."
     sleep 3
     open http://localhost:3000
     if [ "$USER_UI_ENABLED" = "true" ]; then

@@ -1,10 +1,10 @@
 """
-渠道配置管理
+Channel configuration management
 
-v3.0 重构: 简化为端口配置管理
-运行模式现在通过 run_mode.py 管理
+v3.0 Refactor: Simplified to port configuration management
+Run mode is now managed through run_mode.py
 
-使用方式:
+Usage:
     from backend.config.channel_config import get_channel_port, CHANNEL_PORTS
 """
 
@@ -15,7 +15,7 @@ from typing import Dict, List
 logger = logging.getLogger(__name__)
 
 
-# 各渠道所需的环境变量（用于配置验证）
+# Environment variables required for each channel (for configuration validation)
 CHANNEL_ENV_VARS: Dict[str, List[str]] = {
     "wework": ["WEWORK_CORP_ID", "WEWORK_CORP_SECRET", "WEWORK_AGENT_ID", "WEWORK_TOKEN", "WEWORK_ENCODING_AES_KEY"],
     "feishu": ["FEISHU_APP_ID", "FEISHU_APP_SECRET", "FEISHU_VERIFICATION_TOKEN", "FEISHU_ENCRYPT_KEY"],
@@ -23,7 +23,7 @@ CHANNEL_ENV_VARS: Dict[str, List[str]] = {
     "slack": ["SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET", "SLACK_APP_TOKEN"]
 }
 
-# 各渠道的默认端口
+# Default ports for each channel
 CHANNEL_PORTS: Dict[str, int] = {
     "wework": 8081,
     "feishu": 8082,
@@ -34,15 +34,15 @@ CHANNEL_PORTS: Dict[str, int] = {
 
 def get_channel_port(channel: str) -> int:
     """
-    获取渠道的监听端口
+    Get the listening port for a channel
 
     Args:
-        channel: 渠道名称 (wework/feishu/dingtalk/slack)
+        channel: Channel name (wework/feishu/dingtalk/slack)
 
     Returns:
-        int: 端口号
+        int: Port number
     """
-    # 优先从环境变量读取
+    # Read from environment variable first
     env_var = f"{channel.upper()}_PORT"
     port_str = os.getenv(env_var)
 
@@ -52,32 +52,32 @@ def get_channel_port(channel: str) -> int:
         except ValueError:
             logger.warning(f"Invalid port value for {env_var}: {port_str}, using default")
 
-    # 使用默认端口
+    # Use default port
     return CHANNEL_PORTS.get(channel, 8080)
 
 
 def get_channel_env_vars(channel: str) -> List[str]:
     """
-    获取渠道所需的环境变量列表
+    Get the list of environment variables required for a channel
 
     Args:
-        channel: 渠道名称
+        channel: Channel name
 
     Returns:
-        List[str]: 环境变量列表
+        List[str]: Environment variable list
     """
     return CHANNEL_ENV_VARS.get(channel, [])
 
 
 def is_channel_configured(channel: str) -> bool:
     """
-    检查渠道是否已配置(所有必需环境变量都存在)
+    Check if a channel is configured (all required environment variables exist)
 
     Args:
-        channel: 渠道名称
+        channel: Channel name
 
     Returns:
-        bool: 是否已配置
+        bool: Whether the channel is configured
     """
     required_vars = CHANNEL_ENV_VARS.get(channel, [])
 

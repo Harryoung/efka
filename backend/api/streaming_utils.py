@@ -1,6 +1,6 @@
 """
-SSE 流式响应工具函数
-提取 query.py 和 user.py 的公共 SSE 处理逻辑
+SSE streaming response utility functions
+Extracts common SSE processing logic from query.py and user.py
 """
 import json
 import logging
@@ -9,36 +9,36 @@ from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 
-# 标准 SSE 响应头
+# Standard SSE response headers
 SSE_HEADERS = {
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
-    "X-Accel-Buffering": "no"  # 禁用 nginx 缓冲
+    "X-Accel-Buffering": "no"  # Disable nginx buffering
 }
 
 
 def format_sse_event(data: dict) -> str:
     """
-    格式化 SSE 事件
+    Format SSE event
 
     Args:
-        data: 要发送的数据字典
+        data: Data dictionary to send
 
     Returns:
-        SSE 格式的字符串
+        SSE formatted string
     """
     return f"data: {json.dumps(data)}\n\n"
 
 
 def create_sse_response(generator: AsyncGenerator) -> StreamingResponse:
     """
-    创建标准 SSE 响应
+    Create standard SSE response
 
     Args:
-        generator: 异步事件生成器
+        generator: Async event generator
 
     Returns:
-        StreamingResponse 对象
+        StreamingResponse object
     """
     return StreamingResponse(
         generator,
@@ -49,14 +49,14 @@ def create_sse_response(generator: AsyncGenerator) -> StreamingResponse:
 
 def sse_session_event(session_id: Optional[str], is_new: bool = False) -> str:
     """
-    生成会话状态 SSE 事件
+    Generate session state SSE event
 
     Args:
-        session_id: 会话 ID
-        is_new: 是否是新会话
+        session_id: Session ID
+        is_new: Whether it's a new session
 
     Returns:
-        SSE 格式的会话事件
+        SSE formatted session event
     """
     return format_sse_event({
         'type': 'session',
@@ -67,13 +67,13 @@ def sse_session_event(session_id: Optional[str], is_new: bool = False) -> str:
 
 def sse_message_event(content: str) -> str:
     """
-    生成消息内容 SSE 事件
+    Generate message content SSE event
 
     Args:
-        content: 消息内容
+        content: Message content
 
     Returns:
-        SSE 格式的消息事件
+        SSE formatted message event
     """
     return format_sse_event({
         'type': 'message',
@@ -83,13 +83,13 @@ def sse_message_event(content: str) -> str:
 
 def sse_tool_use_event(tool_name: str) -> str:
     """
-    生成工具使用 SSE 事件
+    Generate tool use SSE event
 
     Args:
-        tool_name: 工具名称
+        tool_name: Tool name
 
     Returns:
-        SSE 格式的工具事件
+        SSE formatted tool event
     """
     return format_sse_event({
         'type': 'tool_use',
@@ -99,13 +99,13 @@ def sse_tool_use_event(tool_name: str) -> str:
 
 def sse_done_event(duration_ms: Optional[int] = None) -> str:
     """
-    生成完成 SSE 事件
+    Generate completion SSE event
 
     Args:
-        duration_ms: 持续时间（毫秒）
+        duration_ms: Duration in milliseconds
 
     Returns:
-        SSE 格式的完成事件
+        SSE formatted completion event
     """
     data = {'type': 'done'}
     if duration_ms is not None:
@@ -115,13 +115,13 @@ def sse_done_event(duration_ms: Optional[int] = None) -> str:
 
 def sse_error_event(message: str) -> str:
     """
-    生成错误 SSE 事件
+    Generate error SSE event
 
     Args:
-        message: 错误消息
+        message: Error message
 
     Returns:
-        SSE 格式的错误事件
+        SSE formatted error event
     """
     return format_sse_event({
         'type': 'error',
@@ -134,14 +134,14 @@ async def process_agent_messages(
     content_filter: Optional[Callable[[str], tuple[str, Any]]] = None
 ) -> AsyncGenerator[str, None]:
     """
-    处理 Agent 消息并转换为 SSE 事件
+    Process Agent messages and convert to SSE events
 
     Args:
-        message_generator: Agent 消息生成器
-        content_filter: 可选的内容过滤函数 (content) -> (filtered_content, metadata)
+        message_generator: Agent message generator
+        content_filter: Optional content filter function (content) -> (filtered_content, metadata)
 
     Yields:
-        SSE 格式的事件字符串
+        SSE formatted event strings
     """
     from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock, ResultMessage
 

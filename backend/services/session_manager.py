@@ -1,7 +1,7 @@
 """
-Session Manager - 会话管理器（改造版）
-负责管理用户会话、超时控制和权限关联
-支持 Redis 持久化和内存降级
+Session Manager - Session Manager (refactored version)
+Responsible for managing user sessions, timeout control, and permission association
+Supports Redis persistence and memory fallback
 """
 import asyncio
 import logging
@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Session:
     """
-    会话数据类（向后兼容）
+    Session data class (backward compatible)
 
     Attributes:
-        session_id: 会话唯一标识
-        user_id: 用户ID（可选，用于权限管理）
-        created_at: 创建时间戳
-        last_active: 最后活跃时间戳
-        metadata: 会话元数据（存储额外信息）
+        session_id: Session unique identifier
+        user_id: User ID (optional, for permission management)
+        created_at: Creation timestamp
+        last_active: Last active timestamp
+        metadata: Session metadata (stores additional information)
     """
     session_id: str
     user_id: Optional[str] = None
@@ -39,35 +39,35 @@ class Session:
 
     def is_expired(self, timeout: int) -> bool:
         """
-        检查会话是否过期
+        Check if session is expired
 
         Args:
-            timeout: 超时时间（秒）
+            timeout: Timeout duration (seconds)
 
         Returns:
-            是否过期
+            Whether expired
         """
         return (time.time() - self.last_active) > timeout
 
     def update_activity(self):
-        """更新最后活跃时间"""
+        """Update last active time"""
         self.last_active = time.time()
 
     def get_age(self) -> float:
         """
-        获取会话年龄（秒）
+        Get session age (seconds)
 
         Returns:
-            从创建到现在的秒数
+            Seconds from creation to now
         """
         return time.time() - self.created_at
 
     def to_dict(self) -> dict:
         """
-        转换为字典
+        Convert to dictionary
 
         Returns:
-            会话信息字典
+            Session information dictionary
         """
         return {
             "session_id": self.session_id,
@@ -81,46 +81,46 @@ class Session:
 
 class SessionManager:
     """
-    会话管理器（改造版）
+    Session Manager (refactored version)
 
-    职责：
-    1. 创建和删除会话（原有功能，向后兼容）
-    2. 会话超时检测和清理
-    3. 会话信息查询
-    4. 用户权限关联（预留接口）
-    5. 基于 user_id 的会话持久化（新功能）
-    6. Redis 降级逻辑（新功能）
+    Responsibilities:
+    1. Create and delete sessions (original functionality, backward compatible)
+    2. Session timeout detection and cleanup
+    3. Session information query
+    4. User permission association (reserved interface)
+    5. Session persistence based on user_id (new feature)
+    6. Redis fallback logic (new feature)
 
-    注意：并发控制已移至 SDKClientPool 层（kb_service_factory.py）
+    Note: Concurrency control has been moved to SDKClientPool layer (kb_service_factory.py)
     """
 
     def __init__(self, storage: Optional[SessionStorage] = None):
         """
-        初始化会话管理器
+        Initialize session manager
 
         Args:
-            storage: 会话存储后端（可选，默认使用内存）
+            storage: Session storage backend (optional, defaults to memory)
         """
         self.settings = get_settings()
         self.storage = storage
 
-        # 原有的内存会话存储（session_id -> Session）
+        # Original memory session storage (session_id -> Session)
         self.sessions: Dict[str, Session] = {}
 
-        # 新增：用户会话内存缓存（user_id -> claude_session_id）
-        # 用于 Redis 降级场景
+        # New: User session memory cache (user_id -> claude_session_id)
+        # Used for Redis fallback scenario
         self._user_sessions_memory: Dict[str, SessionRecord] = {}
 
-        # 降级标志
+        # Fallback flag
         self._using_fallback = False
 
         self.cleanup_task: Optional[asyncio.Task] = None
         self._cleanup_running = False
 
-        logger.info("会话管理器已初始化（支持 Redis 持久化）")
+        logger.info("Session manager initialized (supports Redis persistence)")
 
     async def initialize_storage(self) -> None:
-        """初始化存储后端"""
+        """Initialize storage backend"""
         if self.storage:
             try:
                 await self.storage.connect()
@@ -132,7 +132,7 @@ class SessionManager:
                 self._using_fallback = True
 
     async def start_cleanup_task(self):
-        """启动会话清理任务（后台运行）"""
+        """Start session cleanup task (runs in background)"""
         if self._cleanup_running:
             logger.warning("清理任务已在运行")
             return
@@ -142,7 +142,7 @@ class SessionManager:
         logger.info("会话清理任务已启动")
 
     async def stop_cleanup_task(self):
-        """停止会话清理任务"""
+        """Stop session cleanup task"""
         if self.cleanup_task:
             self._cleanup_running = False
             self.cleanup_task.cancel()
@@ -153,10 +153,10 @@ class SessionManager:
             logger.info("会话清理任务已停止")
 
     async def _cleanup_loop(self):
-        """会话清理循环（每分钟检查一次）"""
+        """Session cleanup loop (check every minute)"""
         while self._cleanup_running:
             try:
-                await asyncio.sleep(60)  # 每分钟检查一次
+                await asyncio.sleep(60)  # Check every minute
                 await self.cleanup_expired_sessions()
             except asyncio.CancelledError:
                 break
@@ -165,10 +165,10 @@ class SessionManager:
 
     async def cleanup_expired_sessions(self) -> int:
         """
-        清理过期会话
+        Cleanup expired sessions
 
         Returns:
-            清理的会话数量
+            Number of cleaned sessions
         """
         timeout = self.settings.SESSION_TIMEOUT
         expired_sessions = [
@@ -186,7 +186,7 @@ class SessionManager:
 
         return len(expired_sessions)
 
-    # ===== 原有方法（向后兼容）=====
+    # ===== Original methods (backward compatible) =====
 
     def create_session(
         self,
@@ -194,14 +194,14 @@ class SessionManager:
         metadata: Optional[Dict] = None
     ) -> Session:
         """
-        创建新会话
+        Create new session
 
         Args:
-            user_id: 用户ID（可选）
-            metadata: 会话元数据（可选）
+            user_id: User ID (optional)
+            metadata: Session metadata (optional)
 
         Returns:
-            新创建的会话对象
+            Newly created session object
         """
         session_id = str(uuid.uuid4())
         session = Session(
@@ -217,13 +217,13 @@ class SessionManager:
 
     async def delete_session(self, session_id: str) -> bool:
         """
-        删除会话
+        Delete session
 
         Args:
-            session_id: 会话ID
+            session_id: Session ID
 
         Returns:
-            是否成功删除
+            Whether successfully deleted
         """
         if session_id in self.sessions:
             del self.sessions[session_id]
@@ -235,49 +235,49 @@ class SessionManager:
 
     def get_session(self, session_id: str) -> Optional[Session]:
         """
-        获取会话
+        Get session
 
         Args:
-            session_id: 会话ID
+            session_id: Session ID
 
         Returns:
-            会话对象，如果不存在返回 None
+            Session object, None if not exists
         """
         session = self.sessions.get(session_id)
 
         if session:
-            # 更新活跃时间
+            # Update active time
             session.update_activity()
 
         return session
 
     def get_all_sessions(self) -> Dict[str, Session]:
         """
-        获取所有会话
+        Get all sessions
 
         Returns:
-            会话字典
+            Session dictionary
         """
         return self.sessions.copy()
 
     def get_session_count(self) -> int:
         """
-        获取当前会话数量
+        Get current session count
 
         Returns:
-            会话总数
+            Total session count
         """
         return len(self.sessions)
 
     def get_user_sessions(self, user_id: str) -> Dict[str, Session]:
         """
-        获取指定用户的所有会话
+        Get all sessions for specified user
 
         Args:
-            user_id: 用户ID
+            user_id: User ID
 
         Returns:
-            该用户的会话字典
+            Session dictionary for this user
         """
         return {
             sid: session
@@ -287,13 +287,13 @@ class SessionManager:
 
     def session_exists(self, session_id: str) -> bool:
         """
-        检查会话是否存在
+        Check if session exists
 
         Args:
-            session_id: 会话ID
+            session_id: Session ID
 
         Returns:
-            是否存在
+            Whether exists
         """
         return session_id in self.sessions
 
@@ -303,14 +303,14 @@ class SessionManager:
         metadata: Dict
     ) -> bool:
         """
-        更新会话元数据
+        Update session metadata
 
         Args:
-            session_id: 会话ID
-            metadata: 新的元数据（会合并到现有元数据）
+            session_id: Session ID
+            metadata: New metadata (will merge into existing metadata)
 
         Returns:
-            是否成功更新
+            Whether successfully updated
         """
         session = self.get_session(session_id)
         if session:
@@ -321,10 +321,10 @@ class SessionManager:
 
     def get_statistics(self) -> dict:
         """
-        获取会话统计信息
+        Get session statistics
 
         Returns:
-            统计信息字典
+            Statistics dictionary
         """
         total = len(self.sessions)
         with_user = sum(1 for s in self.sessions.values() if s.user_id)
@@ -347,57 +347,57 @@ class SessionManager:
             "using_redis_fallback": self._using_fallback
         }
 
-    # ===== 新方法（基于 user_id 的持久化）=====
+    # ===== New methods (user_id based persistence) =====
 
     async def get_or_create_user_session(self, user_id: str) -> Optional[str]:
         """
-        获取或创建用户的会话，返回 SDK session ID（用于 resume）
+        Get or create user session, return SDK session ID (for resume)
 
-        核心逻辑：
-        - 如果是新用户或新会话：返回 None（不 resume，让 SDK 创建新会话）
-        - 如果是已有会话且有 sdk_session_id：返回该 ID（用于 resume）
+        Core logic:
+        - If new user or new session: return None (no resume, let SDK create new session)
+        - If existing session with sdk_session_id: return that ID (for resume)
 
         Args:
-            user_id: 用户标识
+            user_id: User identifier
 
         Returns:
-            sdk_session_id: SDK 返回的真实 session ID，用于 resume
-                           - None: 新会话，不需要 resume
-                           - str: 已有会话，可以 resume
+            sdk_session_id: Real session ID returned by SDK, for resume
+                           - None: New session, no need to resume
+                           - str: Existing session, can resume
         """
-        # 尝试从 Redis/存储后端获取
+        # Try to get from Redis/storage backend
         if self.storage and not self._using_fallback:
             try:
                 session = await self.storage.get_active_session(user_id)
 
                 if session is None:
-                    # 创建新会话（sdk_session_id 为 None）
+                    # Create new session (sdk_session_id is None)
                     session = SessionRecord(
                         user_id=user_id,
                         internal_session_id=str(uuid.uuid4()),
-                        sdk_session_id=None  # 等待 SDK 返回
+                        sdk_session_id=None  # Wait for SDK to return
                     )
                     await self.storage.save_active_session(session)
                     logger.info(f"为用户 {user_id} 创建新会话: internal={session.internal_session_id}")
-                    return None  # 新会话不 resume
+                    return None  # New session, no resume
                 else:
-                    # 复用已有会话
+                    # Reuse existing session
                     if session.sdk_session_id:
                         logger.info(
                             f"用户 {user_id} 复用已有会话: sdk={session.sdk_session_id}"
                         )
-                        return session.sdk_session_id  # 返回 SDK session ID 用于 resume
+                        return session.sdk_session_id  # Return SDK session ID for resume
                     else:
                         logger.info(
                             f"用户 {user_id} 会话存在但无 SDK ID: internal={session.internal_session_id}"
                         )
-                        return None  # 没有 SDK session ID，不能 resume
+                        return None  # No SDK session ID, cannot resume
 
             except (RedisError, RedisConnectionError, RuntimeError) as e:
                 logger.error(f"Redis 操作失败: {e}，降级到内存存储")
                 self._using_fallback = True
 
-        # 降级到内存存储
+        # Fallback to memory storage
         if user_id in self._user_sessions_memory:
             session = self._user_sessions_memory[user_id]
             if session.sdk_session_id:
@@ -422,11 +422,11 @@ class SessionManager:
         turn_count: Optional[int] = None
     ) -> None:
         """
-        更新会话活跃度
+        Update session activity
 
         Args:
-            user_id: 用户标识
-            turn_count: 对话轮次（可选）
+            user_id: User identifier
+            turn_count: Conversation turn count (optional)
         """
         if self.storage and not self._using_fallback:
             try:
@@ -442,7 +442,7 @@ class SessionManager:
                 logger.error(f"Redis 更新失败: {e}，降级到内存存储")
                 self._using_fallback = True
 
-        # 降级到内存
+        # Fallback to memory
         if user_id in self._user_sessions_memory:
             session = self._user_sessions_memory[user_id]
             session.last_active = datetime.now()
@@ -452,14 +452,14 @@ class SessionManager:
 
     async def save_sdk_session_id(self, user_id: str, sdk_session_id: str) -> None:
         """
-        保存 SDK 返回的真实 session ID
+        Save real session ID returned by SDK
 
-        当 SDK 返回 ResultMessage 时，从中提取 session_id 并保存。
-        下次该用户请求时，可以使用这个 ID 来 resume 会话。
+        When SDK returns ResultMessage, extract session_id and save it.
+        Next time this user requests, can use this ID to resume session.
 
         Args:
-            user_id: 用户标识
-            sdk_session_id: SDK 返回的真实 session ID
+            user_id: User identifier
+            sdk_session_id: Real session ID returned by SDK
         """
         if self.storage and not self._using_fallback:
             try:
@@ -476,7 +476,7 @@ class SessionManager:
                 logger.error(f"Redis 保存 SDK session ID 失败: {e}，降级到内存存储")
                 self._using_fallback = True
 
-        # 降级到内存
+        # Fallback to memory
         if user_id in self._user_sessions_memory:
             session = self._user_sessions_memory[user_id]
             session.sdk_session_id = sdk_session_id
@@ -487,22 +487,22 @@ class SessionManager:
 
     async def clear_user_context(self, user_id: str) -> None:
         """
-        清空用户上下文（归档旧会话，创建新会话）
+        Clear user context (archive old session, create new session)
 
-        注意：清空后 sdk_session_id 为 None，下次请求会创建新 SDK 会话
+        Note: After clearing, sdk_session_id is None, next request will create new SDK session
 
         Args:
-            user_id: 用户标识
+            user_id: User identifier
         """
         if self.storage and not self._using_fallback:
             try:
-                # 归档旧会话（暂不实现 PostgreSQL 归档）
+                # Archive old session (PostgreSQL archiving not implemented yet)
                 old_session = await self.storage.get_active_session(user_id)
                 if old_session:
                     await self.storage.delete_active_session(user_id)
                     logger.info(f"用户 {user_id} 归档旧会话: internal={old_session.internal_session_id}")
 
-                # 创建新会话（sdk_session_id 为 None）
+                # Create new session (sdk_session_id is None)
                 new_session = SessionRecord(
                     user_id=user_id,
                     internal_session_id=str(uuid.uuid4()),
@@ -516,7 +516,7 @@ class SessionManager:
                 logger.error(f"Redis 操作失败: {e}，降级到内存存储")
                 self._using_fallback = True
 
-        # 降级到内存
+        # Fallback to memory
         old_session = self._user_sessions_memory.get(user_id)
         if old_session:
             logger.info(f"[内存] 用户 {user_id} 归档旧会话: internal={old_session.internal_session_id}")
@@ -530,27 +530,27 @@ class SessionManager:
         logger.info(f"[内存] 用户 {user_id} 创建新会话: internal={new_session.internal_session_id}")
 
     async def __aenter__(self):
-        """支持 async with 语法"""
+        """Support async with syntax"""
         await self.start_cleanup_task()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """支持 async with 语法"""
+        """Support async with syntax"""
         await self.stop_cleanup_task()
         if self.storage:
             await self.storage.close()
 
 
-# 单例实例
+# Singleton instance
 _session_manager_instance: Optional[SessionManager] = None
 
 
 def get_session_manager() -> SessionManager:
     """
-    获取会话管理器单例
+    Get session manager singleton
 
     Returns:
-        SessionManager 实例
+        SessionManager instance
     """
     global _session_manager_instance
     if _session_manager_instance is None:
@@ -558,7 +558,7 @@ def get_session_manager() -> SessionManager:
     return _session_manager_instance
 
 
-# 导出
+# Export
 __all__ = [
     "Session",
     "SessionManager",

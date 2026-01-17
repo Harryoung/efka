@@ -1,14 +1,14 @@
 """
-渠道抽象层基类
+Channel abstraction layer base class
 
-定义统一的消息接口,屏蔽不同IM平台的API差异。
-所有IM平台适配器(企微、飞书、钉钉、Slack等)都应继承BaseChannelAdapter。
+Defines a unified message interface to abstract away API differences between IM platforms.
+All IM platform adapters (WeChat Work, Feishu, DingTalk, Slack, etc.) should inherit from BaseChannelAdapter.
 
-设计原则:
-1. 统一消息模型: ChannelMessage封装跨平台消息
-2. 抽象接口: 子类实现平台特定逻辑
-3. 配置检测: 自动判断平台是否已配置
-4. 错误处理: 统一异常处理机制
+Design principles:
+1. Unified message model: ChannelMessage encapsulates cross-platform messages
+2. Abstract interface: Subclasses implement platform-specific logic
+3. Configuration detection: Automatically determines if platform is configured
+4. Error handling: Unified exception handling mechanism
 """
 
 import os
@@ -23,16 +23,16 @@ logger = logging.getLogger(__name__)
 
 
 class MessageType(str, Enum):
-    """消息类型枚举"""
+    """Message type enumeration"""
     TEXT = "text"
     IMAGE = "image"
     FILE = "file"
     MARKDOWN = "markdown"
-    EVENT = "event"  # 系统事件(如群聊@、加好友等)
+    EVENT = "event"  # System events (e.g., group mentions, friend requests, etc.)
 
 
 class ChannelType(str, Enum):
-    """渠道类型枚举"""
+    """Channel type enumeration"""
     WEWORK = "wework"
     FEISHU = "feishu"
     DINGTALK = "dingtalk"
@@ -41,63 +41,63 @@ class ChannelType(str, Enum):
 
 
 class ChannelUser(BaseModel):
-    """渠道用户模型"""
-    user_id: str = Field(..., description="用户在渠道内的唯一标识(如企微userid、飞书open_id)")
-    username: Optional[str] = Field(None, description="用户昵称")
-    email: Optional[str] = Field(None, description="用户邮箱")
-    department: Optional[str] = Field(None, description="用户部门")
-    channel: ChannelType = Field(..., description="用户所属渠道")
-    raw_data: Dict[str, Any] = Field(default_factory=dict, description="原始用户数据")
+    """Channel user model"""
+    user_id: str = Field(..., description="Unique user identifier within the channel (e.g., WeChat Work userid, Feishu open_id)")
+    username: Optional[str] = Field(None, description="User nickname")
+    email: Optional[str] = Field(None, description="User email")
+    department: Optional[str] = Field(None, description="User department")
+    channel: ChannelType = Field(..., description="Channel the user belongs to")
+    raw_data: Dict[str, Any] = Field(default_factory=dict, description="Raw user data")
 
     class Config:
         use_enum_values = True
 
 
 class ChannelMessage(BaseModel):
-    """渠道消息模型 - 统一的跨平台消息格式"""
-    message_id: str = Field(..., description="消息唯一标识")
-    user: ChannelUser = Field(..., description="发送消息的用户")
-    content: str = Field(..., description="消息文本内容")
-    msg_type: MessageType = Field(MessageType.TEXT, description="消息类型")
-    timestamp: int = Field(default_factory=lambda: int(datetime.now().timestamp()), description="消息时间戳(秒)")
+    """Channel message model - Unified cross-platform message format"""
+    message_id: str = Field(..., description="Unique message identifier")
+    user: ChannelUser = Field(..., description="User who sent the message")
+    content: str = Field(..., description="Message text content")
+    msg_type: MessageType = Field(MessageType.TEXT, description="Message type")
+    timestamp: int = Field(default_factory=lambda: int(datetime.now().timestamp()), description="Message timestamp (seconds)")
 
-    # 可选字段
-    session_id: Optional[str] = Field(None, description="会话ID(用于会话管理)")
-    reply_to: Optional[str] = Field(None, description="回复的消息ID")
-    attachments: List[Dict[str, Any]] = Field(default_factory=list, description="附件列表(图片/文件等)")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="额外元数据(如@列表、表情等)")
-    raw_data: Dict[str, Any] = Field(default_factory=dict, description="原始消息数据(保留平台特定信息)")
+    # Optional fields
+    session_id: Optional[str] = Field(None, description="Session ID (for session management)")
+    reply_to: Optional[str] = Field(None, description="ID of the message being replied to")
+    attachments: List[Dict[str, Any]] = Field(default_factory=list, description="List of attachments (images/files, etc.)")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata (e.g., mention list, emojis, etc.)")
+    raw_data: Dict[str, Any] = Field(default_factory=dict, description="Raw message data (preserves platform-specific information)")
 
     class Config:
         use_enum_values = True
 
 
 class ChannelResponse(BaseModel):
-    """渠道响应模型"""
-    success: bool = Field(..., description="操作是否成功")
-    message: Optional[str] = Field(None, description="响应消息")
-    data: Optional[Dict[str, Any]] = Field(None, description="响应数据")
-    error: Optional[str] = Field(None, description="错误信息")
+    """Channel response model"""
+    success: bool = Field(..., description="Whether the operation was successful")
+    message: Optional[str] = Field(None, description="Response message")
+    data: Optional[Dict[str, Any]] = Field(None, description="Response data")
+    error: Optional[str] = Field(None, description="Error message")
 
 
 class BaseChannelAdapter(ABC):
     """
-    渠道适配器抽象基类
+    Channel adapter abstract base class
 
-    所有IM平台适配器必须继承此类并实现所有抽象方法。
-    适配器负责:
-    1. 消息收发: 解析平台回调消息,发送响应消息
-    2. 签名验证: 验证回调请求的合法性
-    3. 配置检测: 检查平台所需环境变量是否配置
-    4. 用户身份: 获取和管理用户信息
+    All IM platform adapters must inherit from this class and implement all abstract methods.
+    Adapter responsibilities:
+    1. Message sending/receiving: Parse platform callback messages, send response messages
+    2. Signature verification: Verify the legitimacy of callback requests
+    3. Configuration detection: Check if required environment variables are configured
+    4. User identity: Retrieve and manage user information
     """
 
     def __init__(self, channel_type: ChannelType):
         """
-        初始化适配器
+        Initialize the adapter
 
         Args:
-            channel_type: 渠道类型枚举
+            channel_type: Channel type enumeration
         """
         self.channel_type = channel_type
         self.channel_name = channel_type.value
@@ -112,81 +112,81 @@ class BaseChannelAdapter(ABC):
         **kwargs
     ) -> ChannelResponse:
         """
-        发送消息到IM平台
+        Send message to IM platform
 
         Args:
-            user_id: 目标用户ID(平台特定ID)
-            content: 消息内容
-            msg_type: 消息类型
-            **kwargs: 平台特定参数(如图片media_id、文件路径等)
+            user_id: Target user ID (platform-specific ID)
+            content: Message content
+            msg_type: Message type
+            **kwargs: Platform-specific parameters (e.g., image media_id, file path, etc.)
 
         Returns:
-            ChannelResponse: 发送结果
+            ChannelResponse: Sending result
         """
         pass
 
     @abstractmethod
     async def parse_message(self, request_data: Dict[str, Any]) -> ChannelMessage:
         """
-        解析IM平台回调消息
+        Parse IM platform callback message
 
         Args:
-            request_data: 平台回调的原始数据(通常是HTTP POST body)
+            request_data: Raw data from platform callback (typically HTTP POST body)
 
         Returns:
-            ChannelMessage: 统一格式的消息对象
+            ChannelMessage: Message object in unified format
 
         Raises:
-            ValueError: 消息格式错误
+            ValueError: Invalid message format
         """
         pass
 
     @abstractmethod
     async def verify_signature(self, request_data: Dict[str, Any]) -> bool:
         """
-        验证回调请求的签名/合法性
+        Verify callback request signature/legitimacy
 
         Args:
-            request_data: 包含签名参数的请求数据
+            request_data: Request data containing signature parameters
 
         Returns:
-            bool: 签名是否有效
+            bool: Whether the signature is valid
         """
         pass
 
     @abstractmethod
     def is_configured(self) -> bool:
         """
-        检查渠道是否已配置必要的环境变量
+        Check if the channel has the necessary environment variables configured
 
         Returns:
-            bool: 是否已配置
+            bool: Whether it is configured
         """
         pass
 
     @abstractmethod
     async def get_user_info(self, user_id: str) -> ChannelUser:
         """
-        获取用户信息
+        Get user information
 
         Args:
-            user_id: 用户ID
+            user_id: User ID
 
         Returns:
-            ChannelUser: 用户信息对象
+            ChannelUser: User information object
         """
         pass
 
-    # 可选方法(子类可选择性实现)
+    # Optional methods (subclasses can optionally implement)
 
     async def initialize(self) -> None:
         """
-        初始化适配器(可选)
+        Initialize the adapter (optional)
 
-        用于执行一次性初始化操作:
-        - 获取access_token
-        - 建立连接池
-        - 验证配置有效性
+        Used to perform one-time initialization operations:
+        - Obtain access_token
+        - Establish connection pool
+        - Verify configuration validity
         """
         if self._initialized:
             logger.warning(f"{self.channel_name} adapter already initialized")
@@ -197,13 +197,13 @@ class BaseChannelAdapter(ABC):
 
     async def handle_event(self, event_data: Dict[str, Any]) -> Optional[ChannelResponse]:
         """
-        处理平台事件(如用户加入、群聊@等)
+        Handle platform events (e.g., user joins, group mentions, etc.)
 
         Args:
-            event_data: 事件数据
+            event_data: Event data
 
         Returns:
-            Optional[ChannelResponse]: 事件处理结果(如果需要响应)
+            Optional[ChannelResponse]: Event handling result (if a response is needed)
         """
         logger.debug(f"{self.channel_name} received event: {event_data.get('event_type', 'unknown')}")
         return None
@@ -216,18 +216,18 @@ class BaseChannelAdapter(ABC):
         **kwargs
     ) -> List[ChannelResponse]:
         """
-        批量发送消息(默认实现:逐个发送)
+        Send batch messages (default implementation: send one by one)
 
-        子类可以重写此方法以使用平台的批量发送API提高效率。
+        Subclasses can override this method to use the platform's batch send API for improved efficiency.
 
         Args:
-            user_ids: 目标用户ID列表
-            content: 消息内容
-            msg_type: 消息类型
-            **kwargs: 平台特定参数
+            user_ids: List of target user IDs
+            content: Message content
+            msg_type: Message type
+            **kwargs: Platform-specific parameters
 
         Returns:
-            List[ChannelResponse]: 每个用户的发送结果
+            List[ChannelResponse]: Sending result for each user
         """
         results = []
         for user_id in user_ids:
@@ -244,10 +244,10 @@ class BaseChannelAdapter(ABC):
 
     def get_required_env_vars(self) -> List[str]:
         """
-        获取渠道所需的环境变量列表(用于配置检查)
+        Get the list of environment variables required by the channel (for configuration checking)
 
         Returns:
-            List[str]: 必需的环境变量名称列表
+            List[str]: List of required environment variable names
         """
         return []
 
@@ -257,20 +257,20 @@ class BaseChannelAdapter(ABC):
 
 
 class ChannelAdapterError(Exception):
-    """渠道适配器异常基类"""
+    """Channel adapter exception base class"""
     pass
 
 
 class ChannelNotConfiguredError(ChannelAdapterError):
-    """渠道未配置异常"""
+    """Channel not configured exception"""
     pass
 
 
 class ChannelMessageError(ChannelAdapterError):
-    """渠道消息错误异常"""
+    """Channel message error exception"""
     pass
 
 
 class ChannelAuthError(ChannelAdapterError):
-    """渠道认证错误异常"""
+    """Channel authentication error exception"""
     pass

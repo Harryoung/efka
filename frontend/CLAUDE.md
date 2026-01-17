@@ -1,13 +1,13 @@
 # Frontend
 
-React + Vite 前端，Admin UI (3000) + User UI (3001)。
+React + Vite frontend, Admin UI (3000) + User UI (3001).
 
 ## Components
 
 ```
 src/components/
-├── ChatView.jsx       # Admin 界面
-└── UserChatView.jsx   # User 界面
+├── ChatView.jsx       # Admin interface
+└── UserChatView.jsx   # User interface
 ```
 
 ## Manual Start
