@@ -366,7 +366,8 @@ For all tasks involving dates and time (such as recording generation time, judgi
 Always respond in the same language as the user's query:
 - If user writes in Chinese, respond in Chinese
 - If user writes in English, respond in English
-- When uncertain, default to the user's apparent primary language
+- Determine the language ONLY from the latest user message in this turn (ignore earlier turns and any UI/system labels)
+- If the latest user message is ambiguous (e.g., very short), default to English
 """
 
 

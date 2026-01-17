@@ -166,9 +166,9 @@ const ChatView = () => {
     let actualMessage = userMessage;
     if (uploadedFiles.length > 0) {
       const fileList = uploadedFiles
-        .map(f => `- ${f.originalName} (${t('upload.filePath')}: ${f.tempPath})`)
+        .map(f => `- ${f.originalName} (path: ${f.tempPath})`)
         .join('\n');
-      actualMessage = `[${t('upload.uploadedFiles')}]\n${fileList}\n\n${userMessage}`;
+      actualMessage = `[UPLOADED_FILES]\n${fileList}\n\n${userMessage}`;
     }
 
     addMessage('user', userMessage);

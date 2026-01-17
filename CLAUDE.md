@@ -91,6 +91,33 @@ tail -f logs/backend.log logs/wework.log logs/frontend.log
 curl http://localhost:8000/health
 ```
 
+## Agent SDK Configuration
+
+### Working Directory (cwd) - Security Boundary
+
+When creating `ClaudeAgentOptions`, **always set `cwd` to restrict Agent's file access scope**:
+
+```python
+# kb_service_factory.py example
+options = ClaudeAgentOptions(
+    cwd=str(kb_path),  # Set to knowledge_base/, not project root
+    ...
+)
+```
+
+| Agent | cwd Setting | Rationale |
+|-------|-------------|-----------|
+| Admin Agent | `knowledge_base/` | Restrict to KB directory for doc management |
+| User Agent | `knowledge_base/` | Restrict to KB directory for Q&A |
+| Session Router | Project root | No tools (`allowed_tools=[]`), no file access |
+
+**Key Points**:
+- `cwd` determines the working directory for Read/Write/Grep/Glob/Bash tools
+- Combine with prompt-level security boundaries for defense in depth
+- Agents without file tools (like Session Router) don't need cwd restriction
+
+**Reference**: `backend/services/kb_service_factory.py:135,429`
+
 ## Don'ts
 
 1. Don't run Python without activating venv
@@ -98,6 +125,7 @@ curl http://localhost:8000/health
 3. Don't import SDK before setting env vars
 4. Don't instantiate services directly - use singleton getters
 5. Don't modify Agent business logic in code - modify prompts
+6. Don't set `cwd` to project root for Agents with file access tools
 
 ---
 **Version**: v3.0 | **Updated**: 2025-12-23 | **Docs**: `docs/CHANNELS.md`, `docs/DEPLOYMENT.md`
