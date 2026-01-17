@@ -62,7 +62,7 @@ const Message = ({ message, onAddToFAQ, onFeedback }) => {
           {role === 'user' ? (
             <><UserOutlined /> {t('message.user')}</>
           ) : (
-            <><CicadaLogo size={16} color="#10b981" /> {t('message.assistant')}</>
+            <><CicadaLogo size={16} color="#f97316" /> {t('message.assistant')}</>
           )}
         </span>
         {formattedTime && (

@@ -211,7 +211,7 @@ const UserChatView = () => {
       {/* Header */}
       <div className="chat-header">
         <div className="header-title">
-          <h1><CicadaLogo size={24} color="#10b981" /> {t('header.userTitle')}</h1>
+          <h1><CicadaLogo size={24} color="#f97316" /> {t('header.userTitle')}</h1>
           <p className="header-subtitle">
             {sessionId ? `${t('header.sessionId')}: ${sessionId.substring(0, 8)}...` : t('header.initializing')}
           </p>
@@ -240,7 +240,7 @@ const UserChatView = () => {
       <div className="messages-container">
         {messages.length === 0 && (
           <div className="welcome-message">
-            <div className="welcome-icon"><CicadaLogo size={48} color="#10b981" /></div>
+            <div className="welcome-icon"><CicadaLogo size={48} color="#f97316" /></div>
             <h2>{t('welcome.title')}</h2>
             <p>{t('welcome.canDo')}</p>
             <ul>
