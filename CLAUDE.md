@@ -8,6 +8,7 @@
 - **No Embeddings**: Direct file system access via Grep/Glob/Read
 - **Agent Driven**: Let Claude intelligently search and combine information
 - **Business Logic in Prompts**: Not in code
+- **English First**: All code comments, logs, and documentation in English for global accessibility
 
 ### Run Mode Configuration (v3.0)
 Single-channel mutual exclusivity model:
