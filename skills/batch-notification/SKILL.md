@@ -1,29 +1,29 @@
 ---
 name: batch-notification
-description: 批量向用户发送IM消息。用于通知特定用户群体、筛选表格数据后发送、全员通知等场景。当管理员请求批量通知、群发消息、表格筛选后通知时使用此 Skill。触发词：通知/发送/群发 + 用户/批量/表格。
+description: Send IM messages to users in batch. Used for notifying specific user groups, sending after table filtering, all-staff notifications, etc. Use this Skill when administrators request batch notifications, mass messaging, or notifications after table filtering. Trigger words: notify/send/mass + users/batch/table.
 ---
 
-# 批量用户通知
+# Batch User Notification
 
-支持管理员批量向用户发送 IM 通知消息。
+Support administrators to send IM notification messages to users in batch.
 
-## 典型场景
+## Typical Scenarios
 
-1. **上传表格 + 筛选条件**：通知所有福利积分大于0的用户
-2. **上传目标清单**：通知指定的用户列表
-3. **全员通知**：通知所有人
+1. **Upload table + filter conditions**: Notify all users with benefits points greater than 0
+2. **Upload target list**: Notify specified user list
+3. **All-staff notification**: Notify everyone
 
-## 快速开始
+## Quick Start
 
-### 全员通知
+### All-staff Notification
 ```python
 mcp__{channel}__send_markdown_message(
     touser="@all",
-    content="## 通知标题\n\n通知内容..."
+    content="## Notification Title\n\nNotification content..."
 )
 ```
 
-### 筛选后通知
+### Filtered Notification
 ```bash
 python3 -c "
 import pandas as pd
@@ -35,27 +35,27 @@ print('|'.join(result['企业微信用户ID'].tolist()))
 "
 ```
 
-## 详细流程
+## Detailed Workflow
 
-完整的5阶段工作流程，见 [WORKFLOW.md](WORKFLOW.md)
+Complete 5-stage workflow, see [WORKFLOW.md](WORKFLOW.md)
 
-## pandas 查询模式
+## pandas Query Patterns
 
-常用筛选、JOIN、日期处理模式，见 [PANDAS_PATTERNS.md](PANDAS_PATTERNS.md)
+Common filtering, JOIN, date processing patterns, see [PANDAS_PATTERNS.md](PANDAS_PATTERNS.md)
 
-## 示例场景
+## Example Scenarios
 
-完整的端到端示例，见 [EXAMPLES.md](EXAMPLES.md)
+Complete end-to-end examples, see [EXAMPLES.md](EXAMPLES.md)
 
-## 核心原则
+## Core Principles
 
-1. **隐私保护**：通知为一对一私聊，消息不得包含其他人信息
-2. **必须确认**：构建消息后必须等待管理员回复"确认发送"
-3. **Python优先**：所有表格处理使用 pandas
-4. **结果透明**：清晰报告发送结果（成功/失败人数）
+1. **Privacy protection**: Notifications are one-on-one private chats, messages must not contain other people's information
+2. **Must confirm**: Must wait for administrator reply "confirm send" after constructing message
+3. **Python first**: All table processing uses pandas
+4. **Result transparency**: Clearly report sending results (success/failure counts)
 
-## 可用工具
+## Available Tools
 
-- **Bash**：执行 pandas 脚本
-- **mcp__{channel}__send_markdown_message**：发送 Markdown 消息
-- **mcp__{channel}__send_text_message**：发送纯文本消息
+- **Bash**: Execute pandas scripts
+- **mcp__{channel}__send_markdown_message**: Send Markdown messages
+- **mcp__{channel}__send_text_message**: Send plain text messages

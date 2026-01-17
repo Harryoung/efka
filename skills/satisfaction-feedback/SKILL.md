@@ -1,32 +1,32 @@
 ---
 name: satisfaction-feedback
-description: 处理用户满意度反馈。用户回复"满意"/"不满意"时，更新 FAQ 使用计数或记录 BADCASE。触发词：满意/不满意/解决了/���解决/谢谢。
+description: Handle user satisfaction feedback. When users respond with "satisfied"/"unsatisfied", update FAQ usage count or record BADCASE. Trigger words: satisfied/unsatisfied/resolved/not resolved/thanks/满意/不满意/解决了/没解决/谢谢.
 ---
 
-# 满意度反馈处理
+# Satisfaction Feedback Processing
 
-处理用户的满意度反馈，根据答案来源更新 FAQ 或记录问题。
+Process user satisfaction feedback and update FAQ or record issues based on the answer source.
 
-## 触发词
+## Trigger Words
 
-**满意**：满意、解决了、谢谢、明白了、好的、懂了、清楚了、知道了
-**不满意**：不满意、没解决、不对、错了、不行
+**Satisfied**: satisfied, resolved, thanks, understood, ok, got it, clear, I see, 满意, 解决了, 谢谢, 明白了, 好的, 懂了, 清楚了, 知道了
+**Unsatisfied**: unsatisfied, not resolved, wrong, incorrect, doesn't work, 不满意, 没解决, 不对, 错了, 不行
 
-## 处理逻辑
+## Processing Logic
 
-根据**上一轮答案来源**（元数据 `answer_source`）分类处理：
+Process feedback based on **answer source from previous round** (metadata `answer_source`):
 
-| 答案来源 | 满意反馈 | 不满意反馈 |
-|---------|---------|-----------|
-| FAQ | 增加使用计数 | 移除条目 + 记录 BADCASE |
-| 知识库文件 | 添加到 FAQ | 记录 BADCASE |
+| Answer Source | Satisfied Feedback | Unsatisfied Feedback |
+|--------------|-------------------|---------------------|
+| FAQ | Increment usage count | Remove entry + Record BADCASE |
+| Knowledge base file | Add to FAQ | Record BADCASE |
 
-## 关键原则
+## Key Principles
 
-1. **使用文件锁**：更新 FAQ.md 和 BADCASE.md 时必须使用 `SharedKBAccess` 文件锁
-2. **并发安全**：多用户同时操作时避免数据冲突
-3. **状态更新**：满意反馈后 session_status 设为 "resolved"
+1. **Use file locks**: Must use `SharedKBAccess` file locks when updating FAQ.md and BADCASE.md
+2. **Concurrency safety**: Avoid data conflicts when multiple users operate simultaneously
+3. **Status update**: Set session_status to "resolved" after satisfied feedback
 
-## 详细操作
+## Detailed Operations
 
-FAQ 增删改操作详情，见 [FAQ_OPERATIONS.md](FAQ_OPERATIONS.md)
+For FAQ add/delete/modify operation details, see [FAQ_OPERATIONS.md](FAQ_OPERATIONS.md)

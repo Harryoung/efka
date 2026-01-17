@@ -1,34 +1,34 @@
 ---
 name: expert-routing
-description: 领域专家路由。当知识库无法回答用户问题时，根据问题领域查找并通知对应专家。仅在 IM 模式下可用。触发条件：6阶段检索无结果时。
+description: Domain expert routing. When the knowledge base cannot answer user questions, find and notify the corresponding expert based on the question domain. Only available in IM mode. Trigger condition: No results in 6-stage retrieval.
 ---
 
-# 领域专家路由
+# Domain Expert Routing
 
-当知识库无法回答用户问题时，自动将问题路由给对应领域的专家。
+Automatically route questions to domain experts when the knowledge base cannot answer user questions.
 
-## 适用场景
+## Applicable Scenarios
 
-- 用户问题在知识库中找不到答案
-- 问题属于特定领域，需要专业人员回复
-- 仅在 IM 模式（企业微信/飞书/钉钉）下可用
+- User question has no answer in knowledge base
+- Question belongs to a specific domain requiring professional response
+- Only available in IM mode (WeCom/Feishu/DingTalk)
 
-## 快速流程
+## Quick Workflow
 
-1. **识别领域** → 根据问题语义判断所属领域
-2. **查询专家** → 从 domain_experts.xlsx 获取专家信息
-3. **通知专家** → 发送消息给专家，附带用户问题
-4. **通知用户** → 告知用户已联系专家
+1. **Identify domain** → Determine the domain based on question semantics
+2. **Query expert** → Get expert information from domain_experts.xlsx
+3. **Notify expert** → Send message to expert with user question
+4. **Notify user** → Inform user that expert has been contacted
 
-## 领域识别示例
+## Domain Identification Examples
 
-| 问题关键词 | 领域 |
-|-----------|-----|
-| 薪资/工资/调薪 | 薪酬福利 |
-| 请假/考勤/打卡 | 考勤管理 |
-| 入职/新员工/培训 | 招聘培训 |
-| 合同/劳动/离职 | 员工关系 |
+| Question Keywords | Domain |
+|------------------|--------|
+| Salary/wage/adjustment | Compensation & Benefits |
+| Leave/attendance/clock-in | Attendance Management |
+| Onboarding/new employee/training | Recruitment & Training |
+| Contract/labor/resignation | Employee Relations |
 
-## 详细流程
+## Detailed Workflow
 
-完整的专家路由工作流，见 [WORKFLOW.md](WORKFLOW.md)
+For complete expert routing workflow, see [WORKFLOW.md](WORKFLOW.md)

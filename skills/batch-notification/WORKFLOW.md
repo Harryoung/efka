@@ -1,28 +1,28 @@
-# 批量通知 5阶段工作流
+# Batch Notification 5-Stage Workflow
 
-## 阶段1：意图确认与信息收集
+## Stage 1: Intent Confirmation and Information Collection
 
-**目标**：准确理解管理员的通知需求
+**Goal**: Accurately understand administrator's notification needs
 
-1. 识别通知对象类型：
-   - 全员（@all）
-   - 特定人员（需要筛选）
-   - 已上传的清单文件
+1. Identify notification target type:
+   - All-staff (@all)
+   - Specific people (need filtering)
+   - Uploaded list file
 
-2. 提取关键信息：
-   - 筛选条件（如"积分>0"、"部门=技术部"）
-   - 通知内容的主题和要点
-   - 是否需要链接、时间等元素
+2. Extract key information:
+   - Filter conditions (e.g. "points>0", "department=Tech")
+   - Notification content theme and key points
+   - Whether links, time, etc. are needed
 
-3. 如有歧义，主动询问确认
+3. Proactively ask for confirmation if ambiguous
 
 ---
 
-## 阶段2：用户映射表读取
+## Stage 2: User Mapping Table Reading
 
-**核心**：使用 pandas 处理表格
+**Core**: Use pandas to process tables
 
-### 读取映射表
+### Read Mapping Table
 
 ```bash
 python3 -c "
@@ -35,16 +35,16 @@ print(json.dumps(result, ensure_ascii=False, indent=2))
 "
 ```
 
-### 构建映射关系
+### Build Mapping Relations
 
 ```python
 {
-  "姓名->userid": {"张三": "zhangsan", "李四": "lisi"},
-  "工号->userid": {"E1001": "zhangsan", "E1002": "lisi"}
+  "name->userid": {"张三": "zhangsan", "李四": "lisi"},
+  "employee_id->userid": {"E1001": "zhangsan", "E1002": "lisi"}
 }
 ```
 
-### 读取业务数据表（如有）
+### Read Business Data Table (if any)
 
 ```bash
 python3 -c "
@@ -58,9 +58,9 @@ print(json.dumps(df.to_dict('records'), ensure_ascii=False, indent=2))
 
 ---
 
-## 阶段3：目标用户清单提取
+## Stage 3: Target User List Extraction
 
-### 场景A：有筛选条件（JOIN + WHERE）
+### Scenario A: With Filter Conditions (JOIN + WHERE)
 
 ```bash
 python3 -c "
@@ -75,12 +75,12 @@ filtered_df = business_df[business_df['福利积分'] > 0]
 # JOIN
 result = pd.merge(filtered_df, mapping_df, on='工号', how='inner')
 
-# 输出
+# Output
 print('|'.join(result['企业微信用户ID'].tolist()))
 "
 ```
 
-### 场景B：直接清单
+### Scenario B: Direct List
 
 ```bash
 python3 -c "
@@ -93,7 +93,7 @@ print('|'.join(filtered['企业微信用户ID'].tolist()))
 "
 ```
 
-### 场景C：全员
+### Scenario C: All-staff
 
 ```python
 touser = "@all"
@@ -101,109 +101,109 @@ touser = "@all"
 
 ---
 
-## 阶段4：消息构建与确认
+## Stage 4: Message Construction and Confirmation
 
-### 重要隐私原则
+### Important Privacy Principles
 
-- 所有通知为私聊形式（一对一消息）
-- 消息内容不得包含发送对象之外的其他人信息
-- 使用"您"而非"你们"，避免透露批量发送事实
+- All notifications are in private chat format (one-on-one messages)
+- Message content must not contain information about people other than the recipient
+- Use "you" instead of "you all" to avoid revealing batch sending fact
 
-### 构建 Markdown 消息
+### Construct Markdown Message
 
 ```markdown
-## 通知标题
+## Notification Title
 
-**通知内容**：
-[具体说明]
+**Notification content**:
+[Specific description]
 
-**相关信息**：
-- 时间：[如有]
-- 链接：[如有]
+**Related information**:
+- Time: [if any]
+- Link: [if any]
 
-> 如有疑问，请联系 [联系人]
+> If you have any questions, please contact [contact person]
 ```
 
-### 颜色字体语法
+### Color Font Syntax
 
-- `<font color="info">蓝色</font>`
-- `<font color="warning">橙色</font>`
-- `<font color="comment">灰色</font>`
+- `<font color="info">Blue</font>`
+- `<font color="warning">Orange</font>`
+- `<font color="comment">Gray</font>`
 
-### 生成预览
+### Generate Preview
 
 ```
-【批量通知预览】
+【Batch Notification Preview】
 
-目标人数：15人
-目标用户：张三(zhangsan)、李四(lisi)... (共15人)
+Target count: 15 people
+Target users: 张三(zhangsan), 李四(lisi)... (15 people total)
 
-消息内容：
+Message content:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[消息内容]
+[Message content]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-请确认是否发送？（回复"确认发送"以继续）
+Please confirm sending? (Reply "confirm send" to continue)
 ```
 
-### 等待确认
+### Wait for Confirmation
 
-必须等待管理员回复以下关键词之一：
-- "确认发送"
-- "发送"
-- "确认"
+Must wait for administrator to reply with one of these keywords:
+- "confirm send"
+- "send"
+- "confirm"
 - "OK"
 
 ---
 
-## 阶段5：批量发送与结果反馈
+## Stage 5: Batch Sending and Result Feedback
 
-### 发送策略
+### Sending Strategy
 
-**≤1000人**：单次发送
+**≤1000 people**: Single send
 ```python
 mcp__{channel}__send_markdown_message(
     touser="user1|user2|user3|...",
-    content="<消息内容>"
+    content="<Message content>"
 )
 ```
 
-**>1000人**：分批发送（API限制）
+**>1000 people**: Batch send (API limit)
 ```python
 for i in range(0, len(userids), 1000):
     batch = userids[i:i+1000]
     touser = "|".join(batch)
-    # 调用发送工具
+    # Call send tool
 ```
 
-### 结果反馈
+### Result Feedback
 
-**成功**：
+**Success**:
 ```
-✅ 消息发送成功！
+✅ Message sent successfully!
 
-发送人数：15人
-消息ID：msg123456789
-发送时间：2025-01-06 14:30:25
-```
-
-**部分失败**：
-```
-⚠️ 消息发送完成（部分失败）
-
-成功发送：14人
-失败人数：1人
-失败用户：user999
-
-建议：检查 user_mapping.xlsx 中该用户的 ID 是否正确。
+Sent to: 15 people
+Message ID: msg123456789
+Send time: 2025-01-06 14:30:25
 ```
 
-**错误**：
+**Partial Failure**:
 ```
-❌ 消息发送失败
+⚠️ Message sending completed (partial failure)
 
-错误代码：40001
-错误信息：invalid secret
+Successfully sent: 14 people
+Failed: 1 person
+Failed user: user999
 
-建议：检查 .env 文件中的 IM 配置。
+Suggestion: Check if the user ID in user_mapping.xlsx is correct.
+```
+
+**Error**:
+```
+❌ Message sending failed
+
+Error code: 40001
+Error message: invalid secret
+
+Suggestion: Check IM configuration in .env file.
 ```

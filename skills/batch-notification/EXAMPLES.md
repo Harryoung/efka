@@ -1,17 +1,17 @@
-# 批量通知示例
+# Batch Notification Examples
 
-## 示例1：筛选条件通知
+## Example 1: Filtered Notification
 
-**用户输入**：
-> 我上传了福利积分表，请通知所有积分大于0的用户，提醒他们在月底前使用积分。
+**User input**:
+> I uploaded the benefits points table. Please notify all users with points greater than 0 to remind them to use points before the end of the month.
 
-**执行流程**：
+**Execution process**:
 
-1. **意图确认**：通知对象=积分>0的用户，内容=提醒月底前使用
+1. **Intent confirmation**: Target=users with points>0, content=reminder to use before month end
 
-2. **读取映射表**并获取 姓名/工号 → userid 映射
+2. **Read mapping table** and get name/employee_id → userid mapping
 
-3. **筛选目标用户**：
+3. **Filter target users**:
 ```bash
 python3 -c "
 import pandas as pd
@@ -23,76 +23,76 @@ print('|'.join(result['企业微信用户ID'].tolist()))
 "
 ```
 
-4. **构建消息**（隐私保护，不包含其他人信息）：
+4. **Construct message** (privacy protection, no other people's information):
 ```markdown
-## 福利积分使用提醒
+## Benefits Points Usage Reminder
 
-**温馨提示**：
-您还有福利积分余额，将于本月底（1月31日）清零，请尽快使用。
+**Friendly reminder**:
+You still have benefits points balance, which will expire at the end of this month (January 31). Please use them as soon as possible.
 
-**查看积分**：[点击进入福利平台](http://welfare.example.com)
+**Check points**: [Click to enter benefits platform](http://welfare.example.com)
 
-> 如有疑问，请联系人力资源部（内线：1234）
+> If you have any questions, please contact HR department (ext: 1234)
 ```
 
-5. **展示预览并等待确认**
+5. **Show preview and wait for confirmation**
 
-6. **执行发送**：
+6. **Execute sending**:
 ```python
 mcp__{channel}__send_markdown_message(
     touser="zhangsan|lisi|wangwu|...",
-    content="<消息内容>"
+    content="<Message content>"
 )
 ```
 
-7. **反馈结果**
+7. **Feedback results**
 
 ---
 
-## 示例2：全员通知
+## Example 2: All-staff Notification
 
-**用户输入**：
-> 通知所有人，知识库新增了《2025年度规划》文档，请大家及时学习。
+**User input**:
+> Notify everyone that the knowledge base has added the "2025 Annual Plan" document. Please study it in time.
 
-**执行流程**：
+**Execution process**:
 
-1. **意图确认**：全员通知（@all）
+1. **Intent confirmation**: All-staff notification (@all)
 
-2. **构建消息**（使用"您"而非"各位"）：
+2. **Construct message** (use "you" instead of "everyone"):
 ```markdown
-## 知识库更新通知
+## Knowledge Base Update Notification
 
-**新增文档**：《2025年度规划》
+**New document**: "2025 Annual Plan"
 
-请您及时查看学习，了解公司新一年的战略方向。
+Please review and study it in time to understand the company's strategic direction for the new year.
 
-**查看文档**：[点击进入知识库](http://kb.example.com)
+**View document**: [Click to enter knowledge base](http://kb.example.com)
 
-> 如有疑问，请联系行政部
+> If you have any questions, please contact the administration department
 ```
 
-3. **展示预览**
+3. **Show preview**
 
-4. **等待确认并发送**：
+4. **Wait for confirmation and send**:
 ```python
 mcp__{channel}__send_markdown_message(
     touser="@all",
-    content="<消息内容>"
+    content="<Message content>"
 )
 ```
 
 ---
 
-## 示例3：指定人员通知
+## Example 3: Specified Personnel Notification
 
-**用户输入**：
-> 通知张三、李四、王五参加下周一的培训
+**User input**:
+> Notify Zhang San, Li Si, Wang Wu to attend training next Monday
 
-**执行流程**：
+**Execution process**:
 
-1. **意图确认**：指定人员通知
+1. **Intent confirmation**: Specified personnel notification
 
-2. **查询 userid**：
+2. **Query userid**:
 ```bash
 python3 -c "
 import pandas as pd
@@ -102,41 +102,41 @@ print('|'.join(target['企业微信用户ID'].tolist()))
 "
 ```
 
-3. **构建消息并发送**
+3. **Construct message and send**
 
 ---
 
-## 错误处理示例
+## Error Handling Examples
 
-### user_mapping.xlsx 不存在
+### user_mapping.xlsx Does Not Exist
 
 ```
-user_mapping.xlsx 文件不存在，请先创建用户映射表。
+user_mapping.xlsx file does not exist. Please create user mapping table first.
 
-映射表需包含以下字段：
+Mapping table should contain the following fields:
 - 姓名
 - 工号
 - 企业微信用户ID
 
-位置：knowledge_base/企业管理/人力资源/user_mapping.xlsx
+Location: knowledge_base/企业管理/人力资源/user_mapping.xlsx
 ```
 
-### 筛选无结果
+### No Filter Results
 
 ```
-根据筛选条件"福利积分>0"，未找到符合条件的用户。
+No users found matching filter condition "福利积分>0".
 
-请检查：
-1. 筛选条件是否正确
-2. 业务数据表是否包含相关数据
+Please check:
+1. Filter condition is correct
+2. Business data table contains relevant data
 ```
 
-### 列名不匹配
+### Column Name Mismatch
 
 ```
-表格中不存在"福利积分"列。
+Column "福利积分" does not exist in table.
 
-实际列名：['姓名', '工号', '积分余额', '部门']
+Actual column names: ['姓名', '工号', '积分余额', '部门']
 
-请确认正确的列名后重试。
+Please confirm the correct column name and try again.
 ```

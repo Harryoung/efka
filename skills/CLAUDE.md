@@ -1,30 +1,30 @@
 # Skills
 
-Agent skills 使用 Claude Agent SDK 原生加载机制 `setting_sources=["project"]`。
+Agent skills use Claude Agent SDK native loading mechanism `setting_sources=["project"]`.
 
 ## Location
 
-- 源码: `skills/`
-- 运行时: `knowledge_base/.claude/skills/` (启动时自动复制)
+- Source code: `skills/`
+- Runtime: `knowledge_base/.claude/skills/` (automatically copied at startup)
 
-Skills 在 Agent prompts 中按名称引用，由 SDK 自动加载。
+Skills are referenced by name in Agent prompts and automatically loaded by SDK.
 
 ## Available Skills
 
-| Skill | 功能 |
-|-------|------|
-| batch-notification | 批量用户通知工作流 |
-| document-conversion | DOC/PDF/PPT → Markdown 转换 |
-| excel-parser | 智能 Excel/CSV 解析 |
-| expert-routing | 领域专家路由 |
-| large-file-toc | 大文件目录生成 |
-| satisfaction-feedback | 用户满意度反馈 |
+| Skill | Function |
+|-------|----------|
+| batch-notification | Batch user notification workflow |
+| document-conversion | DOC/PDF/PPT → Markdown conversion |
+| excel-parser | Smart Excel/CSV parsing |
+| expert-routing | Domain expert routing |
+| large-file-toc | Large file table of contents generation |
+| satisfaction-feedback | User satisfaction feedback |
 
 ## Document Conversion
 
-直接调用:
+Direct call:
 ```bash
 python skills/document-conversion/scripts/smart_convert.py <input_file> --json-output
 ```
 
-支持格式: DOCX, PDF (电子/扫描), PPTX, TXT
+Supported formats: DOCX, PDF (electronic/scanned), PPTX, TXT

@@ -1,43 +1,43 @@
 ---
 name: large-file-toc
-description: 为大文件生成目录概要。当入库的 Markdown 文件超过阈值（默认30KB）时，提取标题结构创建导航文件。触发条件：Markdown 文件大小 >= 30KB。
+description: Generate table of contents overview for large files. When onboarded Markdown file exceeds threshold (default 30KB), extract heading structure to create navigation file. Trigger condition: Markdown file size >= 30KB.
 ---
 
-# 大文件目录概要生成
+# Large File Table of Contents Overview Generation
 
-为大型 Markdown 文件生成目录概要，便于用户快速导航。
+Generate table of contents overview for large Markdown files for quick user navigation.
 
-## 适用条件
+## Applicable Conditions
 
-- Markdown 文件大小 >= 30KB
-- 入库阶段5（写入和更新）自动触发
+- Markdown file size >= 30KB
+- Automatically triggered at onboarding stage 5 (write and update)
 
-## 快速流程
+## Quick Workflow
 
-1. **提取标题**：使用 Grep 搜索 `^#+\s+.*$`
-2. **生成概要**：创建 `contents_overview/{文件名}_overview.md`
-3. **更新 README**：记录概要文件路径
+1. **Extract headings**: Use Grep to search `^#+\s+.*$`
+2. **Generate overview**: Create `contents_overview/{filename}_overview.md`
+3. **Update README**: Record overview file path
 
-## Grep 提取标题
+## Grep Extract Headings
 
 ```bash
 grep -n '^#' knowledge_base/path/to/file.md
 ```
 
-输出示例：
+Output example:
 ```
-10:# 第1章 介绍
-150:## 1.1 背景
-180:## 1.2 目标
-400:# 第2章 方法
+10:# Chapter 1 Introduction
+150:## 1.1 Background
+180:## 1.2 Objectives
+400:# Chapter 2 Methodology
 ```
 
-## 目录概要格式
+## Table of Contents Overview Format
 
-见 [TOC_TEMPLATE.md](TOC_TEMPLATE.md)
+See [TOC_TEMPLATE.md](TOC_TEMPLATE.md)
 
-## README 更新格式
+## README Update Format
 
 ```markdown
-- [文件名.md](path/to/file.md) (XXX KB) - 简短描述 [目录概要](contents_overview/文件名_overview.md)
+- [filename.md](path/to/file.md) (XXX KB) - Brief description [Table of Contents](contents_overview/filename_overview.md)
 ```

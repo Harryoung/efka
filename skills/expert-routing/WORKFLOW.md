@@ -1,119 +1,119 @@
-# 专家路由工作流
+# Expert Routing Workflow
 
-## Step 1: 领域识别
+## Step 1: Domain Identification
 
-基于问题语义识别所属领域：
+Identify the domain based on question semantics:
 
 ```python
-# 领域关键词映射（示例）
+# Domain keyword mapping (example)
 domain_keywords = {
-    "薪酬福利": ["薪资", "工资", "调薪", "奖金", "福利", "社保", "公积金"],
-    "考勤管理": ["请假", "考勤", "打卡", "加班", "调休", "年假"],
-    "招聘培训": ["入职", "新员工", "培训", "面试", "招聘", "转正"],
-    "员工关系": ["合同", "劳动", "离职", "辞职", "仲裁", "纠纷"],
-    "IT支持": ["系统", "账号", "密码", "电脑", "网络", "权限"],
+    "Compensation & Benefits": ["salary", "wage", "adjustment", "bonus", "benefits", "social security", "housing fund"],
+    "Attendance Management": ["leave", "attendance", "clock-in", "overtime", "compensatory leave", "annual leave"],
+    "Recruitment & Training": ["onboarding", "new employee", "training", "interview", "recruitment", "probation"],
+    "Employee Relations": ["contract", "labor", "resignation", "quit", "arbitration", "dispute"],
+    "IT Support": ["system", "account", "password", "computer", "network", "permission"],
 }
 ```
 
-**判断原则**：
-- 基于语义理解，不是关键词匹配
-- 如果无法确定领域，使用"默认负责人"
+**Judgment Principle**:
+- Based on semantic understanding, not keyword matching
+- If domain cannot be determined, use "Default Contact"
 
 ---
 
-## Step 2: 查询领域负责人
+## Step 2: Query Domain Contact
 
-使用 pandas 查询 domain_experts.xlsx：
+Use pandas to query domain_experts.xlsx:
 
 ```bash
 python3 -c "
 import pandas as pd
 import json
 
-domain = '薪酬福利'  # 替换为识别出的领域
+domain = 'Compensation & Benefits'  # Replace with identified domain
 
 df = pd.read_excel('knowledge_base/企业管理/人力资源/domain_experts.xlsx')
 result = df[df['工作领域'] == domain]
 
 if result.empty:
-    # 使用默认负责人
+    # Use default contact
     result = df[df['工作领域'] == '默认负责人']
 
 print(json.dumps(result[['姓名', 'userid', '工作领域']].to_dict('records'), ensure_ascii=False))
 "
 ```
 
-**输出示例**：
+**Output example**:
 ```json
-[{"姓名": "李明", "userid": "liming", "工作领域": "薪酬福利"}]
+[{"姓名": "李明", "userid": "liming", "工作领域": "Compensation & Benefits"}]
 ```
 
 ---
 
-## Step 3: 通知专家
+## Step 3: Notify Expert
 
-使用 IM MCP 发送消息给专家：
+Send message to expert using IM MCP:
 
 ```python
 mcp__{channel}__send_markdown_message(
     touser="{expert_userid}",
-    content="""## 【用户咨询】
+    content="""## 【User Inquiry】
 
-用户 **{user_name}**({user_id}) 提问：
+User **{user_name}**({user_id}) asked:
 
 > {question}
 
-<font color="warning">该问题在知识库中暂无答案</font>，请您回复。我会将您的回复转发给该用户。
+<font color="warning">This question has no answer in the knowledge base</font>. Please respond. I will forward your reply to the user.
 
-> 建议您及时补充相关文档到知识库。"""
+> It is recommended that you supplement relevant documents to the knowledge base in a timely manner."""
 )
 ```
 
 ---
 
-## Step 4: 通知用户等待
+## Step 4: Notify User to Wait
 
-发送等待消息给用户：
+Send waiting message to user:
 
 ```python
 mcp__{channel}__send_markdown_message(
     touser="{user_id}",
-    content="""**{user_name}**您好！
+    content="""**{user_name}**, Hello!
 
-已为您联系<font color="info">{domain}</font>负责人 **{expert_name}**，请稍等，会尽快回复您。"""
+We have contacted the <font color="info">{domain}</font> contact **{expert_name}** for you. Please wait, they will reply to you soon."""
 )
 ```
 
 ---
 
-## Step 5: 输出元数据
+## Step 5: Output Metadata
 
-输出包含专家路由信息的元数据：
+Output metadata containing expert routing information:
 
 ```metadata
 {
-  "key_points": ["问题无法解答", "已联系领域专家"],
+  "key_points": ["Question cannot be answered", "Domain expert contacted"],
   "answer_source": "expert",
   "session_status": "active",
   "confidence": 0.0,
   "expert_routed": true,
   "expert_userid": "liming",
   "expert_name": "李明",
-  "domain": "薪酬福利",
-  "original_question": "如何申请调薪？"
+  "domain": "Compensation & Benefits",
+  "original_question": "How to apply for salary adjustment?"
 }
 ```
 
 ---
 
-## domain_experts.xlsx 格式
+## domain_experts.xlsx Format
 
 | 姓名 | userid | 工作领域 |
 |-----|--------|---------|
-| 李明 | liming | 薪酬福利 |
-| 王芳 | wangfang | 考勤管理 |
-| 张伟 | zhangwei | 招聘培训 |
-| 赵六 | zhaoliu | 员工关系 |
-| 陈默 | chenmo | 默认负责人 |
+| 李明 | liming | Compensation & Benefits |
+| 王芳 | wangfang | Attendance Management |
+| 张伟 | zhangwei | Recruitment & Training |
+| 赵六 | zhaoliu | Employee Relations |
+| 陈默 | chenmo | Default Contact |
 
-**位置**：`knowledge_base/企业管理/人力资源/domain_experts.xlsx`
+**Location**: `knowledge_base/企业管理/人力资源/domain_experts.xlsx`

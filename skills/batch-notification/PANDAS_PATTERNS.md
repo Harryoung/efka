@@ -1,35 +1,35 @@
-# pandas 查询模式
+# pandas Query Patterns
 
-## 自然语言 → pandas 转换
+## Natural Language → pandas Conversion
 
-| 自然语言 | pandas 代码 |
-|---------|------------|
-| "积分大于100" | `df['积分'] > 100` |
-| "积分未清零" | `df['积分'] > 0` |
-| "技术部门" | `df['部门'] == '技术部'` |
-| "技术相关部门" | `df['部门'].str.contains('技术')` |
-| "入职超过1年" | `df['入职日期'] < (pd.Timestamp.now() - pd.DateOffset(years=1))` |
-| "今年入职的" | `df['入职日期'].dt.year == 2025` |
-| "积分前10名" | `df.nlargest(10, '积分')` |
-| "职级P7及以上" | `df['职级'] >= 'P7'` |
+| Natural Language | pandas Code |
+|-----------------|-------------|
+| "Points greater than 100" | `df['积分'] > 100` |
+| "Points not zero" | `df['积分'] > 0` |
+| "Tech department" | `df['部门'] == '技术部'` |
+| "Tech-related departments" | `df['部门'].str.contains('技术')` |
+| "Joined over 1 year" | `df['入职日期'] < (pd.Timestamp.now() - pd.DateOffset(years=1))` |
+| "Joined this year" | `df['入职日期'].dt.year == 2025` |
+| "Top 10 points" | `df.nlargest(10, '积分')` |
+| "Level P7 and above" | `df['职级'] >= 'P7'` |
 
-## 单条件筛选
+## Single Condition Filtering
 
 ```python
-# 数值比较
+# Numeric comparison
 df[df['积分'] > 100]
 
-# 精确匹配
+# Exact match
 df[df['部门'] == '技术部']
 
-# 列表匹配
+# List match
 df[df['姓名'].isin(['张三', '李四'])]
 
-# 模糊匹配
+# Fuzzy match
 df[df['部门'].str.contains('技术')]
 ```
 
-## 多条件筛选
+## Multiple Condition Filtering
 
 ```python
 # AND
@@ -38,7 +38,7 @@ df[(df['积分'] > 0) & (df['部门'] == '技术部')]
 # OR
 df[(df['入职日期'] < '2024-01-01') | (df['职级'] >= 'P7')]
 
-# 复杂组合
+# Complex combination
 df[
     (df['积分'] > 100) &
     (df['部门'].isin(['技术部', '产品部'])) &
@@ -46,7 +46,7 @@ df[
 ]
 ```
 
-## JOIN 查询
+## JOIN Query
 
 ```python
 # INNER JOIN
@@ -57,7 +57,7 @@ result = pd.merge(
     how='inner'
 )
 
-# LEFT JOIN（字段名不同）
+# LEFT JOIN (different field names)
 result = pd.merge(
     business_df,
     mapping_df,
@@ -67,38 +67,38 @@ result = pd.merge(
 )
 ```
 
-## 聚合统计
+## Aggregation Statistics
 
 ```python
-# 分组统计
-df.groupby('部门')['积分'].sum()      # 每部门总积分
-df.groupby('部门').size()            # 每部门人数
-df.groupby('部门')['积分'].mean()    # 每部门平均
+# Group statistics
+df.groupby('部门')['积分'].sum()      # Total points per department
+df.groupby('部门').size()            # Count per department
+df.groupby('部门')['积分'].mean()    # Average per department
 
-# 排序
+# Sorting
 df.sort_values('积分', ascending=False)
-df.nlargest(10, '积分')              # 前10
-df.nsmallest(5, '入职日期')          # 最早5人
+df.nlargest(10, '积分')              # Top 10
+df.nsmallest(5, '入职日期')          # Earliest 5
 ```
 
-## 日期处理
+## Date Processing
 
 ```python
 from datetime import datetime, timedelta
 
-# 解析日期列
+# Parse date column
 df['入职日期'] = pd.to_datetime(df['入职日期'])
 
-# 入职超过1年
+# Joined over 1 year ago
 one_year_ago = datetime.now() - timedelta(days=365)
 df[df['入职日期'] < one_year_ago]
 
-# 本月入职
+# Joined this month
 current_month = datetime.now().replace(day=1)
 df[df['入职日期'] >= current_month]
 ```
 
-## 完整脚本模板
+## Complete Script Template
 
 ```bash
 python3 -c "
@@ -106,19 +106,19 @@ import pandas as pd
 import sys
 
 try:
-    # 读取映射表
+    # Read mapping table
     mapping_df = pd.read_excel('knowledge_base/企业管理/人力资源/user_mapping.xlsx')
 
-    # 读取业务表
+    # Read business table
     business_df = pd.read_excel('/tmp/data.xlsx')
 
-    # 筛选
+    # Filter
     filtered = business_df[business_df['福利积分'] > 0]
 
     # JOIN
     result = pd.merge(filtered, mapping_df, on='工号', how='inner')
 
-    # 输出
+    # Output
     print('|'.join(result['企业微信用户ID'].tolist()))
 
 except Exception as e:

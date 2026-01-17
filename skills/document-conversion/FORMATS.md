@@ -1,19 +1,19 @@
-# 文档格式处理详情
+# Document Format Processing Details
 
 ## DOCX/DOC
 
-### 处理方式
-- **DOCX**: 直接使用 Pandoc 转换
-- **DOC**: 先用 LibreOffice 转为 DOCX，再 Pandoc 处理
+### Processing Method
+- **DOCX**: Directly use Pandoc conversion
+- **DOC**: First convert to DOCX using LibreOffice, then Pandoc processing
 
-### 特点
-- 保留格式（标题、列表、表格）
-- 自动提取图片到独立目录
-- 保留链接和引用
+### Features
+- Preserve formatting (headings, lists, tables)
+- Automatically extract images to separate directory
+- Preserve links and references
 
-### 图片目录
+### Image Directory
 ```
-原始文件名_images/
+original_filename_images/
 ├── image1.png
 ├── image2.jpg
 └── ...
@@ -23,24 +23,24 @@
 
 ## PDF
 
-### 自动类型检测
+### Automatic Type Detection
 
-脚本自动检测 PDF 类型：
-- **电子版**：前3页文本密度高（可直接提取文字）
-- **扫描版**：前3页几乎无文字但有图片
+Script automatically detects PDF type:
+- **Electronic**: High text density in first 3 pages (text can be directly extracted)
+- **Scanned**: First 3 pages have almost no text but have images
 
-### 电子版 PDF
-- 使用 PyMuPDF4LLM 快速转换
-- 秒级处理
-- 保留文档结构
+### Electronic PDF
+- Use PyMuPDF4LLM for fast conversion
+- Second-level processing
+- Preserve document structure
 
-### 扫描版 PDF
-- 使用 PaddleOCR-VL 在线服务
-- 需要 `PADDLE_OCR_TOKEN` 环境变量
-- 处理时间：几十秒到几分钟
-- 支持表格和图表识别
+### Scanned PDF
+- Use PaddleOCR-VL online service
+- Requires `PADDLE_OCR_TOKEN` environment variable
+- Processing time: tens of seconds to minutes
+- Support table and chart recognition
 
-### 强制 OCR 模式
+### Force OCR Mode
 ```bash
 python scripts/smart_convert.py input.pdf --force-ocr --json-output
 ```
@@ -49,58 +49,58 @@ python scripts/smart_convert.py input.pdf --force-ocr --json-output
 
 ## PPTX/PPT
 
-### 处理方式
-- **PPTX**: 使用 pptx2md 专业转换
-- **PPT**: 先用 LibreOffice 转为 PPTX，再 pptx2md 处理
+### Processing Method
+- **PPTX**: Use pptx2md professional conversion
+- **PPT**: First convert to PPTX using LibreOffice, then pptx2md processing
 
-### 特点
-- 保留标题层级
-- 保留列表格式
-- 提取幻灯片图片
-- 保留备注（Speaker Notes）
-- 添加幻灯片分隔符
+### Features
+- Preserve heading hierarchy
+- Preserve list formatting
+- Extract slide images
+- Preserve notes (Speaker Notes)
+- Add slide separators
 
-### 输出结构
+### Output Structure
 ```markdown
-# 幻灯片标题
+# Slide Title
 
-幻灯片内容...
+Slide content...
 
-![](原始文件名_images/slide1_image1.png)
+![](original_filename_images/slide1_image1.png)
 
 ---
 
-# 下一页标题
+# Next Slide Title
 ...
 ```
 
 ---
 
-## 依赖库
+## Dependencies
 
-| 库 | 用途 |
-|---|-----|
+| Library | Purpose |
+|---------|---------|
 | pypandoc | DOCX → Markdown |
-| PyMuPDF (fitz) | PDF 类型检测 |
-| pymupdf4llm | 电子版 PDF 转换 |
-| pptx2md | PPTX 转换 |
-| requests | PaddleOCR API 调用 |
+| PyMuPDF (fitz) | PDF type detection |
+| pymupdf4llm | Electronic PDF conversion |
+| pptx2md | PPTX conversion |
+| requests | PaddleOCR API calls |
 
 ---
 
-## 错误处理
+## Error Handling
 
-### LibreOffice 未安装
+### LibreOffice Not Installed
 ```
-未找到 LibreOffice (soffice)。请安装 LibreOffice 或将其加入 PATH。
-```
-
-### PaddleOCR Token 缺失
-```
-扫描版 PDF 需要设置 PADDLE_OCR_TOKEN 环境变量。
+LibreOffice (soffice) not found. Please install LibreOffice or add it to PATH.
 ```
 
-### 不支持的格式
+### PaddleOCR Token Missing
 ```
-不支持的文件格式: .xyz
+Scanned PDF requires PADDLE_OCR_TOKEN environment variable.
+```
+
+### Unsupported Format
+```
+Unsupported file format: .xyz
 ```

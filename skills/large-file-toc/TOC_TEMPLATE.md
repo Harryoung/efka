@@ -1,108 +1,108 @@
-# 目录概要文件模板
+# Table of Contents Overview File Template
 
-## 文件命名规则
+## File Naming Rules
 
-原文件名：`python_tutorial.md`
-概要文件名：`python_tutorial_overview.md`
-存储位置：`knowledge_base/contents_overview/`
+Original filename: `python_tutorial.md`
+Overview filename: `python_tutorial_overview.md`
+Storage location: `knowledge_base/contents_overview/`
 
-## 模板格式
+## Template Format
 
 ```markdown
-# [文件名] - 目录概要
+# [Filename] - Table of Contents Overview
 
-> 文件路径：knowledge_base/path/to/file.md
-> 文件大小：XXX KB
-> 生成时间：YYYY-MM-DD
+> File path: knowledge_base/path/to/file.md
+> File size: XXX KB
+> Generation time: YYYY-MM-DD
 
-## 章节目录
+## Chapter Directory
 
-- [第1章 标题](起始行号: 10)
-- [第2章 标题](起始行号: 150)
-  - [2.1 小节标题](起始行号: 180)
-  - [2.2 小节标题](起始行号: 250)
-- [第3章 标题](起始行号: 400)
-  - [3.1 小节标题](起始行号: 420)
-  - [3.2 小节标题](起始行号: 500)
+- [Chapter 1 Title](Starting line: 10)
+- [Chapter 2 Title](Starting line: 150)
+  - [2.1 Section Title](Starting line: 180)
+  - [2.2 Section Title](Starting line: 250)
+- [Chapter 3 Title](Starting line: 400)
+  - [3.1 Section Title](Starting line: 420)
+  - [3.2 Section Title](Starting line: 500)
 ```
 
-## 生成步骤
+## Generation Steps
 
-### 1. 提取标题和行号
+### 1. Extract Headings and Line Numbers
 
 ```bash
-# 使用 Grep 工具
+# Use Grep tool
 grep -n '^#+' knowledge_base/path/to/file.md
 ```
 
-输出示例：
+Output example:
 ```
-10:# 第1章 介绍
-150:## 1.1 背景
-180:## 1.2 目标
-400:# 第2章 方法
-420:## 2.1 数据收集
-500:## 2.2 数据分析
+10:# Chapter 1 Introduction
+150:## 1.1 Background
+180:## 1.2 Objectives
+400:# Chapter 2 Methodology
+420:## 2.1 Data Collection
+500:## 2.2 Data Analysis
 ```
 
-### 2. 解析标题层级
+### 2. Parse Heading Hierarchy
 
-- `#` → 一级标题（无缩进）
-- `##` → 二级标题（缩进2空格）
-- `###` → 三级标题（缩进4空格）
-- 以此类推
+- `#` → Level 1 heading (no indent)
+- `##` → Level 2 heading (2 spaces indent)
+- `###` → Level 3 heading (4 spaces indent)
+- And so on
 
-### 3. 生成目录结构
+### 3. Generate Directory Structure
 
-根据 `#` 数量判断层级，使用行号作为定位锚点。
+Determine hierarchy based on number of `#`, use line numbers as location anchors.
 
-### 4. 获取文件大小
+### 4. Get File Size
 
 ```bash
 ls -lh knowledge_base/path/to/file.md | awk '{print $5}'
 ```
 
-### 5. 获取当前时间
+### 5. Get Current Time
 
 ```bash
 date '+%Y-%m-%d'
 ```
 
-## 示例输出
+## Example Output
 
 ```markdown
-# Python入门教程 - 目录概要
+# Python Tutorial - Table of Contents Overview
 
-> 文件路径：knowledge_base/技术文档/编程语言/python_tutorial.md
-> 文件大小：85 KB
-> 生成时间：2025-01-06
+> File path: knowledge_base/技术文档/编程语言/python_tutorial.md
+> File size: 85 KB
+> Generation time: 2025-01-06
 
-## 章节目录
+## Chapter Directory
 
-- [第1章 Python简介](起始行号: 10)
-  - [1.1 什么是Python](起始行号: 25)
-  - [1.2 安装Python](起始行号: 80)
-  - [1.3 第一个程序](起始行号: 150)
-- [第2章 基础语法](起始行号: 200)
-  - [2.1 变量和数据类型](起始行号: 220)
-  - [2.2 运算符](起始行号: 350)
-  - [2.3 控制流程](起始行号: 450)
-- [第3章 函数](起始行号: 600)
-  - [3.1 定义函数](起始行号: 620)
-  - [3.2 参数和返回值](起始行号: 720)
-- [第4章 面向对象](起始行号: 900)
-  - [4.1 类和对象](起始行号: 920)
-  - [4.2 继承](起始行号: 1100)
+- [Chapter 1 Introduction to Python](Starting line: 10)
+  - [1.1 What is Python](Starting line: 25)
+  - [1.2 Installing Python](Starting line: 80)
+  - [1.3 First Program](Starting line: 150)
+- [Chapter 2 Basic Syntax](Starting line: 200)
+  - [2.1 Variables and Data Types](Starting line: 220)
+  - [2.2 Operators](Starting line: 350)
+  - [2.3 Control Flow](Starting line: 450)
+- [Chapter 3 Functions](Starting line: 600)
+  - [3.1 Defining Functions](Starting line: 620)
+  - [3.2 Parameters and Return Values](Starting line: 720)
+- [Chapter 4 Object-Oriented](Starting line: 900)
+  - [4.1 Classes and Objects](Starting line: 920)
+  - [4.2 Inheritance](Starting line: 1100)
 ```
 
-## 用途
+## Usage
 
-用户查询大文件时：
-1. 先读取目录概要，了解整体结构
-2. 根据行号范围精准定位到相关章节
-3. 使用 `Read` 工具读取指定行范围
+When users query large files:
+1. First read table of contents overview to understand overall structure
+2. Precisely locate relevant chapters based on line number ranges
+3. Use `Read` tool to read specified line ranges
 
 ```python
-# 例如读取第2章内容（行号200-599）
+# For example, read Chapter 2 content (lines 200-599)
 Read("knowledge_base/技术文档/编程语言/python_tutorial.md", offset=200, limit=400)
 ```
