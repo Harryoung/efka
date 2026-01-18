@@ -26,10 +26,6 @@
   <img src="assets/demo.gif" alt="知了演示" width="640">
 </p>
 
-<p align="center">
-  <a href="https://www.bilibili.com/video/BV1mnmBBuEVe/">📺 在 Bilibili 观看完整演示</a>
-</p>
-
 ## 为什么选择知了？
 
 传统 RAG 系统依赖向量嵌入和相似度搜索，容易丢失上下文并产生幻觉。知了采用了不同的方法：
