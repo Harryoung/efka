@@ -22,9 +22,13 @@
 
 English | [中文](README_CN.md)
 
-## Video Demo
+<p align="center">
+  <img src="assets/demo.gif" alt="EFKA Demo" width="640">
+</p>
 
-[![Watch Demo on Bilibili](assets/efka.png)](https://www.bilibili.com/video/BV1mnmBBuEVe/)
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1mnmBBuEVe/">📺 Watch full demo on Bilibili</a>
+</p>
 
 ## Why EFKA?
 

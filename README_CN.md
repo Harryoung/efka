@@ -22,9 +22,13 @@
 
 [English](README.md) | 中文
 
-## 视频演示
+<p align="center">
+  <img src="assets/demo.gif" alt="知了演示" width="640">
+</p>
 
-[![在 Bilibili 观看演示](assets/efka.png)](https://www.bilibili.com/video/BV1mnmBBuEVe/)
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1mnmBBuEVe/">📺 在 Bilibili 观看完整演示</a>
+</p>
 
 ## 为什么选择知了？
 
