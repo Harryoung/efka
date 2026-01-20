@@ -58,6 +58,7 @@ services:
       - FAQ_MAX_ENTRIES=${FAQ_MAX_ENTRIES:-50}
 
       # Redis 配置
+      - REDIS_URL=redis://redis:6379/0
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
