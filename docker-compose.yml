@@ -152,7 +152,7 @@ services:
       context: ./frontend
       dockerfile: ../deploy/Dockerfile.frontend
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
     container_name: ikba-admin-ui
     ports:
       - "3000:80"
@@ -168,7 +168,7 @@ services:
       dockerfile: ../deploy/Dockerfile.frontend
       args:
         - VITE_APP_MODE=user
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
     container_name: ikba-user-ui
     ports:
       - "3001:80"
