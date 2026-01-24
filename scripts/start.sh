@@ -118,6 +118,8 @@ check_command python3 || exit 1
 check_command node || exit 1
 check_node_version || exit 1
 check_command npm || exit 1
+check_command lsof || exit 1
+check_command curl || exit 1
 
 # Check environment file
 if [ ! -f ".env" ]; then
@@ -392,7 +394,9 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-npm run dev > ../logs/frontend.log 2>&1 &
+# Use strict port to avoid silently falling back (Vite will auto-increment otherwise),
+# which can cause :3001 to unexpectedly serve Admin UI.
+npm run dev -- --port 3000 --strictPort --config vite.config.js > ../logs/frontend.log 2>&1 &
 ADMIN_UI_PID=$!
 echo $ADMIN_UI_PID > ../logs/frontend.pid
 echo -e "${GREEN}   PID: $ADMIN_UI_PID${NC}"
@@ -417,8 +421,8 @@ if [ "$USER_UI_ENABLED" = "true" ]; then
     echo "🚀 Starting User UI (port $USER_UI_PORT)..."
     cd frontend
 
-    # Start second instance with VITE_APP_MODE=user
-    VITE_APP_MODE=user npm run dev -- --port $USER_UI_PORT > ../logs/frontend-user.log 2>&1 &
+    # Start second instance (force user mode via dedicated Vite config)
+    npm run dev -- --port $USER_UI_PORT --strictPort --config vite.user.config.js > ../logs/frontend-user.log 2>&1 &
     USER_UI_PID=$!
     echo $USER_UI_PID > ../logs/frontend-user.pid
     echo -e "${GREEN}   PID: $USER_UI_PID${NC}"

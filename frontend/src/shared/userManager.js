@@ -5,7 +5,9 @@
  */
 
 // 使用统一的 localStorage key
-const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
+import { getAppMode } from './appMode';
+
+const APP_MODE = getAppMode();
 const USER_ID_KEY = 'kb_user_id';
 
 /**

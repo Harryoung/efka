@@ -6,13 +6,19 @@
 
 import axios from 'axios';
 import { getUserId } from './userManager';
+import { getAppMode } from './appMode';
 
 // 根据 APP_MODE 决定 API 行为
-const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
+const APP_MODE = getAppMode();
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// SSE 端点：Admin 使用 /api/query/stream，User 使用 /api/user/query
-const SSE_ENDPOINT = APP_MODE === 'user' ? '/api/user/query' : '/api/query/stream';
+// SSE path (relative to API_BASE_URL): Admin uses query/stream, User uses user/query
+const SSE_PATH = APP_MODE === 'user' ? 'user/query' : 'query/stream';
+
+const getResolvedApiBaseUrl = () => {
+  const base = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
+  return new URL(base, window.location.origin);
+};
 
 // 创建 axios 实例
 const apiClient = axios.create({
@@ -93,8 +99,9 @@ class APIService {
     const messageStr = typeof message === 'string' ? message : String(message);
     const userId = getUserId();
 
-    // 构建 SSE URL（根据 APP_MODE 使用不同端点）
-    const url = new URL(SSE_ENDPOINT, window.location.origin);
+    // Build SSE URL based on the same API base used by axios.
+    // This avoids mismatches where axios uses an absolute API base, but SSE still targets same-origin /api.
+    const url = new URL(SSE_PATH, getResolvedApiBaseUrl());
     url.searchParams.append('session_id', sessionId || '');
     url.searchParams.append('message', messageStr);
     url.searchParams.append('user_id', userId);
@@ -108,7 +115,7 @@ class APIService {
         // Always pass data to onMessage first (including 'done' event)
         if (onMessage) onMessage(data);
 
-        if (data.type === 'done') {
+        if (data.type === 'done' || data.type === 'error') {
           eventSource.close();
           if (onComplete) onComplete();
         }

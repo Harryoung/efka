@@ -13,9 +13,11 @@ src/components/
 ## Manual Start
 
 ```bash
-npm run dev                                        # Admin :3000
-VITE_APP_MODE=user npm run dev -- --port 3001     # User :3001
+npm run dev                                        # Admin :3000 (strict port)
+npm run dev -- --port 3001 --config vite.user.config.js     # User :3001
 ```
+
+Note: Vite is configured with `strictPort: true` to prevent silent port fallback. If `:3000`/`:3001` is occupied, free the port and retry.
 
 ## Dependencies
 

@@ -11,9 +11,10 @@ import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
 import ChatView from './components/ChatView';
 import UserChatView from './components/UserChatView';
+import { getAppMode } from './shared/appMode';
 import './App.css';
 
-const APP_MODE = import.meta.env.VITE_APP_MODE || 'admin';
+const APP_MODE = getAppMode();
 
 const antdLocales = {
   'en': enUS,
