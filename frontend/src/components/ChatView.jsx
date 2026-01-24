@@ -22,7 +22,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import './ChatView.css';
 
 const ChatView = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   // State management
   const [sessionId, setSessionId] = useState(null);
@@ -63,25 +63,11 @@ const ChatView = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Update welcome message on language change
-  useEffect(() => {
-    setMessages(prev => {
-      if (prev.length > 0 && prev[0].role === 'system') {
-        const newMessages = [...prev];
-        newMessages[0] = { ...newMessages[0], content: t('welcome.greeting') };
-        return newMessages;
-      }
-      return prev;
-    });
-  }, [i18n.language, t]);
-
   // Initialize session
   const initializeSession = async () => {
     try {
       const result = await apiService.createSession();
       setSessionId(result.session_id);
-
-      addSystemMessage(t('welcome.greeting'));
     } catch (error) {
       console.error('Failed to create session:', error);
       setError(t('session.createFailed'));
