@@ -208,8 +208,12 @@ flowchart TD
 ### 前置要求
 
 - Python 3.10+
-- Node.js 18+
-- Redis 7+
+- Node.js 20.19+（Vite 7.x 要求）
+- Claude Code CLI
+  - 安装: `npm install -g @anthropic-ai/claude-code`
+- Redis 7+（可选，未安装时使用内存存储）
+  - macOS: `brew install redis && brew services start redis`
+  - Ubuntu: `sudo apt-get install redis-server && sudo systemctl start redis`
 - Claude API Key
 - Pandoc（用于文档转换）
   - macOS: `brew install pandoc`
@@ -235,12 +239,12 @@ pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 
 # 启动服务
-cd efka  # 如果不在项目根目录，请先切换到项目目录
 ./scripts/start.sh
 ```
 
 访问应用：
-- **Web 界面**: http://localhost:3000
+- **管理端**: http://localhost:3000（知识库管理）
+- **用户端**: http://localhost:3001（问答界面）
 - **API**: http://localhost:8000/health
 
 停止服务: `./scripts/stop.sh`

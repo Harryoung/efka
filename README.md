@@ -207,7 +207,9 @@ flowchart TD
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 18+
+- Node.js 20.19+ (required by Vite 7.x)
+- Claude Code CLI
+  - Install: `npm install -g @anthropic-ai/claude-code`
 - Redis 7+ (optional, uses memory storage if not installed)
   - macOS: `brew install redis && brew services start redis`
   - Ubuntu: `sudo apt-get install redis-server && sudo systemctl start redis`
@@ -236,12 +238,12 @@ pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 
 # Start services
-cd efka  # Change to project directory if not already there
 ./scripts/start.sh
 ```
 
 Access the application:
-- **Web UI**: http://localhost:3000
+- **Admin UI**: http://localhost:3000 (knowledge base management)
+- **User UI**: http://localhost:3001 (Q&A interface)
 - **API**: http://localhost:8000/health
 
 Stop services: `./scripts/stop.sh`
