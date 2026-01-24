@@ -28,6 +28,7 @@
     "stop": "Stop",
     "thinking": "Thinking...",
     "error": "Error",
+    "streamDisconnected": "Connection lost. Please try again.",
     "unknownError": "Unknown error",
     "retry": "Retry",
     "copy": "Copy",

@@ -189,17 +189,7 @@ const UserChatView = () => {
         async (error) => {
           console.error('Stream error:', error);
 
-          try {
-            console.log(t('session.recreating'));
-            const result = await apiService.createSession();
-            setSessionId(result.session_id);
-            setError(t('session.expired'));
-            addSystemMessage(t('session.expired'));
-          } catch (retryError) {
-            console.error('Failed to recreate session:', retryError);
-            setError(t('session.expiredCannotRecreate'));
-          }
-
+          setError(`${t('chat.error')}: ${t('chat.streamDisconnected')}`);
           setIsLoading(false);
           setActiveTools([]);
           setPendingToolCalls([]);

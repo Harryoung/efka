@@ -28,6 +28,7 @@
     "stop": "停止",
     "thinking": "正在思考...",
     "error": "错误",
+    "streamDisconnected": "连接中断，请稍后重试",
     "unknownError": "未知错误",
     "retry": "重试",
     "copy": "复制",
