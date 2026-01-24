@@ -2,6 +2,7 @@
 SSE streaming response utility functions
 Extracts common SSE processing logic from query.py and user.py
 """
+import asyncio
 import json
 import logging
 from typing import AsyncGenerator, Callable, Optional, Any
@@ -41,10 +42,44 @@ def create_sse_response(generator: AsyncGenerator) -> StreamingResponse:
         StreamingResponse object
     """
     return StreamingResponse(
-        generator,
+        _with_sse_heartbeat(generator),
         media_type="text/event-stream",
         headers=SSE_HEADERS
     )
+
+
+async def _with_sse_heartbeat(
+    generator: AsyncGenerator,
+    interval_seconds: float = 15.0
+) -> AsyncGenerator[str, None]:
+    """
+    Wrap an SSE generator with periodic heartbeat comments.
+
+    Motivation: Some proxies/load balancers close idle HTTP connections if no data
+    is sent for a while (e.g. long model latency before first token). SSE comments
+    (lines starting with ':') keep the connection alive and are ignored by browsers.
+    """
+    agen = generator.__aiter__()
+    pending = asyncio.create_task(agen.__anext__())
+
+    try:
+        while True:
+            done, _ = await asyncio.wait({pending}, timeout=interval_seconds)
+            if not done:
+                yield ":\n\n"
+                continue
+
+            try:
+                item = pending.result()
+            except StopAsyncIteration:
+                break
+
+            yield item
+            pending = asyncio.create_task(agen.__anext__())
+
+    finally:
+        if not pending.done():
+            pending.cancel()
 
 
 def sse_session_event(session_id: Optional[str], is_new: bool = False) -> str:
