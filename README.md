@@ -252,7 +252,7 @@ Stop services: `./scripts/stop.sh`
 cp .env.example .env
 # Edit .env with your configuration
 
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Configuration

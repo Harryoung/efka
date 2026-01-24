@@ -251,7 +251,7 @@ cd efka  # 如果不在项目根目录，请先切换到项目目录
 cp .env.example .env
 # 编辑 .env 配置
 
-docker-compose up -d
+docker compose up -d
 ```
 
 ## 配置说明

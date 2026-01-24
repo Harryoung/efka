@@ -121,19 +121,19 @@ cp .env.example .env
 # Edit .env with your configuration
 
 # 2. Start all services (standalone mode, default)
-docker-compose up -d
+docker compose up -d
 
 # 3. Start with User UI
-docker-compose --profile user-ui up -d
+docker compose --profile user-ui up -d
 
 # 4. Start in WeWork mode (with RUN_MODE)
-RUN_MODE=wework docker-compose --profile wework up -d
+RUN_MODE=wework docker compose --profile wework up -d
 
 # 5. View logs
-docker-compose logs -f
+docker compose logs -f
 
 # 6. Stop services
-docker-compose down
+docker compose down
 ```
 
 ### Run Mode
@@ -142,11 +142,11 @@ Docker deployment supports the same run modes as `scripts/start.sh`:
 
 | Mode | Description | Command |
 |------|-------------|---------|
-| standalone | Pure Web mode (default) | `docker-compose up -d` |
-| wework | WeChat Work integration | `RUN_MODE=wework docker-compose --profile wework up -d` |
-| feishu | Feishu integration | `RUN_MODE=feishu docker-compose up -d` |
-| dingtalk | DingTalk integration | `RUN_MODE=dingtalk docker-compose up -d` |
-| slack | Slack integration | `RUN_MODE=slack docker-compose up -d` |
+| standalone | Pure Web mode (default) | `docker compose up -d` |
+| wework | WeChat Work integration | `RUN_MODE=wework docker compose --profile wework up -d` |
+| feishu | Feishu integration | `RUN_MODE=feishu docker compose up -d` |
+| dingtalk | DingTalk integration | `RUN_MODE=dingtalk docker compose up -d` |
+| slack | Slack integration | `RUN_MODE=slack docker compose up -d` |
 
 ---
 
@@ -214,42 +214,42 @@ VISION_MODEL_NAME=ep-xxx
 
 | Profile | Description | Command |
 |---------|-------------|---------|
-| (default) | Backend + Admin UI + Redis | `docker-compose up -d` |
-| user-ui | Include User UI | `docker-compose --profile user-ui up -d` |
-| wework | Include WeWork callback | `docker-compose --profile wework up -d` |
-| production | Include Nginx reverse proxy | `docker-compose --profile production up -d` |
+| (default) | Backend + Admin UI + Redis | `docker compose up -d` |
+| user-ui | Include User UI | `docker compose --profile user-ui up -d` |
+| wework | Include WeWork callback | `docker compose --profile wework up -d` |
+| production | Include Nginx reverse proxy | `docker compose --profile production up -d` |
 
 ### Full Deployment Example
 
 ```bash
 # Start all services with WeWork
-docker-compose --profile wework up -d
+docker compose --profile wework up -d
 
 # Check service status
-docker-compose ps
+docker compose ps
 
 # View logs
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # Restart a service
-docker-compose restart backend
+docker compose restart backend
 
 # Update and restart
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose up -d
 ```
 
 ### Build Custom Images
 
 ```bash
 # Build all images
-docker-compose build
+docker compose build
 
 # Build single image
-docker-compose build backend
+docker compose build backend
 
 # Build with arguments
-docker-compose build --build-arg VITE_API_BASE_URL=https://api.example.com admin-ui user-ui
+docker compose build --build-arg VITE_API_BASE_URL=https://api.example.com admin-ui user-ui
 ```
 
 ### Data Persistence
@@ -344,7 +344,7 @@ WantedBy=multi-user.target
 tail -f logs/backend.log
 
 # Docker logs
-docker-compose logs -f --tail=100 backend
+docker compose logs -f --tail=100 backend
 
 # Log rotation (logrotate)
 /app/logs/*.log {
@@ -438,7 +438,7 @@ redis-cli ping
 redis-cli -h $REDIS_HOST -p $REDIS_PORT INFO
 
 # Docker environment
-docker-compose exec redis redis-cli ping
+docker compose exec redis redis-cli ping
 ```
 
 ### Performance Optimization
