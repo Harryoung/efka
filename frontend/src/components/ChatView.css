@@ -260,6 +260,12 @@
   -webkit-text-fill-color: transparent;
 }
 
+.welcome-message ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
 /* ============ Loading ============ */
 .loading-indicator {
   text-align: center;
