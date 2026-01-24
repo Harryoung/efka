@@ -5,7 +5,8 @@ export default mergeConfig(
   baseConfig,
   defineConfig({
     define: {
-      'globalThis.__EFKA_APP_MODE__': JSON.stringify('user'),
+      // Override to 'user' mode for User UI
+      'import.meta.env.VITE_APP_MODE': JSON.stringify('user'),
     },
     server: {
       port: 3001,

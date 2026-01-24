@@ -1,14 +1,12 @@
 export const getAppMode = () => {
-  const forcedMode = typeof globalThis !== 'undefined' ? globalThis.__EFKA_APP_MODE__ : undefined;
-  if (forcedMode === 'user' || forcedMode === 'admin') {
-    return forcedMode;
+  // VITE_APP_MODE is set via Vite's env system (envPrefix or define)
+  // In dev: set by each vite config; In build: set by VITE_APP_MODE env var
+  const mode = import.meta.env.VITE_APP_MODE;
+  if (mode === 'user' || mode === 'admin') {
+    return mode;
   }
 
-  const envMode = import.meta?.env?.VITE_APP_MODE;
-  if (envMode === 'user' || envMode === 'admin') {
-    return envMode;
-  }
-
+  // Fallback: port-based detection for dev mode
   if (typeof window !== 'undefined' && window.location?.port === '3001') {
     return 'user';
   }
