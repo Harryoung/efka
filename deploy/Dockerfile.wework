@@ -11,7 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libffi-dev \
     curl \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
+
+# 安装 Claude Code CLI（claude_agent_sdk 默认通过它执行）
+RUN npm install -g @anthropic-ai/claude-code
 
 # 复制依赖文件
 COPY backend/requirements.txt .
@@ -21,9 +26,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
 COPY backend/ ./backend/
+COPY knowledge_base/ ./knowledge_base/
+COPY skills/ ./skills/
 
-# 创建日志目录
-RUN mkdir -p /app/logs
+# 创建日志目录和技能目录
+RUN mkdir -p /app/logs /app/knowledge_base/.claude && \
+    cp -r /app/skills /app/knowledge_base/.claude/skills
 
 # 设置环境变量
 ENV PYTHONPATH=/app

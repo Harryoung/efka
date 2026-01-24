@@ -120,15 +120,33 @@ cd efka  # Change to project directory if not already there
 cp .env.example .env
 # Edit .env with your configuration
 
-# 2. Start all services
+# 2. Start all services (standalone mode, default)
 docker-compose up -d
 
-# 3. View logs
+# 3. Start with User UI
+docker-compose --profile user-ui up -d
+
+# 4. Start in WeWork mode (with RUN_MODE)
+RUN_MODE=wework docker-compose --profile wework up -d
+
+# 5. View logs
 docker-compose logs -f
 
-# 4. Stop services
+# 6. Stop services
 docker-compose down
 ```
+
+### Run Mode
+
+Docker deployment supports the same run modes as `scripts/start.sh`:
+
+| Mode | Description | Command |
+|------|-------------|---------|
+| standalone | Pure Web mode (default) | `docker-compose up -d` |
+| wework | WeChat Work integration | `RUN_MODE=wework docker-compose --profile wework up -d` |
+| feishu | Feishu integration | `RUN_MODE=feishu docker-compose up -d` |
+| dingtalk | DingTalk integration | `RUN_MODE=dingtalk docker-compose up -d` |
+| slack | Slack integration | `RUN_MODE=slack docker-compose up -d` |
 
 ---
 
@@ -196,7 +214,8 @@ VISION_MODEL_NAME=ep-xxx
 
 | Profile | Description | Command |
 |---------|-------------|---------|
-| (default) | Backend + Web UI + Redis | `docker-compose up -d` |
+| (default) | Backend + Admin UI + Redis | `docker-compose up -d` |
+| user-ui | Include User UI | `docker-compose --profile user-ui up -d` |
 | wework | Include WeWork callback | `docker-compose --profile wework up -d` |
 | production | Include Nginx reverse proxy | `docker-compose --profile production up -d` |
 
@@ -230,7 +249,7 @@ docker-compose build
 docker-compose build backend
 
 # Build with arguments
-docker-compose build --build-arg VITE_API_BASE_URL=https://api.example.com frontend
+docker-compose build --build-arg VITE_API_BASE_URL=https://api.example.com admin-ui user-ui
 ```
 
 ### Data Persistence

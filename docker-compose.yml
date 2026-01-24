@@ -2,16 +2,24 @@
 # 统一多渠道架构部署配置
 #
 # 使用方法:
-#   docker-compose up -d              # 启动所有服务
-#   docker-compose up -d backend      # 只启动后端
-#   docker-compose logs -f backend    # 查看后端日志
-#   docker-compose down               # 停止所有服务
+#   docker-compose up -d                            # 启动所有服务 (standalone 模式)
+#   docker-compose up -d backend                    # 只启动后端
+#   docker-compose --profile user-ui up -d          # 启动含 User UI 的服务
+#   docker-compose --profile wework up -d           # 启动含 WeWork 渠道的服务
+#   RUN_MODE=wework docker-compose up -d            # 启动 WeWork 模式
+#   docker-compose logs -f backend                  # 查看后端日志
+#   docker-compose down                             # 停止所有服务
+#
+# Run mode (RUN_MODE 环境变量):
+#   standalone (default) - 纯 Web 模式，无 IM 集成
+#   wework               - 企业微信集成
+#   feishu               - 飞书集成
+#   dingtalk             - 钉钉集成
+#   slack                - Slack 集成
 #
 # 环境配置:
 #   创建 .env 文件并设置必要的环境变量
 #   参考 .env.example
-
-version: '3.8'
 
 services:
   # ============================================
@@ -43,14 +51,20 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+      args:
+        - RUN_MODE=${RUN_MODE:-standalone}
     container_name: ikba-backend
     ports:
       - "8000:8000"
+    # Force container runtime env to come from repo-local .env (not host shell),
+    # so exported ANTHROPIC_* in your terminal won't silently override .env.
+    env_file:
+      - .env
     environment:
-      # Claude API 配置
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
-      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      # Claude API 配置从 env_file(.env) 注入；避免 ${...} 插值被宿主机环境覆盖
+
+      # Run mode configuration (standalone/wework/feishu/dingtalk/slack)
+      - RUN_MODE=${RUN_MODE:-standalone}
 
       # 知识库配置
       - KB_ROOT_PATH=/app/knowledge_base
@@ -87,6 +101,8 @@ services:
     volumes:
       - ./knowledge_base:/app/knowledge_base
       - ./logs:/app/logs
+      # Persist Claude Code local state for --resume across container rebuilds
+      - claude_state:/root/.claude
     depends_on:
       redis:
         condition: service_healthy
@@ -111,11 +127,11 @@ services:
     container_name: ikba-wework
     ports:
       - "${WEWORK_PORT:-8081}:8081"
+    # Same rule as backend: read runtime env from repo-local .env.
+    env_file:
+      - .env
     environment:
-      # Claude API 配置 (继承自 backend)
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
-      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      # Claude API 配置从 env_file(.env) 注入；避免 ${...} 插值被宿主机环境覆盖
 
       # 知识库配置
       - KB_ROOT_PATH=/app/knowledge_base
@@ -135,6 +151,8 @@ services:
     volumes:
       - ./knowledge_base:/app/knowledge_base
       - ./logs:/app/logs
+      # Persist Claude Code local state for --resume across container rebuilds
+      - claude_state:/root/.claude
     depends_on:
       - backend
       - redis
@@ -153,7 +171,9 @@ services:
       context: ./frontend
       dockerfile: ../deploy/Dockerfile.frontend
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
+        - VITE_APP_MODE=admin
+        # Use same-origin /api via frontend nginx proxy (more robust than direct :8000)
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
     container_name: ikba-admin-ui
     ports:
       - "3000:80"
@@ -169,7 +189,8 @@ services:
       dockerfile: ../deploy/Dockerfile.frontend
       args:
         - VITE_APP_MODE=user
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
+        # Use same-origin /api via frontend nginx proxy (more robust than direct :8000)
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
     container_name: ikba-user-ui
     ports:
       - "3001:80"
@@ -217,4 +238,6 @@ networks:
 
 volumes:
   redis_data:
+    driver: local
+  claude_state:
     driver: local

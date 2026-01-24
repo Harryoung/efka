@@ -20,8 +20,10 @@ RUN npm ci
 COPY . .
 
 # 构建参数
-ARG VITE_API_BASE_URL=http://localhost:8000/api
+ARG VITE_API_BASE_URL=/api
+ARG VITE_APP_MODE=admin
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_APP_MODE=$VITE_APP_MODE
 
 # 构建应用
 RUN npm run build
@@ -51,8 +53,9 @@ server {
     location /api/ {
         proxy_pass http://backend:8000/api/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        # SSE-friendly proxy headers (do not force websocket upgrade)
+        proxy_set_header Connection '';
+        proxy_set_header Upgrade '';
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -60,6 +63,7 @@ server {
 
         # SSE 支持
         proxy_buffering off;
+        proxy_cache off;
         proxy_read_timeout 86400;
     }
 
