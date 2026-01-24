@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["query"])
 
+def _is_claude_code_login_required_error(text: str) -> bool:
+    return "Please run /login" in text
+
 
 class QueryRequest(BaseModel):
     """Query request"""
@@ -208,12 +211,19 @@ async def query_stream(
                                 block_type = type(block).__name__
                                 logger.info(f"[DEBUG] Processing block type: {block_type}")
                                 if isinstance(block, TextBlock):
+                                    if _is_claude_code_login_required_error(block.text):
+                                        yield sse_error_event(block.text)
+                                        return
                                     yield sse_message_event(block.text)
                                 elif isinstance(block, ToolUseBlock):
                                     logger.info(f"Tool use detected: {block.name}, input: {block.input}")
                                     yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
+                            if msg.is_error:
+                                yield sse_error_event(msg.result or "Upstream error")
+                                return
+
                             turn_count = msg.num_turns
                             real_sdk_session_id = msg.session_id
                             logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
@@ -264,12 +274,18 @@ async def query_stream(
                         if isinstance(msg, AssistantMessage):
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
+                                    if _is_claude_code_login_required_error(block.text):
+                                        yield sse_error_event(block.text)
+                                        return
                                     yield sse_message_event(block.text)
                                 elif isinstance(block, ToolUseBlock):
                                     logger.info(f"Tool use detected: {block.name}, input: {block.input}")
                                     yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
+                            if msg.is_error:
+                                yield sse_error_event(msg.result or "Upstream error")
+                                return
                             yield sse_done_event(msg.duration_ms)
 
                 except Exception as e:

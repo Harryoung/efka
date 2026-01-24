@@ -13,6 +13,7 @@ Concurrency support: Use SDKClientPool to achieve true multi-user concurrency
 import logging
 import os
 import asyncio
+import json
 from typing import AsyncIterator, Optional, Callable
 from pathlib import Path
 
@@ -20,6 +21,9 @@ from claude_agent_sdk import (
     ClaudeSDKClient,
     ClaudeAgentOptions,
     Message,
+    AssistantMessage,
+    TextBlock,
+    ResultMessage,
     create_sdk_mcp_server
 )
 
@@ -31,6 +35,172 @@ from backend.tools.image_read import image_read_handler
 from backend.services.client_pool import SDKClientPool, get_pool_manager
 
 logger = logging.getLogger(__name__)
+
+def _should_use_claude_print_json(base_url: Optional[str]) -> bool:
+    """
+    Claude Code streaming mode (SDK control protocol) is brittle with some third-party
+    Anthropic-compatible proxies and can surface 'Please run /login' 403 errors.
+    Use non-interactive JSON output mode as a pragmatic fallback.
+    """
+    if not base_url:
+        return False
+    return "api.anthropic.com" not in base_url
+
+
+async def _run_claude_print_json(
+    *,
+    prompt: str,
+    cwd: str,
+    env: dict[str, str],
+    allowed_tools: list[str],
+    append_system_prompt: str,
+    resume: Optional[str],
+) -> tuple[AssistantMessage, ResultMessage]:
+    allowed_tools = [t for t in allowed_tools if not t.startswith("mcp__")]
+
+    cmd = [
+        "claude",
+        "-p",
+        "--output-format",
+        "json",
+        "--permission-mode",
+        "acceptEdits",
+    ]
+    if allowed_tools:
+        cmd.extend(["--allowedTools", ",".join(allowed_tools)])
+    if resume:
+        cmd.extend(["--resume", resume])
+    if append_system_prompt:
+        cmd.extend(["--append-system-prompt", append_system_prompt])
+    cmd.extend(["--", prompt])
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=cwd,
+        env={**os.environ, **env},
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout_b, stderr_b = await proc.communicate()
+
+    stdout = (stdout_b or b"").decode("utf-8", errors="replace").strip()
+    stderr = (stderr_b or b"").decode("utf-8", errors="replace").strip()
+
+    if proc.returncode != 0:
+        msg = stderr or stdout or f"claude exited with code {proc.returncode}"
+        assistant = AssistantMessage(content=[TextBlock(text=msg)], model="unknown")
+        result = ResultMessage(
+            subtype="error",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=True,
+            num_turns=0,
+            session_id="",
+            result=msg,
+        )
+        return assistant, result
+
+    try:
+        # Claude Code typically prints one JSON object. Be defensive:
+        # - stderr/stdout may include extra lines
+        # - some versions/proxies may return a JSON array
+        last_line = next((line for line in reversed(stdout.splitlines()) if line.strip()), "")
+        parsed = json.loads(last_line) if last_line else json.loads(stdout or "{}")
+    except json.JSONDecodeError:
+        msg = stderr or stdout or "Failed to parse claude JSON output"
+        assistant = AssistantMessage(content=[TextBlock(text=msg)], model="unknown")
+        result = ResultMessage(
+            subtype="error",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=True,
+            num_turns=0,
+            session_id="",
+            result=msg,
+        )
+        return assistant, result
+
+    data: dict = {}
+    if isinstance(parsed, dict):
+        data = parsed
+    elif isinstance(parsed, list):
+        for item in reversed(parsed):
+            if isinstance(item, dict) and (
+                "result" in item or "subtype" in item or item.get("type") == "result"
+            ):
+                data = item
+                break
+        if not data:
+            for item in reversed(parsed):
+                if isinstance(item, dict):
+                    data = item
+                    break
+
+    if not data:
+        msg = stderr or stdout or "Unexpected claude JSON output"
+        assistant = AssistantMessage(content=[TextBlock(text=msg)], model="unknown")
+        result = ResultMessage(
+            subtype="error",
+            duration_ms=0,
+            duration_api_ms=0,
+            is_error=True,
+            num_turns=0,
+            session_id="",
+            result=msg,
+        )
+        return assistant, result
+
+    result_text = data.get("result") or ""
+    if not result_text and "content" in data:
+        content = data.get("content")
+        if isinstance(content, str):
+            result_text = content
+        elif isinstance(content, list):
+            parts: list[str] = []
+            for part in content:
+                if isinstance(part, str):
+                    parts.append(part)
+                elif isinstance(part, dict) and isinstance(part.get("text"), str):
+                    parts.append(part["text"])
+            result_text = "".join(parts)
+
+    assistant = AssistantMessage(content=[TextBlock(text=result_text)], model="unknown")
+    result = ResultMessage(
+        subtype=str(data.get("subtype") or "success"),
+        duration_ms=int(data.get("duration_ms") or 0),
+        duration_api_ms=int(data.get("duration_api_ms") or 0),
+        is_error=bool(data.get("is_error") or False),
+        num_turns=int(data.get("num_turns") or 0),
+        session_id=str(data.get("session_id") or ""),
+        total_cost_usd=data.get("total_cost_usd"),
+        usage=data.get("usage"),
+        result=result_text,
+    )
+    return assistant, result
+
+
+def _is_transient_upstream_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    transient_markers = [
+        "connection error",
+        "connect",
+        "econnreset",
+        "enotfound",
+        "timed out",
+        "timeout",
+        "tls",
+        "temporary",
+        "temporarily unavailable",
+        "service unavailable",
+        "bad gateway",
+        "gateway timeout",
+        "rate limit",
+        "429",
+        "502",
+        "503",
+        "504",
+    ]
+    return any(marker in msg for marker in transient_markers)
 
 
 class KBUserService:
@@ -58,6 +228,7 @@ class KBUserService:
         self.settings = get_settings()
         self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
+        self._use_print_json = _should_use_claude_print_json(self.settings.ANTHROPIC_BASE_URL)
 
         # Cache MCP servers configuration (set in initialize)
         self._mcp_servers = None
@@ -196,6 +367,15 @@ class KBUserService:
                 "image_vision": image_vision_server
             }
 
+            if self._use_print_json:
+                # Avoid initializing streaming SDK clients; use `claude -p --output-format json` per request.
+                self.is_initialized = True
+                logger.warning(
+                    "User service running in non-interactive Claude Code mode (print+json). "
+                    "Streaming and SDK MCP servers are disabled in this mode."
+                )
+                return
+
             # Add corresponding channel's MCP server in IM mode
             im_channel = get_im_channel()
             if im_channel:
@@ -264,62 +444,90 @@ class KBUserService:
 
         logger.info(f"User query from {user_id or 'unknown'}: {user_message[:100]}...")
 
-        try:
+        if self._use_print_json:
+            kb_path = Path(self.settings.KB_ROOT_PATH)
+            assistant, result = await _run_claude_print_json(
+                prompt=user_message,
+                cwd=str(kb_path),
+                env=self._env_vars or {},
+                allowed_tools=self._get_allowed_tools(),
+                append_system_prompt=f"\n\n{self._user_agent_def.prompt}",
+                resume=sdk_session_id,
+            )
+            yield assistant
+            yield result
+            return
+
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
             message_count = 0
+            try:
+                # Acquire client from pool (supports session resume)
+                is_resume = sdk_session_id is not None
+                logger.info(
+                    f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})..."
+                )
+                async with self.client_pool.acquire(session_id=sdk_session_id) as client:
+                    logger.info("✅ Client acquired, sending query...")
 
-            # Acquire client from pool (supports session resume)
-            is_resume = sdk_session_id is not None
-            logger.info(f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})...")
-            async with self.client_pool.acquire(session_id=sdk_session_id) as client:
-                logger.info(f"✅ Client acquired, sending query...")
+                    # Send query (no longer pass session_id, controlled by ClaudeAgentOptions.resume)
+                    await client.query(user_message)
+                    logger.info("✅ Query sent successfully, waiting for response...")
 
-                # Send query (no longer pass session_id, controlled by ClaudeAgentOptions.resume)
-                await client.query(user_message)
-                logger.info(f"✅ Query sent successfully, waiting for response...")
+                    # Receive response
+                    logger.info("🔄 Starting to receive response stream...")
+                    async for message in client.receive_response():
+                        message_count += 1
+                        logger.debug(f"📨 Received message {message_count}: type={type(message).__name__}")
+                        yield message
 
-                # Receive response
-                logger.info(f"🔄 Starting to receive response stream...")
-                async for message in client.receive_response():
-                    message_count += 1
-                    logger.debug(f"📨 Received message {message_count}: type={type(message).__name__}")
-                    yield message
+                logger.info(f"✅ Response stream completed, total messages: {message_count}")
+                logger.info("✅ Client released")
 
-            logger.info(f"✅ Response stream completed, total messages: {message_count}")
-            logger.info(f"✅ Client released")
+                if message_count == 0:
+                    logger.error("❌ No response from Claude API")
+                    logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
+                    logger.error(f"   User ID: {user_id}")
+                    logger.error("   This may indicate:")
+                    logger.error("   - API account insufficient balance")
+                    logger.error("   - API rate limit exceeded")
+                    logger.error("   - Network timeout")
+                else:
+                    logger.info(f"✅ Received {message_count} messages from Claude API")
 
-            # Check if response received
-            if message_count == 0:
-                logger.error("❌ No response from Claude API")
+                return
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                is_last = attempt >= max_attempts
+                should_retry = (not is_last) and (message_count == 0) and _is_transient_upstream_error(e)
+
+                logger.error("❌ Claude API call failed")
+                logger.error(f"   Error type: {type(e).__name__}")
+                logger.error(f"   Error message: {str(e)}")
                 logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
                 logger.error(f"   User ID: {user_id}")
-                logger.error(f"   This may indicate:")
-                logger.error(f"   - API account insufficient balance")
-                logger.error(f"   - API rate limit exceeded")
-                logger.error(f"   - Network timeout")
-            else:
-                logger.info(f"✅ Received {message_count} messages from Claude API")
+                logger.error(f"   Attempt: {attempt}/{max_attempts}")
+                logger.error("   This may indicate:")
+                logger.error("   - Invalid API key or token")
+                logger.error("   - API account insufficent balance (欠费)")
+                logger.error("   - Exceeded rate limits")
+                logger.error("   - API service unavailable")
+                logger.error("   - Transient network issues")
+                logger.error("   Stack:", exc_info=True)
 
-        except asyncio.TimeoutError:
-            logger.error("❌ Claude API call timeout")
-            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
-            logger.error(f"   User ID: {user_id}")
-            logger.error(f"   This may indicate:")
-            logger.error(f"   - Network connectivity issues")
-            logger.error(f"   - API service overload")
-            logger.error(f"   - Pool exhausted (all clients busy)")
-            raise
-        except Exception as e:
-            logger.error("❌ Claude API call failed")
-            logger.error(f"   Error type: {type(e).__name__}")
-            logger.error(f"   Error message: {str(e)}")
-            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
-            logger.error(f"   User ID: {user_id}")
-            logger.error(f"   This may indicate:")
-            logger.error(f"   - Invalid API key or token")
-            logger.error(f"   - API account insufficent balance (欠费)")
-            logger.error(f"   - Exceeded rate limits")
-            logger.error(f"   - API service unavailable")
-            raise
+                if should_retry:
+                    backoff_seconds = 0.5 * (2 ** (attempt - 1))
+                    logger.warning(
+                        "⚠️  Transient upstream error before any response; retrying in %.1fs (attempt %d/%d)",
+                        backoff_seconds,
+                        attempt + 1,
+                        max_attempts
+                    )
+                    await asyncio.sleep(backoff_seconds)
+                    continue
+                raise
 
     def get_pool_stats(self) -> dict:
         """Get connection pool statistics"""
@@ -352,6 +560,7 @@ class KBAdminService:
         self.settings = get_settings()
         self.client_pool: Optional[SDKClientPool] = None
         self.is_initialized = False
+        self._use_print_json = _should_use_claude_print_json(self.settings.ANTHROPIC_BASE_URL)
 
         # Cache configuration (set in initialize)
         self._mcp_servers = None
@@ -490,6 +699,15 @@ class KBAdminService:
                 "image_vision": image_vision_server
             }
 
+            if self._use_print_json:
+                # Avoid initializing streaming SDK clients; use `claude -p --output-format json` per request.
+                self.is_initialized = True
+                logger.warning(
+                    "Admin service running in non-interactive Claude Code mode (print+json). "
+                    "Streaming and SDK MCP servers are disabled in this mode."
+                )
+                return
+
             # Add corresponding channel's MCP server in IM mode
             im_channel = get_im_channel()
             if im_channel:
@@ -556,55 +774,84 @@ class KBAdminService:
 
         logger.info(f"Admin query: {user_message[:100]}...")
 
-        try:
+        if self._use_print_json:
+            kb_path = Path(self.settings.KB_ROOT_PATH)
+            assistant, result = await _run_claude_print_json(
+                prompt=user_message,
+                cwd=str(kb_path),
+                env=self._env_vars or {},
+                allowed_tools=self._get_allowed_tools(),
+                append_system_prompt=f"\n\n{self._admin_agent_def.prompt}",
+                resume=sdk_session_id,
+            )
+            yield assistant
+            yield result
+            return
+
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
             message_count = 0
+            try:
+                # Acquire client from pool (supports session resume)
+                is_resume = sdk_session_id is not None
+                logger.info(
+                    f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})..."
+                )
+                async with self.client_pool.acquire(session_id=sdk_session_id) as client:
+                    logger.info("✅ Client acquired, sending query...")
 
-            # Acquire client from pool (supports session resume)
-            is_resume = sdk_session_id is not None
-            logger.info(f"📤 Acquiring client from pool (resume={is_resume}, sdk_session={sdk_session_id or 'new'})...")
-            async with self.client_pool.acquire(session_id=sdk_session_id) as client:
-                logger.info(f"✅ Client acquired, sending query...")
+                    # Send query (no longer pass session_id, controlled by ClaudeAgentOptions.resume)
+                    await client.query(user_message)
 
-                # Send query (no longer pass session_id, controlled by ClaudeAgentOptions.resume)
-                await client.query(user_message)
+                    # Receive response
+                    async for message in client.receive_response():
+                        message_count += 1
+                        yield message
 
-                # Receive response
-                async for message in client.receive_response():
-                    message_count += 1
-                    yield message
+                logger.info("✅ Response completed, client released")
 
-            logger.info(f"✅ Response completed, client released")
+                if message_count == 0:
+                    logger.error("❌ No response from Claude API")
+                    logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
+                    logger.error("   This may indicate:")
+                    logger.error("   - API account insufficient balance")
+                    logger.error("   - API rate limit exceeded")
+                    logger.error("   - Network timeout")
+                else:
+                    logger.info(f"✅ Received {message_count} messages from Claude API")
 
-            # Check if response received
-            if message_count == 0:
-                logger.error("❌ No response from Claude API")
+                return
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                is_last = attempt >= max_attempts
+                should_retry = (not is_last) and (message_count == 0) and _is_transient_upstream_error(e)
+
+                logger.error("❌ Claude API call failed")
+                logger.error(f"   Error type: {type(e).__name__}")
+                logger.error(f"   Error message: {str(e)}")
                 logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
-                logger.error(f"   This may indicate:")
-                logger.error(f"   - API account insufficient balance")
-                logger.error(f"   - API rate limit exceeded")
-                logger.error(f"   - Network timeout")
-            else:
-                logger.info(f"✅ Received {message_count} messages from Claude API")
+                logger.error(f"   Attempt: {attempt}/{max_attempts}")
+                logger.error("   This may indicate:")
+                logger.error("   - Invalid API key or token")
+                logger.error("   - API account insufficent balance (欠费)")
+                logger.error("   - Exceeded rate limits")
+                logger.error("   - API service unavailable")
+                logger.error("   - Transient network issues")
+                logger.error("   Stack:", exc_info=True)
 
-        except asyncio.TimeoutError:
-            logger.error("❌ Claude API call timeout")
-            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
-            logger.error(f"   This may indicate:")
-            logger.error(f"   - Network connectivity issues")
-            logger.error(f"   - API service overload")
-            logger.error(f"   - Pool exhausted (all clients busy)")
-            raise
-        except Exception as e:
-            logger.error("❌ Claude API call failed")
-            logger.error(f"   Error type: {type(e).__name__}")
-            logger.error(f"   Error message: {str(e)}")
-            logger.error(f"   SDK Session: {sdk_session_id or 'new'}")
-            logger.error(f"   This may indicate:")
-            logger.error(f"   - Invalid API key or token")
-            logger.error(f"   - API account insufficent balance (欠费)")
-            logger.error(f"   - Exceeded rate limits")
-            logger.error(f"   - API service unavailable")
-            raise
+                if should_retry:
+                    backoff_seconds = 0.5 * (2 ** (attempt - 1))
+                    logger.warning(
+                        "⚠️  Transient upstream error before any response; retrying in %.1fs (attempt %d/%d)",
+                        backoff_seconds,
+                        attempt + 1,
+                        max_attempts
+                    )
+                    await asyncio.sleep(backoff_seconds)
+                    continue
+                raise
 
     def get_pool_stats(self) -> dict:
         """Get connection pool statistics"""

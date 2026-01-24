@@ -109,7 +109,26 @@ class SDKClientPool:
             # Create and connect client in current task
             options = self.options_factory(session_id)
             client = ClaudeSDKClient(options=options)
-            await client.connect()
+            try:
+                await client.connect()
+            except Exception as e:
+                if session_id is None:
+                    raise
+
+                logger.warning(
+                    "Client connect failed when resuming session %s; retrying without resume. Error: %s",
+                    session_id,
+                    str(e)
+                )
+                try:
+                    await client.disconnect()
+                    disconnected = True
+                except Exception:
+                    pass
+
+                options = self.options_factory(None)
+                client = ClaudeSDKClient(options=options)
+                await client.connect()
 
             logger.debug(f"Client connected (session={session_id or 'new'}, active={self._active_count})")
 

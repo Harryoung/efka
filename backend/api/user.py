@@ -30,6 +30,9 @@ METADATA_PATTERN = re.compile(
     re.DOTALL
 )
 
+def _is_claude_code_login_required_error(text: str) -> bool:
+    return "Please run /login" in text
+
 
 def filter_metadata_from_content(content: str) -> tuple[str, dict | None]:
     """
@@ -130,13 +133,20 @@ async def user_query_stream(
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
                                     # Filter metadata, don't show to frontend, but log it
-                                    filtered_content, metadata = filter_metadata_from_content(block.text)
-                                if filtered_content:
-                                    yield sse_message_event(filtered_content)
+                                    filtered_content, _metadata = filter_metadata_from_content(block.text)
+                                    if _is_claude_code_login_required_error(filtered_content or block.text):
+                                        yield sse_error_event(filtered_content or block.text)
+                                        return
+                                    if filtered_content:
+                                        yield sse_message_event(filtered_content)
                                 elif isinstance(block, ToolUseBlock):
                                     yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
+                            if msg.is_error:
+                                yield sse_error_event(msg.result or "Upstream error")
+                                return
+
                             turn_count = msg.num_turns
                             real_sdk_session_id = msg.session_id
                             logger.info(f"Received ResultMessage with session_id: {real_sdk_session_id}")
@@ -188,13 +198,19 @@ async def user_query_stream(
                             for block in msg.content:
                                 if isinstance(block, TextBlock):
                                     # Filter metadata, don't show to frontend, but log it
-                                    filtered_content, metadata = filter_metadata_from_content(block.text)
-                                if filtered_content:
-                                    yield sse_message_event(filtered_content)
+                                    filtered_content, _metadata = filter_metadata_from_content(block.text)
+                                    if _is_claude_code_login_required_error(filtered_content or block.text):
+                                        yield sse_error_event(filtered_content or block.text)
+                                        return
+                                    if filtered_content:
+                                        yield sse_message_event(filtered_content)
                                 elif isinstance(block, ToolUseBlock):
                                     yield sse_tool_use_event(block.id, block.name, block.input)
 
                         elif isinstance(msg, ResultMessage):
+                            if msg.is_error:
+                                yield sse_error_event(msg.result or "Upstream error")
+                                return
                             yield sse_done_event(msg.duration_ms)
 
                 except Exception as e:

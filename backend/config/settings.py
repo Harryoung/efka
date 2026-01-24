@@ -1,7 +1,7 @@
 """
 Application settings and configuration management.
 """
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 from pydantic import model_validator
 
@@ -10,8 +10,12 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Claude API configuration
-    # Supports three methods: CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL
+    # Supports:
+    # - CLAUDE_API_KEY (project-level naming)
+    # - ANTHROPIC_API_KEY (upstream/Claude Code naming)
+    # - ANTHROPIC_AUTH_TOKEN (+ optional ANTHROPIC_BASE_URL)
     CLAUDE_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None
     ANTHROPIC_AUTH_TOKEN: Optional[str] = None
     ANTHROPIC_BASE_URL: Optional[str] = None
 
@@ -94,15 +98,19 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def validate_api_key(self):
         """Validate that at least one authentication method is configured"""
+        if not self.CLAUDE_API_KEY and self.ANTHROPIC_API_KEY:
+            self.CLAUDE_API_KEY = self.ANTHROPIC_API_KEY
         if not self.CLAUDE_API_KEY and not self.ANTHROPIC_AUTH_TOKEN:
             raise ValueError(
                 "Either CLAUDE_API_KEY or ANTHROPIC_AUTH_TOKEN must be configured"
             )
         return self
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
 
 # Create global settings instance
