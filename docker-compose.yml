@@ -2,9 +2,8 @@
 # 统一多渠道架构部署配置
 #
 # 使用方法:
-#   docker-compose up -d                            # 启动所有服务 (standalone 模式)
+#   docker-compose up -d                            # 启动所有服务 (standalone 模式, 含 Admin UI + User UI)
 #   docker-compose up -d backend                    # 只启动后端
-#   docker-compose --profile user-ui up -d          # 启动含 User UI 的服务
 #   docker-compose --profile wework up -d           # 启动含 WeWork 渠道的服务
 #   RUN_MODE=wework docker-compose up -d            # 启动 WeWork 模式
 #   docker-compose logs -f backend                  # 查看后端日志
@@ -28,7 +27,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ikba-redis
+    container_name: efka-redis
     ports:
       - "6379:6379"
     volumes:
@@ -41,7 +40,7 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - ikba-network
+      - efka-network
 
   # ============================================
   # 后端服务
@@ -53,7 +52,7 @@ services:
       dockerfile: deploy/Dockerfile.backend
       args:
         - RUN_MODE=${RUN_MODE:-standalone}
-    container_name: ikba-backend
+    container_name: efka-backend
     ports:
       - "8000:8000"
     # Force container runtime env to come from repo-local .env (not host shell),
@@ -114,7 +113,7 @@ services:
       start_period: 40s
     restart: unless-stopped
     networks:
-      - ikba-network
+      - efka-network
 
   # ============================================
   # 渠道回调服务 (WeWork)
@@ -124,7 +123,7 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.wework
-    container_name: ikba-wework
+    container_name: efka-wework
     ports:
       - "${WEWORK_PORT:-8081}:8081"
     # Same rule as backend: read runtime env from repo-local .env.
@@ -160,7 +159,7 @@ services:
       - wework
     restart: unless-stopped
     networks:
-      - ikba-network
+      - efka-network
 
   # ============================================
   # 前端服务
@@ -174,14 +173,14 @@ services:
         - VITE_APP_MODE=admin
         # Use same-origin /api via frontend nginx proxy (more robust than direct :8000)
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
-    container_name: ikba-admin-ui
+    container_name: efka-admin-ui
     ports:
       - "3000:80"
     depends_on:
       - backend
     restart: unless-stopped
     networks:
-      - ikba-network
+      - efka-network
 
   user-ui:
     build:
@@ -191,16 +190,14 @@ services:
         - VITE_APP_MODE=user
         # Use same-origin /api via frontend nginx proxy (more robust than direct :8000)
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
-    container_name: ikba-user-ui
+    container_name: efka-user-ui
     ports:
       - "3001:80"
     depends_on:
       - backend
-    profiles:
-      - user-ui
     restart: unless-stopped
     networks:
-      - ikba-network
+      - efka-network
 
   # ============================================
   # Nginx 反向代理 (可选)
@@ -208,7 +205,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: ikba-nginx
+    container_name: efka-nginx
     ports:
       - "80:80"
       - "443:443"
@@ -222,14 +219,14 @@ services:
       - production
     restart: unless-stopped
     networks:
-      - ikba-network
+      - efka-network
 
 # ============================================
 # 网络配置
 # ============================================
 
 networks:
-  ikba-network:
+  efka-network:
     driver: bridge
 
 # ============================================
