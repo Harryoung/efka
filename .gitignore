@@ -64,8 +64,9 @@ tmp/
 # Cache files
 .wework_token_cache
 
-# Knowledge Base (可根据需要调整)
-knowledge_base/
+# Knowledge Base - track example KB, exclude runtime files
+knowledge_base/.locks/
+knowledge_base/.DS_Store
 
 # Local markers / backups
 .venv_installed
