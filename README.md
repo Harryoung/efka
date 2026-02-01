@@ -37,7 +37,9 @@ Traditional RAG systems rely on vector embeddings and similarity search, which c
 
 ## EFKA vs. Traditional Embedding-based RAG
 
-![EFKA vs Traditional Embedding-based RAG](assets/EFKA_VS_embeding_based_RAG.png)
+<p align="center">
+  <img src="assets/EFKA_overview_en.png" alt="EFKA System Overview" width="800">
+</p>
 
 EFKA represents a paradigm shift from traditional embedding-based RAG systems. Instead of fragmenting documents into chunks and relying on similarity search, EFKA adopts a human-like, tree-search approach that directly interacts with your knowledge base files.
 
@@ -96,8 +98,6 @@ EFKA is best suited for scenarios where:
 Understanding these trade-offs helps determine when EFKA is the right solution for your knowledge management needs.
 
 ## Agent Workflow
-
-![EFKA Admin & User Agents](assets/EFKA_Admin_User_Agents.png)
 
 ### Admin Agent Flow
 

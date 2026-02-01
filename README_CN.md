@@ -37,7 +37,9 @@
 
 ## 知了 vs. 传统嵌入式 RAG
 
-![知了 vs 传统嵌入式 RAG](assets/EFKA_VS_embeding_based_RAG.png)
+<p align="center">
+  <img src="assets/EFKA_overview_cn.png" alt="知了系统总览" width="800">
+</p>
 
 知了代表了一种从传统嵌入式 RAG 系统的范式转变。它不是将文档分割成碎片并依赖相似度搜索，而是采用类人的树状搜索方式，直接与你的知识库文件交互。
 
@@ -96,8 +98,6 @@
 了解这些权衡有助于确定知了是否是适合你知识管理需求的正确解决方案。
 
 ## Agent 工作流程
-
-![知了管理员与用户 Agent](assets/EFKA_Admin_User_Agents.png)
 
 ### 管理员 Agent 流程
 
