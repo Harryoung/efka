@@ -22,6 +22,13 @@
 
 English | [中文](README_CN.md)
 
+> [!IMPORTANT]
+> ## News
+> A new standalone Skill project has been released based on EFKA's core capabilities:
+> **[`knowledge-base`](https://github.com/Harryoung/knowledge-base)**.
+>
+> If you are interested in EFKA's knowledge-base workflow, see that project for related code and usage details.
+
 <p align="center">
   <img src="assets/demo.gif" alt="EFKA Demo" width="640">
 </p>
