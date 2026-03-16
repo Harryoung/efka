@@ -25,7 +25,7 @@
 > [!IMPORTANT]
 > ## 重大更新
 > 基于 EFKA 核心能力抽取并独立发布了一个新的 Skill 项目：
-> **[`knowledge-base`](https://github.com/Harryoung/knowledge-base)**。
+> **[`local-knowledge-base`](https://github.com/Harryoung/local-knowledge-base)**。
 >
 > 如果你对 EFKA 相关的知识库能力感兴趣，可以前往该项目查看相关代码和使用方式。
 
